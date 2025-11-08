@@ -1,0 +1,170 @@
+@font-face {
+    font-family: 'MedievalSharp';
+    src: url('MedievalSharp.ttf') format('truetype');
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: black;
+    color: white;
+    font-family: 'MedievalSharp', serif;
+    overflow: hidden;
+}
+
+.screen {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hidden {
+    display: none;
+}
+
+.title-container {
+    text-align: center;
+    margin-top: 40px;
+}
+
+.title {
+    font-size: 4rem;
+    position: relative;
+    display: inline-block;
+}
+
+.title::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    border-top: 1px solid white;
+    z-index: -1;
+}
+
+.title {
+    background-color: black;
+    padding: 0 15px;
+    position: relative;
+    z-index: 2;
+}
+
+.subtitle {
+    font-family: 'MedievalSharp', serif;
+    color: #5C2222;
+    font-size: 1.6rem;
+    margin-top: -10px;
+}
+
+.sidebar {
+    width: 50px;
+    height: 100vh;
+    background-color: #222222;
+    border-right: 5px solid #5C2222;
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+.content {
+    margin-left: 70px;
+    width: calc(100% - 70px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.slots {
+    display: flex;
+    gap: 40px;
+    margin-top: 80px;
+}
+
+.slot {
+    width: 260px;
+    height: 380px;
+    background-color: #1E1E1E;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+    transition: 0.2s;
+}
+
+.slot.filled {
+    border: 3px solid #5C2222;
+    background-color: #5C2222;
+}
+
+.slot.filled .edit-btn {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background-color: #5C2222;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #1E1E1E;
+    box-shadow: 0 0 0 3px #5C2222;
+}
+
+.edit-btn i {
+    color: white;
+    font-size: 0.9rem;
+}
+
+.slot.empty {
+    background-color: #1E1E1E;
+    color: #656464;
+    font-size: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.img-area {
+    background-color: #1E1E1E;
+    width: 95%;
+    height: 65%;
+    margin: 40px auto 0;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.img-area img {
+    width: 200px;
+    height: 200px;
+    height: auto;
+    object-fit: contain;
+}
+
+.char-info {
+    background-color: #5C2222;
+    padding: 15px 20px;
+    text-align: left;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.char-name {
+    font-size: 1.6rem;
+    color: white;
+    margin: 0;
+}
+
+.char-class {
+    font-size: 1rem;
+    margin-top: 5px;
+    color: #e0e0e0;
+}
