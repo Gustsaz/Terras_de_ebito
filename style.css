@@ -12,27 +12,41 @@ body {
     overflow: hidden;
 }
 
+/* === Telas === */
 .screen {
     width: 100vw;
     height: 100vh;
     display: flex;
+    flex-direction: column;
     align-items: center;
+}
+
+#loading-screen {
     justify-content: center;
+}
+
+#main-screen {
+    justify-content: flex-start;
+    padding-top: 30px;
 }
 
 .hidden {
     display: none;
 }
 
+/* === Título === */
 .title-container {
     text-align: center;
-    margin-top: 40px;
+    margin-bottom: 20px;
 }
 
 .title {
     font-size: 4rem;
     position: relative;
     display: inline-block;
+    background-color: black;
+    padding: 0 15px;
+    z-index: 2;
 }
 
 .title::after {
@@ -45,20 +59,13 @@ body {
     z-index: -1;
 }
 
-.title {
-    background-color: black;
-    padding: 0 15px;
-    position: relative;
-    z-index: 2;
-}
-
 .subtitle {
-    font-family: 'MedievalSharp', serif;
     color: #5C2222;
     font-size: 1.6rem;
     margin-top: -10px;
 }
 
+/* === Barra lateral === */
 .sidebar {
     width: 50px;
     height: 100vh;
@@ -69,6 +76,7 @@ body {
     top: 0;
 }
 
+/* === Conteúdo principal === */
 .content {
     margin-left: 70px;
     width: calc(100% - 70px);
@@ -77,31 +85,73 @@ body {
     align-items: center;
 }
 
+/* === Cartas === */
 .slots {
     display: flex;
     gap: 40px;
-    margin-top: 80px;
+    margin-top: 60px;
+}
+
+@keyframes cardEnter {
+    0% {
+        transform: translateY(200px) rotate(5deg);
+        opacity: 0;
+    }
+
+    60% {
+        transform: translateY(-10px) rotate(-2deg);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+    }
 }
 
 .slot {
     width: 260px;
     height: 380px;
     background-color: #1E1E1E;
-    border: 1px solid transparent;
     border-radius: 14px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     position: relative;
     overflow: hidden;
-    transition: 0.2s;
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+    animation: cardEnter 0.9s ease forwards;
+    opacity: 0;
 }
 
+.slot:nth-child(1) {
+    animation-delay: 0.2s;
+}
+
+.slot:nth-child(2) {
+    animation-delay: 0.4s;
+}
+
+.slot:nth-child(3) {
+    animation-delay: 0.6s;
+}
+
+.slot:nth-child(4) {
+    animation-delay: 0.8s;
+}
+
+.slot:hover {
+    transform: translateY(-15px) scale(1.03);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.6);
+}
+
+/* Cartas preenchidas */
 .slot.filled {
     border: 3px solid #5C2222;
     background-color: #5C2222;
 }
 
+/* Botão de edição */
 .slot.filled .edit-btn {
     position: absolute;
     top: -10px;
@@ -122,6 +172,7 @@ body {
     font-size: 0.9rem;
 }
 
+/* Carta vazia */
 .slot.empty {
     background-color: #1E1E1E;
     color: #656464;
@@ -129,8 +180,14 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
 }
 
+.slot.empty:hover {
+    color: #5C2222;
+}
+
+/* Área da imagem */
 .img-area {
     background-color: #1E1E1E;
     width: 95%;
@@ -144,7 +201,6 @@ body {
 
 .img-area img {
     width: 200px;
-    height: 200px;
     height: auto;
     object-fit: contain;
 }
@@ -153,14 +209,11 @@ body {
     background-color: #5C2222;
     padding: 15px 20px;
     text-align: left;
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
 }
 
 .char-name {
     font-size: 1.6rem;
     color: white;
-    margin: 0;
 }
 
 .char-class {

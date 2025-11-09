@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criação de Personagem - Terras de Ébito</title>
+    <link rel="stylesheet" href="criacao_personagem.css">
+</head>
+
+<body>
+    <div class="sidebar"></div>
+
+    <!-- === SECTION: ATRIBUTOS === -->
+    <section class="atributos">
+        <div class="background">
+            <img src="imgs/Galharda.png" alt="Galharda" class="galharda">
+
+            <!-- Hexágonos -->
+            <img src="imgs/Hexagonos.png" alt="Hexágono Técnica" class="hex tecnica">
+            <img src="imgs/Hexagonos.png" alt="Hexágono Intelecto" class="hex intelecto">
+            <img src="imgs/Hexagonos.png" alt="Hexágono Essência" class="hex essencia">
+            <img src="imgs/Hexagonos.png" alt="Hexágono Arcano" class="hex arcano">
+            <img src="imgs/Hexagonos.png" alt="Hexágono Bravura" class="hex bravura">
+            <img src="imgs/Hexagonos.png" alt="Hexágono Fôlego" class="hex folego">
+
+            <!-- Ícones clicáveis -->
+            <div class="icons">
+                <img src="imgs/Tecnica.png" class="icon tecnica" alt="Técnica">
+                <img src="imgs/Intelecto.png" class="icon intelecto" alt="Intelecto">
+                <img src="imgs/Essencia.png" class="icon essencia" alt="Essência">
+                <img src="imgs/Arcano.png" class="icon arcano" alt="Arcano">
+                <img src="imgs/Bravura.png" class="icon bravura" alt="Bravura">
+                <img src="imgs/Folego.png" class="icon folego" alt="Fôlego">
+            </div>
+            <!-- Contadores individuais -->
+            <div class="counters">
+                <div class="counter tecnica">0</div>
+                <div class="counter intelecto">0</div>
+                <div class="counter essencia">0</div>
+                <div class="counter arcano">0</div>
+                <div class="counter bravura">0</div>
+                <div class="counter folego">0</div>
+            </div>
+
+
+            <!-- Contador central -->
+            <div class="numbers">
+                <div class="num left">0</div>
+                <div class="num center">/</div>
+                <div class="num right">7</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- === SECTION: CLASSE (começa escondida) === -->
+    <section class="classe hidden">
+        <h1>Escolha sua Classe</h1>
+        <p>Aqui o jogador escolherá sua classe (Luminar, Guardião, etc).</p>
+    </section>
+
+    <script src="criacao_personagem.js"></script>
+</body>
+
+</html>

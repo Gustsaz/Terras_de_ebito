@@ -1,0 +1,268 @@
+body {
+    margin: 0;
+    background-color: black;
+    overflow: hidden;
+    font-family: 'MedievalSharp', serif;
+    color: #ddd;
+}
+
+/* === Barra lateral === */
+.sidebar {
+    width: 50px;
+    height: 100vh;
+    background-color: #222222;
+    border-right: 5px solid #5C2222;
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 10;
+}
+
+/* === SECTIONS === */
+section {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+}
+
+.hidden {
+    display: none;
+}
+
+/* === Container principal fixo === */
+.background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    overflow: hidden;
+}
+
+/* === Galharda centralizada de forma fixa === */
+.galharda {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 900px;
+    opacity: 0.95;
+    z-index: 1;
+}
+
+
+/* === Hexágonos === */
+.hex {
+    position: absolute;
+    width: 140px;
+    opacity: 0.9;
+    z-index: 2;
+    filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
+}
+
+/* === Ícones === */
+.icon {
+    position: absolute;
+    width: 95px;
+    z-index: 3;
+    filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.6));
+    transition: transform 0.3s ease;
+    cursor: pointer;
+}
+
+.icon:hover {
+    transform: scale(1.15);
+}
+
+/* === Distribuição dos hexágonos e ícones === */
+.hex.tecnica,
+.icon.tecnica {
+    bottom: 120px;
+    left: calc(50% - 270px);
+}
+
+.hex.intelecto,
+.icon.intelecto {
+    bottom: 120px;
+    left: calc(50% - 70px);
+}
+
+.hex.essencia,
+.icon.essencia {
+    bottom: 200px;
+    left: calc(50% + 130px);
+}
+
+.hex.arcano,
+.icon.arcano {
+    bottom: 420px;
+    left: calc(50% + 225px);
+}
+
+.hex.bravura,
+.icon.bravura {
+    bottom: 640px;
+    left: calc(50% + 133px);
+}
+
+.hex.folego,
+.icon.folego {
+    bottom: 740px;
+    left: 46%;
+}
+
+/* === Ajuste fino dos ícones === */
+.icon.tecnica {
+    transform: translate(25%, -22%);
+}
+
+.icon.intelecto {
+    transform: translate(23%, -22%);
+}
+
+.icon.essencia {
+    transform: translate(24%, -24%);
+}
+
+.icon.arcano {
+    transform: translate(24%, -24%);
+}
+
+.icon.bravura {
+    transform: translate(24%, -25%);
+}
+
+.icon.folego {
+    transform: translate(22%, -25%);
+}
+
+/* === Números centrais === */
+.numbers {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%);
+    z-index: 4;
+    font-family: 'MedievalSharp', serif;
+    pointer-events: none;
+}
+
+.num {
+    position: absolute;
+    font-size: 22rem;
+    color: #5C2222;
+    line-height: 1;
+    user-select: none;
+    text-align: center;
+    transform: translate(-50%, -50%);
+}
+
+.num.left {
+    top: 34%;
+    left: 42%;
+}
+
+.num.center {
+    top: 45%;
+    left: 47%;
+    font-size: 24rem;
+}
+
+.num.right {
+    top: 53%;
+    left: 53%;
+}
+
+/* === Section Classe === */
+.classe {
+    flex-direction: column;
+    gap: 20px;
+}
+
+.classe h1 {
+    font-size: 4rem;
+    color: #5C2222;
+}
+
+/* === Contadores nos hexágonos === */
+.counter {
+    position: absolute;
+    font-size: 3rem;
+    font-weight: bold;
+    color: #FFD700;
+    text-shadow: 0 0 8px #000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 3;
+    pointer-events: none;
+}
+
+/* Mostra o número ao passar o mouse */
+.counter.visible {
+    opacity: 1;
+}
+
+/* Ícone desloca suavemente para a direita */
+.icon.hovered {
+    transform: translate(60%, -22%) scale(1.15);
+    transition: transform 0.3s ease;
+}
+
+/* Ajuste fino: ícones específicos mantêm leve diferença vertical */
+.icon.tecnica.hovered {
+    transform: translate(60%, -22%) scale(1.15);
+}
+
+.icon.intelecto.hovered {
+    transform: translate(58%, -22%) scale(1.15);
+}
+
+.icon.essencia.hovered {
+    transform: translate(60%, -24%) scale(1.15);
+}
+
+.icon.arcano.hovered {
+    transform: translate(60%, -24%) scale(1.15);
+}
+
+.icon.bravura.hovered {
+    transform: translate(60%, -25%) scale(1.15);
+}
+
+.icon.folego.hovered {
+    transform: translate(58%, -25%) scale(1.15);
+}
+
+/* === Posições dos contadores: mesmos locais dos hex/ícones === */
+.counter.tecnica {
+    bottom: 165px;
+    left: calc(50% - 212px);
+}
+
+.counter.intelecto {
+    bottom: 165px;
+    left: calc(50% - 12px);
+}
+
+.counter.essencia {
+    bottom: 243px;
+    left: calc(50% + 189px);
+}
+
+.counter.arcano {
+    bottom: 462px;
+    left: calc(50% + 284px);
+}
+
+.counter.bravura {
+    bottom: 683px;
+    left: calc(50% + 190px);
+}
+
+.counter.folego {
+    bottom: 783px;
+    left: 49%;
+}
