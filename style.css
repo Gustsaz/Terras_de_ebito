@@ -12,7 +12,6 @@ body {
     overflow: hidden;
 }
 
-/* === Telas === */
 .screen {
     width: 100vw;
     height: 100vh;
@@ -34,7 +33,6 @@ body {
     display: none;
 }
 
-/* === Título === */
 .title-container {
     text-align: center;
     margin-bottom: 20px;
@@ -65,7 +63,6 @@ body {
     margin-top: -10px;
 }
 
-/* === Barra lateral === */
 .sidebar {
     width: 50px;
     height: 100vh;
@@ -76,7 +73,6 @@ body {
     top: 0;
 }
 
-/* === Conteúdo principal === */
 .content {
     margin-left: 70px;
     width: calc(100% - 70px);
@@ -85,7 +81,6 @@ body {
     align-items: center;
 }
 
-/* === Cartas === */
 .slots {
     display: flex;
     gap: 40px;
@@ -145,13 +140,11 @@ body {
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.6);
 }
 
-/* Cartas preenchidas */
 .slot.filled {
     border: 3px solid #5C2222;
     background-color: #5C2222;
 }
 
-/* Botão de edição */
 .slot.filled .edit-btn {
     position: absolute;
     top: -10px;
@@ -172,7 +165,6 @@ body {
     font-size: 0.9rem;
 }
 
-/* Carta vazia */
 .slot.empty {
     background-color: #1E1E1E;
     color: #656464;
@@ -187,7 +179,6 @@ body {
     color: #5C2222;
 }
 
-/* Área da imagem */
 .img-area {
     background-color: #1E1E1E;
     width: 95%;
@@ -222,7 +213,6 @@ body {
     color: #e0e0e0;
 }
 
-/* === Section Classe (estilo igual ao index) === */
 .classe {
     display: flex;
     justify-content: center;
@@ -262,7 +252,6 @@ body {
     z-index: -1;
 }
 
-/* Reutilizando o mesmo layout das cartas */
 .classe .slots {
     display: flex;
     gap: 40px;
