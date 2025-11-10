@@ -221,3 +221,100 @@ body {
     margin-top: 5px;
     color: #e0e0e0;
 }
+
+/* === Section Classe (estilo igual ao index) === */
+.classe {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.classe .content {
+    margin-left: 70px;
+    width: calc(100% - 70px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.classe .title-container {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.classe .title {
+    font-size: 4rem;
+    position: relative;
+    display: inline-block;
+    background-color: black;
+    padding: 0 15px;
+    color: white;
+}
+
+.classe .title::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    border-top: 1px solid white;
+    z-index: -1;
+}
+
+/* Reutilizando o mesmo layout das cartas */
+.classe .slots {
+    display: flex;
+    gap: 40px;
+    margin-top: 60px;
+}
+
+.classe .slot {
+    width: 260px;
+    height: 380px;
+    background-color: #1E1E1E;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+    border: 3px solid #5C2222;
+    background-color: #5C2222;
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+    animation: cardEnter 0.9s ease forwards;
+    opacity: 0;
+}
+
+.classe .slot:hover {
+    transform: translateY(-15px) scale(1.03);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.6);
+}
+
+.classe .img-area {
+    background-color: #1E1E1E;
+    width: 95%;
+    height: 65%;
+    margin: 40px auto 0;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.classe .img-area img {
+    width: 200px;
+    height: auto;
+    object-fit: contain;
+}
+
+.classe .char-info {
+    background-color: #5C2222;
+    padding: 15px 20px;
+    text-align: left;
+}
+
+.classe .char-name {
+    font-size: 1.6rem;
+    color: white;
+}

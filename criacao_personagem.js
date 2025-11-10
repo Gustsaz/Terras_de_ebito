@@ -45,3 +45,10 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 });
+
+// === FLIP DAS CARTAS ===
+document.querySelectorAll(".slot").forEach(slot => {
+  slot.addEventListener("click", () => {
+    slot.classList.toggle("flipped");
+  });
+});
