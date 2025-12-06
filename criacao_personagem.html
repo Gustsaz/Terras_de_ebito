@@ -69,6 +69,26 @@
         </div>
     </div>
 
+    <div id="ferico-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Escolha sua Sub-raça Feérica</h2>
+            <div class="subraca-options">
+                <div class="subraca-card" data-subraca="Ágeis">
+                    <h3>Ágeis</h3>
+                    <p>+1 em Técnica automaticamente</p>
+                </div>
+                <div class="subraca-card" data-subraca="Voadores">
+                    <h3>Voadores</h3>
+                    <p>+2 de deslocamento</p>
+                </div>
+                <div class="subraca-card" data-subraca="Robustas">
+                    <h3>Robustas</h3>
+                    <p>Pode Bloquear sem necessidade de escudo ou arma de duas mãos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <section class="classe hidden">
         <div class="sidebar"></div>
         <button class="back-btn"><i class="fas fa-arrow-left"></i></button>
@@ -334,6 +354,8 @@
                     <p><strong>Deslocamento:</strong> <span class="deslocamento">7</span></p>
                     <p><strong>Carga Máxima:</strong> <span class="carga">9</span></p>
                     <p><strong>Nível de equipamento:</strong> <span class="nivel-equip">2</span></p>
+                    <p><strong>Proficiências:</strong></p>
+                    <div class="proficiencias-list"></div>
                 </div>
             </div>
 

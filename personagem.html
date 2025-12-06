@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ficha do Personagem - Terras de Ébito</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="personagem.css">
+</head>
+
+<div class="sidebar"></div>
+
+
+<body class="character-sheet">
+
+    <h1 class="title">Ficha do Personagem</h1>
+
+    <section class="character-main">
+        <!-- LEFT CARD (com as "orelinhas" / tabs) -->
+        <div class="left-card" aria-live="polite">
+            <!-- barra de tabs "orelinhas" (fica fora do topo do card) -->
+            <div class="card-tabs" role="tablist" aria-label="Abas da ficha">
+                <button class="card-tab active" data-tab="general" role="tab" aria-selected="true">Geral</button>
+                <button class="card-tab" data-tab="description" role="tab" aria-selected="false">Descrição</button>
+                <button class="card-tab" data-tab="battle" role="tab" aria-selected="false">Batalha</button>
+            </div>
+
+            <!-- corpo do cartão (conteúdo trocável) -->
+            <div class="left-card-body">
+
+                <!-- ======= Painel GERAL (conteúdo tal qual estava) ======= -->
+                <div class="tab-content tab-general" data-tab="general">
+                    <div class="character-info">
+                        <div class="char-portrait">
+                            <img id="char-img" src="imgs/placeholder.png" alt="Imagem do Personagem">
+                        </div>
+                        <div class="char-basic">
+                            <div class="char-name">
+                                <h2>Nome: <span id="char-name">Herói Sem Nome</span></h2>
+                                <p>Classe: <span id="char-class">—</span></p>
+                                <p class="subraca" id="char-race">—</p>
+                            </div>
+
+                            <!-- barras PV / MN / STA -->
+                            <div class="char-stats" aria-hidden="false">
+                                <div class="stat-row pv-row">
+                                    <div class="stat-bar" role="progressbar" aria-label="Pontos de Vida"
+                                        aria-valuemin="0" aria-valuemax="100" data-stat="pv">
+                                        <button class="stat-btn stat-btn-left" id="pv-minus"
+                                            aria-label="Diminuir PV">−</button>
+                                        <div class="bar-fill" id="pv-bar-fill" aria-hidden="true"></div>
+                                        <div class="bar-text" id="pv-bar-text" title="Clique para editar">0/0</div>
+                                        <button class="stat-btn stat-btn-right" id="pv-plus"
+                                            aria-label="Aumentar PV">+</button>
+                                    </div>
+                                </div>
+
+                                <div class="stat-row two-cols">
+                                    <div class="stat-block">
+                                        <div class="stat-bar" role="progressbar" aria-label="Mana" aria-valuemin="0"
+                                            aria-valuemax="100" data-stat="mn">
+                                            <button class="stat-btn stat-btn-left" id="mn-minus"
+                                                aria-label="Diminuir MN">−</button>
+                                            <div class="bar-fill" id="mn-bar-fill" aria-hidden="true"></div>
+                                            <div class="bar-text" id="mn-bar-text" title="Clique para editar">0/0</div>
+                                            <button class="stat-btn stat-btn-right" id="mn-plus"
+                                                aria-label="Aumentar MN">+</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="stat-block">
+                                        <div class="stat-bar" role="progressbar" aria-label="Stamina" aria-valuemin="0"
+                                            aria-valuemax="100" data-stat="sta">
+                                            <button class="stat-btn stat-btn-left" id="sta-minus"
+                                                aria-label="Diminuir STA">−</button>
+                                            <div class="bar-fill" id="sta-bar-fill" aria-hidden="true"></div>
+                                            <div class="bar-text" id="sta-bar-text" title="Clique para editar">0/0</div>
+                                            <button class="stat-btn stat-btn-right" id="sta-plus"
+                                                aria-label="Aumentar STA">+</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- EXP -->
+                            <div class="char-exp" aria-hidden="false" style="margin-top:10px;">
+                                <div class="exp-level-label"
+                                    style="text-align:center;font-size:0.85rem;color:#efe6e2;margin-bottom:6px;">
+                                    Nível <span id="exp-level">1</span>
+                                </div>
+
+                                <div class="stat-row exp-row">
+                                    <div class="stat-bar" role="progressbar" aria-label="Experiência" aria-valuemin="0"
+                                        aria-valuemax="100" data-stat="exp">
+                                        <button class="stat-btn stat-btn-left" id="exp-minus"
+                                            aria-label="Diminuir EXP">−</button>
+                                        <div class="bar-fill" id="exp-bar-fill" aria-hidden="true"></div>
+                                        <div class="bar-text" id="exp-bar-text" title="Clique para editar">0/0</div>
+                                        <button class="stat-btn stat-btn-right" id="exp-plus"
+                                            aria-label="Aumentar EXP">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="character-stats">
+                        <div class="attr-section">
+                            <h3>Atributos</h3>
+                            <div class="attr-grid">
+                                <div class="attr-item">
+                                    <img src="imgs/Tecnica Branco.png" alt="técnica">
+                                    <span class="attr-value" id="attr-tecnica">0</span>
+                                    <span class="attr-name">Técnica</span>
+                                </div>
+                                <div class="attr-item">
+                                    <img src="imgs/Intelecto Branco.png" alt="intelecto">
+                                    <span class="attr-value" id="attr-intelecto">0</span>
+                                    <span class="attr-name">Intelecto</span>
+                                </div>
+                                <div class="attr-item">
+                                    <img src="imgs/Essencia Branca.png" alt="essencia">
+                                    <span class="attr-value" id="attr-essencia">0</span>
+                                    <span class="attr-name">Essência</span>
+                                </div>
+                                <div class="attr-item">
+                                    <img src="imgs/Arcano Branco.png" alt="arcano">
+                                    <span class="attr-value" id="attr-arcano">0</span>
+                                    <span class="attr-name">Arcano</span>
+                                </div>
+                                <div class="attr-item">
+                                    <img src="imgs/Bravura Branco.png" alt="bravura">
+                                    <span class="attr-value" id="attr-bravura">0</span>
+                                    <span class="attr-name">Bravura</span>
+                                </div>
+                                <div class="attr-item">
+                                    <img src="imgs/Fôlego Branco.png" alt="fôlego">
+                                    <span class="attr-value" id="attr-folego">0</span>
+                                    <span class="attr-name">Fôlego</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="battle-section">
+                            <h3>Estatísticas de Batalha</h3>
+                            <div class="battle-stats">
+                                <div class="stat-item"><strong>PV:</strong> <span id="stat-pv">0</span></div>
+                                <div class="stat-item"><strong>MN:</strong> <span id="stat-mn">0</span></div>
+                                <div class="stat-item"><strong>STA:</strong> <span id="stat-sta">0</span></div>
+                                <div class="stat-item"><strong>Deslocamento:</strong> <span
+                                        id="stat-deslocamento">7</span></div>
+                                <div class="stat-item"><strong>Carga Máxima:</strong> <span id="stat-carga">9</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="abilities-section">
+                            <h3>Proficiências</h3>
+                            <div class="proficiencias-list" id="char-proficiencias">—</div>
+                        </div>
+                    </div>
+
+                    <!-- backstory e appearance (Geral) -->
+                    
+                </div><!-- /.tab-general -->
+
+
+                <!-- ======= Painel DESCRIÇÃO (separado) ======= -->
+                <div class="tab-content tab-description" data-tab="description" style="display:none;">
+                    <!-- Descrição: backstory (cópia), appearance (cópia), personality (novo) -->
+                    <div class="character-backstory">
+                        <h2>História</h2>
+                        <div class="story-panel" id="char-historia-desc">—</div>
+                    </div>
+
+                    <div class="character-appearance">
+                        <h2>Aparência</h2>
+                        <div class="appearance-panel" id="char-aparencia-desc">—</div>
+                    </div>
+
+                    <div class="character-personality">
+                        <h2>Personalidade</h2>
+                        <div class="appearance-panel" id="char-personality-desc">—</div>
+                    </div>
+                </div><!-- /.tab-description -->
+
+
+                <!-- ======= Painel BATALHA (placeholder) ======= -->
+                <div class="tab-content tab-battle" data-tab="battle" style="display:none;">
+                    <h2>Batalha</h2>
+                    <div style="min-height:160px;color:#f2eee9">Em construção...</div>
+                </div>
+
+            </div><!-- /.left-card-body -->
+        </div><!-- /.left-card -->
+
+        <!-- inventory (lado direito) será mantido / injetado pelo JS (mantive a section principal) -->
+    </section>
+
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // Load character data from localStorage
+            const savedRace = localStorage.getItem('selectedRace');
+            const savedSubrace = localStorage.getItem('selectedSubrace');
+            const savedClass = localStorage.getItem('selectedClass');
+            const savedAttributes = localStorage.getItem('attributes');
+
+            let clickCountGlobal = {};
+            if (savedAttributes) {
+                clickCountGlobal = JSON.parse(savedAttributes);
+                for (const key in clickCountGlobal) {
+                    clickCountGlobal[key] = Number(clickCountGlobal[key]) || 0;
+                }
+            }
+
+            // Calculate total attributes
+            const totalAttrs = {};
+            const normalize = str => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+            ['bravura', 'arcano', 'fôlego', 'essência', 'técnica', 'intelecto'].forEach(att => {
+                const key = normalize(att);
+                totalAttrs[key] = clickCountGlobal[key] ?? 0;
+                if (savedRace === 'Feéricos' && savedSubrace === 'Ágeis' && key === 'tecnica') totalAttrs[key] += 1;
+                if (savedRace === 'Elfo' && key === 'intelecto') totalAttrs[key] += 1;
+                if (savedRace === 'Meio Orc' && key === 'bravura') totalAttrs[key] += 1;
+            });
+
+            // Fill in basic info
+            document.getElementById('char-name').textContent = localStorage.getItem('characterName') || 'Herói Sem Nome';
+            document.getElementById('char-class').textContent = savedClass || '—';
+            document.getElementById('char-race').textContent = (() => {
+                if (!savedRace) return '—';
+                if (savedRace === 'Feéricos' && savedSubrace) return `Feérico (${savedSubrace})`;
+                return savedRace;
+            })();
+
+            // Set portrait (class or race image)
+            const charImg = document.getElementById('char-img');
+            if (savedClass) {
+                // Use class image
+                charImg.src = `imgs/${savedClass.toLowerCase()}.png`;
+            }
+
+            // Set attributes
+            const attrIds = {
+                tecnica: 'attr-tecnica',
+                intelecto: 'attr-intelecto',
+                essencia: 'attr-essencia',
+                arcano: 'attr-arcano',
+                bravura: 'attr-bravura',
+                folego: 'attr-folego'
+            };
+            Object.keys(attrIds).forEach(key => {
+                const element = document.getElementById(attrIds[key]);
+                if (element) {
+                    element.textContent = totalAttrs[normalize(key)] || 0;
+                }
+            });
+
+            // Calculate battle stats
+            let pv = 0, mn = 0, sta = 0, profs = '—';
+            if (savedClass === 'Arcanista') {
+                pv = 8 + totalAttrs.bravura;
+                mn = 10 + totalAttrs.arcano;
+                sta = 6 + totalAttrs[normalize('fôlego')];
+                profs = 'Cajados, Armaduras Leves, Armas Leves';
+            } else if (savedClass === 'Escudeiro') {
+                pv = 18 + totalAttrs.bravura;
+                mn = 2 + totalAttrs.arcano;
+                sta = 8 + totalAttrs[normalize('fôlego')];
+                profs = 'Armaduras Médias, Armas de duas mãos, Escudos Médios';
+            } else if (savedClass === 'Errante') {
+                pv = 10 + totalAttrs.bravura;
+                mn = 5 + totalAttrs.arcano;
+                sta = 12 + totalAttrs[normalize('fôlego')];
+                profs = 'Armas Técnicas, Armaduras Leves, Escudos Leves';
+            } else if (savedClass === 'Luminar') {
+                pv = 9 + totalAttrs.bravura;
+                mn = 10 + totalAttrs.arcano;
+                sta = 4 + totalAttrs[normalize('essência')];
+                profs = 'Tomos, Armaduras Leves, Armas Leves';
+            }
+
+            document.getElementById('stat-pv').textContent = pv;
+            document.getElementById('stat-mn').textContent = mn;
+            document.getElementById('stat-sta').textContent = sta;
+
+            document.getElementById('stat-deslocamento').textContent = '7' + (savedRace === 'Feéricos' && savedSubrace === 'Voadores' ? ' (+2 de Voadores)' : '');
+            document.getElementById('stat-carga').textContent = 8 + totalAttrs.bravura;
+
+            document.getElementById('char-proficiencias').textContent = profs;
+
+            // Story and appearance from panels
+            const historia = localStorage.getItem('characterStory');
+            const apariencia = localStorage.getItem('characterAppearance');
+
+            document.getElementById('char-historia').textContent = historia || '—';
+            document.getElementById('char-aparencia').textContent = apariencia || '—';
+        });
+    </script>
+
+    <script src="personagem.js"></script>
+</body>
+
+</html>
