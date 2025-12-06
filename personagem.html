@@ -171,17 +171,17 @@
                     <!-- Descrição: backstory (cópia), appearance (cópia), personality (novo) -->
                     <div class="character-backstory">
                         <h2>História</h2>
-                        <div class="story-panel" id="char-historia-desc">—</div>
+                        <textarea class="story-panel" id="char-historia-desc" placeholder="Conte a história do seu personagem...">—</textarea>
                     </div>
 
                     <div class="character-appearance">
                         <h2>Aparência</h2>
-                        <div class="appearance-panel" id="char-aparencia-desc">—</div>
+                        <textarea class="appearance-panel" id="char-aparencia-desc" placeholder="Descreva a aparência do seu personagem...">—</textarea>
                     </div>
 
                     <div class="character-personality">
                         <h2>Personalidade</h2>
-                        <div class="appearance-panel" id="char-personality-desc">—</div>
+                        <textarea class="personality-panel" id="char-personality-desc" placeholder="Descreva a personalidade do seu personagem...">—</textarea>
                     </div>
                 </div><!-- /.tab-description -->
 
@@ -291,12 +291,7 @@
 
             document.getElementById('char-proficiencias').textContent = profs;
 
-            // Story and appearance from panels
-            const historia = localStorage.getItem('characterStory');
-            const apariencia = localStorage.getItem('characterAppearance');
-
-            document.getElementById('char-historia').textContent = historia || '—';
-            document.getElementById('char-aparencia').textContent = apariencia || '—';
+            // Code moved to personagem.js for consistency
         });
     </script>
 

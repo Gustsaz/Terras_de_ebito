@@ -94,7 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // atributos no DOM
+    // calcular atributos base e bonus
+    const baseAttrs = { ...attributes };
+    const bonusAttrs = {};
     const attrMapToDom = {
         tecnica: 'attr-tecnica',
         intelecto: 'attr-intelecto',
@@ -103,9 +105,93 @@ document.addEventListener('DOMContentLoaded', () => {
         bravura: 'attr-bravura',
         folego: 'attr-folego'
     };
+
+    // inicializar bonus como 0
+    Object.keys(attrMapToDom).forEach(k => bonusAttrs[normalize(Object.keys(attrMapToDom).find(key => attrMapToDom[key] === `attr-${normalize(k)}`))] = 0);
+
+    // aplicar bonuses
+    if (savedRace === 'Feéricos' && savedSubrace === 'Ágeis') {
+        bonusAttrs['tecnica'] += 1;
+    }
+    if (savedRace === 'Elfo') {
+        bonusAttrs['intelecto'] += 1;
+    }
+    if (savedRace === 'Meio Orc') {
+        bonusAttrs['bravura'] += 1;
+    }
+
+    // exibir apenas o total; tooltip com base + bonus
     Object.keys(attrMapToDom).forEach(key => {
         const id = attrMapToDom[key];
-        if (el(id)) el(id).textContent = String(attrKeys[key] ?? 0);
+        const base = baseAttrs[normalize(key)] ?? 0;
+        const bonus = bonusAttrs[normalize(key)] ?? 0;
+        const total = base + bonus;
+        const tooltip = `${base} + ${bonus}`;
+        if (el(id)) {
+            el(id).textContent = String(total);
+            el(id).title = tooltip;
+        }
+    });
+
+    // tornar atributos clicáveis para edição
+    document.querySelectorAll('.attr-value').forEach(el => {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const attrKey = el.id.replace('attr-', '');
+            const normalizedKey = normalize(attrKey);
+            const base = baseAttrs[normalizedKey] ?? 0;
+            const bonus = bonusAttrs[normalizedKey] ?? 0;
+            const total = base + bonus;
+
+            // criar editor temporário
+            const editor = document.createElement('div');
+            editor.style.display = 'inline-flex';
+            editor.style.alignItems = 'center';
+            editor.style.gap = '4px';
+            editor.style.fontSize = '0.8rem';
+            editor.innerHTML = `
+                <input type="number" class="attr-input" value="${base}" max="20" style="width:50px;font-size:0.8rem;" />
+                + ${bonus}
+            `;
+
+            el.style.display = 'none';
+            el.parentElement.appendChild(editor);
+
+            const input = editor.querySelector('.attr-input');
+            input.focus();
+            input.select();
+
+            function finish(commit) {
+                if (commit) {
+                    let num = Number(input.value.trim());
+                    if (Number.isNaN(num)) num = 0;
+                    num = Math.floor(num);
+                    num = Math.min(20, num);
+                    // salvar novo base
+                    let attributes = {};
+                    try {
+                        const saved = localStorage.getItem('attributes');
+                        if (saved) attributes = JSON.parse(saved);
+                    } catch (e) { console.warn('Erro lendo attributes', e); }
+                    attributes[normalizedKey] = num;
+                    try {
+                        localStorage.setItem('attributes', JSON.stringify(attributes));
+                    } catch (e) { console.warn('Erro salvando attributes', e); }
+                    location.reload();
+                } else {
+                    // cancelar
+                }
+                editor.remove();
+                el.style.display = '';
+            }
+
+            input.addEventListener('keydown', ev => {
+                if (ev.key === 'Enter') finish(true);
+                else if (ev.key === 'Escape') finish(false);
+            });
+            input.addEventListener('blur', () => finish(true));
+        });
     });
 
     // estatísticas de batalha
@@ -698,9 +784,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (hGeral) hGeral.textContent = historia || '—';
         if (aGeral) aGeral.textContent = apariencia || '—';
 
-        if (hDesc) hDesc.textContent = historia || '—';
-        if (aDesc) aDesc.textContent = apariencia || '—';
-        if (pDesc) pDesc.textContent = personality || '—';
+        if (hDesc) hDesc.value = historia || '—';
+        if (aDesc) aDesc.value = apariencia || '—';
+        if (pDesc) pDesc.value = personality || '—';
+
+        // Add event listeners for saving (only add if not already added)
+        if (hDesc && !hDesc.hasAttribute('data-listener-added')) {
+            hDesc.addEventListener('input', () => localStorage.setItem('characterStory', hDesc.value));
+            hDesc.setAttribute('data-listener-added', 'true');
+        }
+        if (aDesc && !aDesc.hasAttribute('data-listener-added')) {
+            aDesc.addEventListener('input', () => localStorage.setItem('characterAppearance', aDesc.value));
+            aDesc.setAttribute('data-listener-added', 'true');
+        }
+        if (pDesc && !pDesc.hasAttribute('data-listener-added')) {
+            pDesc.addEventListener('input', () => localStorage.setItem('characterPersonality', pDesc.value));
+            pDesc.setAttribute('data-listener-added', 'true');
+        }
     }
 
     // Chamar uma vez na inicialização (se o resto do seu JS sobrescrever depois, ok)
@@ -782,7 +882,7 @@ document.addEventListener('DOMContentLoaded', () => {
     personality.className = 'character-personality';
     personality.innerHTML = `
         <h2>Personalidade</h2>
-        <div class="appearance-panel" id="char-personality">${localStorage.getItem('characterPersonality') || '—'}</div>
+        <textarea class="personality-panel" id="char-personality" placeholder="Descreva a personalidade do seu personagem...">${localStorage.getItem('characterPersonality') || '—'}</textarea>
     `;
     descriptionContent.appendChild(personality);
 
@@ -824,15 +924,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const back = descriptionContent.querySelector('.character-backstory');
         if (back) {
             const panel = back.querySelector('.story-panel');
-            if (panel) panel.textContent = story;
+            if (panel) panel.value = story;
         }
         const app = descriptionContent.querySelector('.character-appearance');
         if (app) {
             const panel = app.querySelector('.appearance-panel');
-            if (panel) panel.textContent = appearance;
+            if (panel) panel.value = appearance;
         }
         const pers = descriptionContent.querySelector('#char-personality');
-        if (pers) pers.textContent = personalityText;
+        if (pers) pers.value = personalityText;
+
+        // Add listener for the personality panel created here
+        if (pers && !pers.hasAttribute('data-listener-added')) {
+            pers.addEventListener('input', () => localStorage.setItem('characterPersonality', pers.value));
+            pers.setAttribute('data-listener-added', 'true');
+        }
     };
 
     // Sincroniza inicialmente (caso já haja dados)

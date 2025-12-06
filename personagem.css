@@ -51,7 +51,7 @@ body {
 .left-card {
     width: 900px;
     min-height: 680px;
-    background: linear-gradient(180deg, rgba(92, 34, 34, 0.95), rgba(92, 34, 34, 0.95), rgba(53, 17, 17, 0.85));
+    background: linear-gradient(180deg, rgba(92, 34, 34, 0.95), rgba(53, 17, 17, 0.85));
     border: 6px solid rgba(92, 34, 34, 1);
     border-radius: 28px;
     padding: 28px;
@@ -68,8 +68,6 @@ body {
     color: #efe6e2;
     margin: 0 0 6px 0;
     text-align: left;
-    padding: 20px;
-    left: 200px;
 }
 
 /* portrait + basic info row */
@@ -250,7 +248,8 @@ body {
 
 /* backstory and appearance panels - aparecem abaixo */
 .character-backstory,
-.character-appearance {
+.character-appearance,
+.character-personality {
     margin-top: 12px;
     background: #161414;
     border: 3px solid rgba(90, 22, 22, 0.9);
@@ -259,15 +258,38 @@ body {
 }
 
 .character-backstory h2,
-.character-appearance h2 {
+.character-appearance h2,
+.character-personality h2 {
     margin: 0 0 8px 0;
     color: #efe6e2;
 }
 
 .story-panel,
-.appearance-panel {
+.appearance-panel,
+.personality-panel {
     min-height: 80px;
     color: #f2eee9;
+}
+
+textarea.story-panel,
+textarea.appearance-panel,
+textarea.personality-panel {
+    width: 100%;
+    min-height: 80px;
+    background: transparent;
+    border: none;
+    color: #f2eee9;
+    resize: vertical;
+    outline: none;
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+textarea::placeholder {
+    color: #ccc;
+    opacity: 0.7;
 }
 
 /* ————— INVENTÁRIO —————
@@ -690,10 +712,11 @@ html.dragging {
   padding: 10px 22px;
   border-radius: 12px 12px 6px 6px;
   font-weight: 700;
-  background: linear-gradient(180deg, rgba(92, 34, 34, 0.95), rgba(40,12,12,0.9));
+  background: linear-gradient(180deg, rgba(60,18,18,0.95), rgba(40,12,12,0.9));
   color: #efe6e2;
-  border: 6px solid rgba(92, 34, 34, 1); /* mesma borda do left-card */
+  border: 6px solid rgba(92,34,34,1); /* mesma borda do left-card */
   border-bottom: 0; /* colar com a borda do card */
+  box-shadow: 0 6px 18px rgba(0,0,0,0.6);
   cursor: pointer;
   transform: translateY(0);
   transition: transform 140ms ease, background 140ms;
@@ -702,11 +725,12 @@ html.dragging {
 
 /* quando ativa, fica "encaixada" com o card (parecer colada) */
 .card-tab.active {
-  background: linear-gradient(180deg, rgba(92, 34, 34, 0.95));
+  background: linear-gradient(180deg, rgba(92,34,34,0.95), rgba(53,17,17,0.95));
   transform: translateY(2px);
 }
 
 /* hover / foco */
+.card-tab:hover { transform: translateY(2px) scale(1.02); }
 
 /* tab vizualmente menor / arredondada para se parecer com "orelinha" */
 .card-tab[data-tab="battle"] { border-radius: 10px 10px 6px 6px; }
