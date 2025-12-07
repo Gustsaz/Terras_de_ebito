@@ -541,7 +541,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             wrap.innerHTML = `
         <div class="inventory-card" aria-label="Inventário">
           <div class="inventory-top">
-            <div class="peso">0 / 0 kg</div>
+            <div class="peso">
+                <i class="fa-solid fa-dumbbell"></i>
+                <span id="peso-info">0 / 0</span>
+            </div>
             <input class="search-field" placeholder="Buscar item..." />
           </div>
           <div class="inventory-grid" role="list" aria-label="Slots do inventario"></div>
@@ -615,20 +618,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
 
-            // update peso (se você armazenar peso por item)
-            const pesoEl = wrap.querySelector('.peso');
-            if (pesoEl) {
-                let totalPeso = 0;
-                let maxPeso = 0;
+            // --- update peso inicial: usa carga do personagem (charData) como max, e peso_atual se disponível ---
+            const pesoInfoSpan = wrap.querySelector('#peso-info') || wrap.querySelector('.peso span');
+            if (pesoInfoSpan) {
+                // calcula total de peso a partir do inventory (fallback caso charData.peso_atual não exista)
+                let totalPesoInventory = 0;
                 inventory.forEach(it => {
-                    const w = Number(it.weight || 0);
-                    totalPeso += (w * (it.qty || 1));
-                    maxPeso += w * (it.qty || 1);
+                    // aceita tanto "weight" quanto "peso" por segurança
+                    const w = Number(it.weight ?? it.peso ?? 0);
+                    totalPesoInventory += (w * (it.qty || 1));
                 });
-                // fallback: se não houver peso, mostrar contagem
-                if (totalPeso === 0) pesoEl.textContent = `${inventory.length} / ${slotsCount} itens`;
-                else pesoEl.textContent = `${totalPeso} / ${Math.max(12, Math.round(maxPeso || 12))} kg`;
+
+                // preferir peso_atual salvo no documento do personagem (charData), se for válido
+                let pesoAtual = Number(charData?.peso_atual);
+                if (!Number.isFinite(pesoAtual) || pesoAtual === 0) {
+                    // se não houver peso_atual, usa o somatório do inventory (pode ser 0)
+                    pesoAtual = totalPesoInventory || 0;
+                }
+
+                // obter carga máxima: prioridade para charData.carga -> charData.atributos.carga -> fallback 8 + bravura
+                let cargaMax = Number(charData?.carga ?? charData?.atributos?.carga);
+                if (!Number.isFinite(cargaMax) || cargaMax <= 0) {
+                    const bravuraRaw = Number(charData?.atributos?.bravura ?? 0) || 0;
+                    cargaMax = 8 + bravuraRaw;
+                }
+
+                // escreve só no span filho — mantém o ícone intacto
+                pesoInfoSpan.textContent = `${pesoAtual} / ${cargaMax}`;
             }
+
         }
     }
 
@@ -1074,6 +1092,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     }
                 });
+
+                // --- atualiza o display de peso no inventory-card ---
+                const pesoInfoEl = document.getElementById('peso-info');
+                let pesoAtual = Number(myChar.peso_atual ?? 0);
+                try {
+                    // se peso_atual não estiver presente ou for 0/invalid, calcula a partir do array de equipped
+                    if (!Number.isFinite(pesoAtual) || pesoAtual === 0) {
+                        pesoAtual = Number(await calcularPesoAtual(equipped)) || 0;
+                    }
+                } catch (e) {
+                    pesoAtual = Number(myChar.peso_atual ?? 0) || 0;
+                }
+                let cargaMax = Number(myChar.carga ?? myChar.atributos?.carga);
+                if (!Number.isFinite(cargaMax) || cargaMax <= 0) {
+                    const bravuraRaw = Number(myChar.atributos?.bravura ?? 0) || 0;
+                    cargaMax = 8 + bravuraRaw;
+                }
+                if (pesoInfoEl) pesoInfoEl.textContent = `${pesoAtual} / ${cargaMax}`;
+
 
                 // cria listas vazias para preencher
                 const lists = {

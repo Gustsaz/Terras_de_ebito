@@ -353,7 +353,7 @@ textarea::placeholder {
     gap: 10px;
 }
 
-.inventory-top .peso {
+.inventory-top {
     color: #f6efe9;
     font-size: 0.95rem;
     display: flex;
@@ -859,4 +859,17 @@ transition: transform .12s ease, box-shadow .12s ease;
 
 .equipped-item-remove:hover {
   color: #ff4a4a;
+}
+
+.peso {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 16px;
+    color: #fff;
+}
+
+.peso i {
+    color: #fff;
+    font-size: 18px;
 }
