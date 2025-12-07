@@ -7,10 +7,15 @@
     <title>Criação de Personagem - Terras de Ébito</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="criacao_personagem.css">
+    <script type="module" src="firebase.js"></script>
 </head>
 
 <body>
-    <div class="sidebar"></div>
+    <div class="sidebar">
+        <a href="index.html" class="sidebar-home">
+            <i class="fas fa-home"></i>
+        </a>
+    </div>
 
     <section class="atributos">
         <div class="background">
@@ -62,7 +67,9 @@
     <div id="help-modal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-left">
-                <p>Cada jogador inicia com 7 pontos para distribuir entre os atributos. Valores negativos indicam falhas graves, marcas de um passado tortuoso. Nenhum ser em Ébito é perfeito; cada dom vem acompanhado de um fardo</p>
+                <p>Cada jogador inicia com 7 pontos para distribuir entre os atributos. Valores negativos indicam falhas
+                    graves, marcas de um passado tortuoso. Nenhum ser em Ébito é perfeito; cada dom vem acompanhado de
+                    um fardo</p>
             </div>
             <div class="modal-right"></div>
             <button class="close-btn">&times;</button>
@@ -271,7 +278,7 @@
 
                 <div class="raca-descricao">
                     <div class="descricao-icon">
-                        <img src="imgs/placeholder.png" alt="Ícone Raça Selecionada">
+                        <img src="imgs/anão 2.png" alt="Ícone Raça Selecionada">
                     </div>
                     <div class="descricao-texto">
                         <p>Os anões são o reflexo das montanhas de Herta: firmes, engenhosos e incansáveis. Vivem para
@@ -286,7 +293,7 @@
 
     <section class="resumo hidden">
         <button class="back-btn"><i class="fas fa-arrow-left"></i></button>
-        
+
         <div class="resumo-inner">
             <!-- Painel grande esquerdo -->
             <div class="resumo-left">
@@ -313,6 +320,7 @@
                     <div class="nome-underline" contenteditable="true" aria-label="nome personagem" data-placeholder="">
                     </div>
                     <div class="classe-label">Classe: <span class="classe-nome">—</span></div>
+                    <button id="create-character">Criar Personagem</button>
                 </div>
             </div>
 
@@ -362,7 +370,7 @@
             <!-- Card Class -->
             <div class="card-class">
                 <div class="class-art">
-                    <img src="imgs/placeholder.png" alt="imagem classe" class="class-img">
+                    <img src="imgs/anão 2.png" alt="imagem classe" class="class-img">
                 </div>
                 <div class="class-info">
                     <div class="class-title">—</div>

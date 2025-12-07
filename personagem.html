@@ -7,6 +7,7 @@
     <title>Ficha do Personagem - Terras de Ébito</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="personagem.css">
+    <script type="module" src="firebase.js"></script>
 </head>
 
 <div class="sidebar">
@@ -204,47 +205,46 @@
 
 
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            // Load character data from localStorage
-            const savedRace = localStorage.getItem('selectedRace');
-            const savedSubrace = localStorage.getItem('selectedSubrace');
-            const savedClass = localStorage.getItem('selectedClass');
-            const savedAttributes = localStorage.getItem('attributes');
-
-            let clickCountGlobal = {};
-            if (savedAttributes) {
-                clickCountGlobal = JSON.parse(savedAttributes);
-                for (const key in clickCountGlobal) {
-                    clickCountGlobal[key] = Number(clickCountGlobal[key]) || 0;
-                }
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Load character data from Firebase
+            const selectedCharId = localStorage.getItem('selectedCharId');
+            if (!selectedCharId) {
+                alert('No character selected');
+                window.location.href = 'index.html';
+                return;
             }
 
-            // Calculate total attributes
-            const totalAttrs = {};
-            const normalize = str => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-            ['bravura', 'arcano', 'fôlego', 'essência', 'técnica', 'intelecto'].forEach(att => {
-                const key = normalize(att);
-                totalAttrs[key] = clickCountGlobal[key] ?? 0;
-                if (savedRace === 'Feéricos' && savedSubrace === 'Ágeis' && key === 'tecnica') totalAttrs[key] += 1;
-                if (savedRace === 'Elfo' && key === 'intelecto') totalAttrs[key] += 1;
-                if (savedRace === 'Meio Orc' && key === 'bravura') totalAttrs[key] += 1;
-            });
+            const user = window.firebaseauth.currentUser;
+            if (!user) {
+                alert('User not logged in');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+            const userDoc = await window.getDoc(userDocRef);
+            if (!userDoc.exists()) {
+                alert('User data not found');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const userData = userDoc.data();
+            const character = userData.personagens.find(c => c.uid === selectedCharId);
+            if (!character) {
+                alert('Character not found');
+                window.location.href = 'index.html';
+                return;
+            }
 
             // Fill in basic info
-            document.getElementById('char-name').textContent = localStorage.getItem('characterName') || 'Herói Sem Nome';
-            document.getElementById('char-class').textContent = savedClass || '—';
-            document.getElementById('char-race').textContent = (() => {
-                if (!savedRace) return '—';
-                if (savedRace === 'Feéricos' && savedSubrace) return `Feérico (${savedSubrace})`;
-                return savedRace;
-            })();
+            document.getElementById('char-name').textContent = character.nome;
+            document.getElementById('char-class').textContent = character.classe;
+            document.getElementById('char-race').textContent = character.subraca ? `${character.raca} (${character.subraca})` : character.raca;
 
-            // Set portrait (class or race image)
+            // Set portrait
             const charImg = document.getElementById('char-img');
-            if (savedClass) {
-                // Use class image
-                charImg.src = `imgs/${savedClass.toLowerCase()}.png`;
-            }
+            charImg.src = `imgs/${character.classe.toLowerCase()}.png`;
 
             // Set attributes
             const attrIds = {
@@ -258,44 +258,28 @@
             Object.keys(attrIds).forEach(key => {
                 const element = document.getElementById(attrIds[key]);
                 if (element) {
-                    element.textContent = totalAttrs[normalize(key)] || 0;
+                    element.textContent = character.atributos[key] || 0;
                 }
             });
 
-            // Calculate battle stats
-            let pv = 0, mn = 0, sta = 0, profs = '—';
-            if (savedClass === 'Arcanista') {
-                pv = 8 + totalAttrs.bravura;
-                mn = 10 + totalAttrs.arcano;
-                sta = 6 + totalAttrs[normalize('fôlego')];
-                profs = 'Cajados, Armaduras Leves, Armas Leves';
-            } else if (savedClass === 'Escudeiro') {
-                pv = 18 + totalAttrs.bravura;
-                mn = 2 + totalAttrs.arcano;
-                sta = 8 + totalAttrs[normalize('fôlego')];
-                profs = 'Armaduras Médias, Armas de duas mãos, Escudos Médios';
-            } else if (savedClass === 'Errante') {
-                pv = 10 + totalAttrs.bravura;
-                mn = 5 + totalAttrs.arcano;
-                sta = 12 + totalAttrs[normalize('fôlego')];
-                profs = 'Armas Técnicas, Armaduras Leves, Escudos Leves';
-            } else if (savedClass === 'Luminar') {
-                pv = 9 + totalAttrs.bravura;
-                mn = 10 + totalAttrs.arcano;
-                sta = 4 + totalAttrs[normalize('essência')];
-                profs = 'Tomos, Armaduras Leves, Armas Leves';
-            }
+            // Battle stats
+            document.getElementById('stat-pv').textContent = character.PV.total;
+            document.getElementById('stat-mn').textContent = character.MN.total;
+            document.getElementById('stat-sta').textContent = character.STA.total;
+            document.getElementById('stat-deslocamento').textContent = character.deslocamento;
+            document.getElementById('stat-carga').textContent = character.carga;
+            document.getElementById('char-proficiencias').textContent = 'Armas Leves'; // placeholder
 
-            document.getElementById('stat-pv').textContent = pv;
-            document.getElementById('stat-mn').textContent = mn;
-            document.getElementById('stat-sta').textContent = sta;
+            // Description panels
+            document.getElementById('char-historia-desc').textContent = character.historia || '';
+            document.getElementById('char-aparencia-desc').textContent = character.aparencia || '';
+            document.getElementById('char-personality-desc').textContent = character.personalidade || '';
 
-            document.getElementById('stat-deslocamento').textContent = '7' + (savedRace === 'Feéricos' && savedSubrace === 'Voadores' ? ' (+2 de Voadores)' : '');
-            document.getElementById('stat-carga').textContent = 8 + totalAttrs.bravura;
-
-            document.getElementById('char-proficiencias').textContent = profs;
-
-            // Code moved to personagem.js for consistency
+            // Make it global for personagem.js
+            window.currentCharacter = character;
+            window.currentCharId = selectedCharId;
+            window.userRef = userDocRef;
+            window.userData = userData;
         });
     </script>
 

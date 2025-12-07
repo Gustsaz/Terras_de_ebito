@@ -1,17 +1,65 @@
+// Google login functionality - removed since in sidebar
+
+// Update sidebar function
+const updateSidebar = (user) => {
+  const sidebar = document.querySelector('.sidebar');
+  if (user && user.photoURL) {
+    sidebar.innerHTML = `
+                <a href="index.html" class="sidebar-home">
+                    <i class="fas fa-home"></i>
+                </a>
+                <img src="${user.photoURL}" class="sidebar-profile" alt="Profile" />
+            `;
+  } else {
+    sidebar.innerHTML = `
+                <a href="index.html" class="sidebar-home">
+                    <i class="fas fa-home"></i>
+                </a>
+                <button id="google-login" class="sidebar-google">
+                    <i class="fab fa-google"></i>
+                </button>
+            `;
+    // Add login event
+    document.getElementById('google-login').addEventListener('click', async () => {
+      const provider = new window.GoogleAuthProvider();
+      try {
+        await window.signInWithPopup(window.firebaseauth, provider);
+      } catch (error) {
+        console.error('Error during sign in:', error);
+      }
+    });
+  }
+}
+
 let clickCountGlobal = {};
 let allowNextContextMenu = false;
 
+// Auth state observer for profile picture
+document.addEventListener("DOMContentLoaded", () => {
+  const checkFirebase = () => {
+    if (window.firebaseauth) {
+      window.firebaseauth.onAuthStateChanged((user) => {
+        updateSidebar(user);
+        if (user) {
+          console.log('User signed in:', user);
+          localStorage.setItem('userLoggedIn', 'true');
+        } else {
+          console.log('No user signed in');
+          localStorage.removeItem('userLoggedIn');
+        }
+      });
+    } else {
+      setTimeout(checkFirebase, 100);
+    }
+  };
+  checkFirebase();
+});
+
+// Main character creation logic
 document.addEventListener("DOMContentLoaded", () => {
   // Ensure modal starts hidden
   document.getElementById('help-modal').classList.add('hidden');
-  // Load from localStorage
-  const savedAttributes = localStorage.getItem('attributes');
-  if (savedAttributes) {
-    clickCountGlobal = JSON.parse(savedAttributes);
-    for (const key in clickCountGlobal) {
-      clickCountGlobal[key] = Number(clickCountGlobal[key]) || 0;
-    }
-  }
+  // Start fresh, no loading from localStorage
 
   const icons = document.querySelectorAll(".icon");
   const numLeft = document.querySelector(".num.left");
@@ -47,25 +95,16 @@ document.addEventListener("DOMContentLoaded", () => {
     section.classList.remove('hidden');
   }
 
-  let pontos = Object.values(clickCountGlobal).reduce((a, b) => a + (b > 0 ? b : 0), 0);
+  // Reset to default values
+  let pontos = 0;
   let maxPontos = 7;
   let flaws = 0;
-
-  // Count flaws
-  for (const key in clickCountGlobal) {
-    if (clickCountGlobal[key] === -1) {
-      flaws++;
-    }
-  }
-  maxPontos = 7 + flaws;
 
   numLeft.textContent = pontos;
   numRight.textContent = maxPontos;
 
-  if (pontos === maxPontos) {
-    document.querySelector('.numbers').classList.add('hidden');
-    document.querySelector('.circle-container').classList.remove('hidden');
-  }
+  document.querySelector('.numbers').classList.remove('hidden');
+  document.querySelector('.circle-container').classList.add('hidden');
 
   const descriptions = {
     tecnica: "Técnica: Demonstra a precisão e a elegância do movimento, o olhar frio e certeiro.",
@@ -166,58 +205,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-// Restore section and selections on load
-const savedSection = localStorage.getItem('currentSection');
-if (savedSection) {
-  if (savedSection === 'classe') showSection(secClasse);
-  else if (savedSection === 'raca') showSection(secRaca);
-  else if (savedSection === 'resumo') showSection(secResumo);
-}
-
-// Fix: If stuck at resumo without selection, reset to start
-const savedRaceLScheck = localStorage.getItem('selectedRace');
-if (savedSection === 'resumo' && !savedRaceLScheck) {
-  localStorage.removeItem('currentSection');
-  secResumo.classList.add('hidden');
-  // atributos remains visible
-}
-
-const savedClassLS = localStorage.getItem('selectedClass');
-if (savedClassLS) {
-  slots.forEach(slot => {
-    if (slot.dataset.classe === savedClassLS) {
-      slot.classList.add('flipped');
-      cartaAtiva = slot;
-      // update summaries
-      const classe = savedClassLS;
-      const desc = slot.querySelector('.char-desc').textContent;
-      const artImg = slot.querySelector('.img-area img').src;
-      if (resumoClasseNome) resumoClasseNome.textContent = classe;
-      if (resumoDesc) resumoDesc.textContent = desc;
-      if (classTitle) classTitle.textContent = classe;
-      if (classDesc) classDesc.textContent = desc;
-      if (resumoClassImg) resumoClassImg.src = artImg;
-    }
-  });
-}
-
-const savedRaceLS = localStorage.getItem('selectedRace');
-if (savedRaceLS) {
-  // update race section
-  const racaImg = document.querySelector('.raca-img');
-  const racaTitle = document.querySelector('.raca-title');
-  const racaDesc = document.querySelector('.raca-desc');
-  racaCards.forEach(rc => {
-    if (rc.dataset.raca === savedRaceLS) {
-      const iconSrc = rc.querySelector('img').src;
-      if (racaImg) racaImg.src = iconSrc;
-      if (racaTitle) racaTitle.textContent = savedRaceLS;
-      // describe without bonus
-      const descricao = document.querySelector('.raca .descricao-texto').textContent;
-      if (racaDesc) racaDesc.textContent = descricao.replace(document.querySelector('.raca .bonus').textContent, '').trim();
-    }
-  });
-}
+  // Always start from atributos section
+  showSection(secAtributos);
 
   slots.forEach(slot => {
     slot.addEventListener("click", () => {
@@ -249,7 +238,7 @@ if (savedRaceLS) {
     slot.addEventListener("click", () => {
       const classe = slot.dataset.classe || slot.querySelector(".char-name")?.textContent || "—";
       const desc = slot.querySelector(".char-desc")?.textContent || "—";
-      const artImg = slot.querySelector(".img-area img")?.src || "imgs/placeholder.png";
+      const artImg = slot.querySelector(".img-area img")?.src || "imgs/anão 2.png";
 
       if (resumoClasseNome) resumoClasseNome.textContent = classe;
       if (resumoDesc) resumoDesc.textContent = desc;
@@ -537,6 +526,104 @@ if (savedRaceLS) {
       setTimeout(() => primeiroPainel.focus(), 50);
     }
 
+    // Create character button
+    const createBtn = document.getElementById('create-character');
+    if (createBtn) {
+      createBtn.addEventListener('click', () => {
+        const charUid = generateUuid();
+
+        const nome = nomeField.textContent.trim() || 'Herói Sem Nome';
+        const historia = document.querySelector('.resumo-box:nth-child(1) .resumo-panel').textContent.trim();
+        const aparencia = document.querySelector('.resumo-box:nth-child(2) .resumo-panel').textContent.trim();
+        const notas = document.querySelector('.resumo-box:nth-child(3) .resumo-panel').textContent.trim();
+
+        const raca = localStorage.getItem('selectedRace');
+        let subraca = null;
+        if (raca === 'Feéricos') {
+          subraca = localStorage.getItem('selectedSubrace');
+        }
+
+        const classe = localStorage.getItem('selectedClass');
+
+        const attribs = { ...clickCountGlobal };
+        const normalize = str => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+        let pv = { total: 0, atual: 0 };
+        let mn = { total: 0, atual: 0 };
+        let sta = { total: 0, atual: 0 };
+
+        const totalAttrs = {};
+        ['bravura', 'arcano', 'fôlego', 'essência', 'técnica', 'intelecto'].forEach(att => {
+          const key = normalize(att);
+          totalAttrs[key] = attribs[key] ?? 0;
+          if (raca === 'Feéricos' && subraca === 'Ágeis' && key === 'tecnica') totalAttrs[key] += 1;
+          if (raca === 'Elfo' && key === 'intelecto') totalAttrs[key] += 1;
+          if (raca === 'Meio Orc' && key === 'bravura') totalAttrs[key] += 1;
+        });
+
+        if (classe === 'Arcanista') {
+          pv.total = 8 + totalAttrs.bravura;
+          mn.total = 10 + totalAttrs.arcano;
+          sta.total = 6 + totalAttrs[normalize('fôlego')];
+        } else if (classe === 'Escudeiro') {
+          pv.total = 18 + totalAttrs.bravura;
+          mn.total = 2 + totalAttrs.arcano;
+          sta.total = 8 + totalAttrs[normalize('fôlego')];
+        } else if (classe === 'Errante') {
+          pv.total = 10 + totalAttrs.bravura;
+          mn.total = 5 + totalAttrs.arcano;
+          sta.total = 12 + totalAttrs[normalize('fôlego')];
+        } else if (classe === 'Luminar') {
+          pv.total = 9 + totalAttrs.bravura;
+          mn.total = 10 + totalAttrs.arcano;
+          sta.total = 4 + totalAttrs[normalize('essência')];
+        }
+
+        pv.atual = pv.total;
+        mn.atual = mn.total;
+        sta.atual = sta.total;
+
+        const deslocamento = 7;
+        const carga = 8 + totalAttrs.bravura;
+
+        const charData = {
+          uid: charUid,
+          atributos: totalAttrs,
+          classe: classe,
+          raca: raca,
+          subraca: subraca,
+          historia: historia,
+          aparencia: aparencia,
+          personalidade: '',
+          notas: notas,
+          itens: [],
+          nome: nome,
+          PV: pv,
+          MN: mn,
+          STA: sta,
+          EXP: { total: 100, atual: 0 },
+          LVL: 1,
+          DEF: 0,
+          deslocamento: deslocamento,
+          carga: carga
+        };
+
+        // Save to localStorage since Firebase is blocked
+        let characters = JSON.parse(localStorage.getItem('characters')) || [];
+        characters.push(charData);
+        localStorage.setItem('characters', JSON.stringify(characters));
+
+        // Set charId and go to personagem
+        localStorage.setItem('selectedCharId', charUid);
+        window.location.href = 'personagem.html';
+      });
+    }
+
+    // Helper function
+    function generateUuid() {
+      return '' + Math.random().toString(36).substr(2) + Date.now();
+    }
+
     // se quiser, podemos inserir a raça no nome ou em outro campo.
     // Exemplo (comentado): adicionar a raça ao final do nome se estiver vazio
     // if (nomeField && (!nomeField.textContent || nomeField.textContent.trim() === "")) {
@@ -562,7 +649,7 @@ if (savedRaceLS) {
   });
 
   // Handle right-click to decrease
-  document.addEventListener('contextmenu', function(e) {
+  document.addEventListener('contextmenu', function (e) {
     const target = e.target.closest('.icon, .counter');
     if (target) {
       if (!allowNextContextMenu) {
@@ -595,12 +682,36 @@ if (savedRaceLS) {
 
   // Click on circle to proceed
   document.querySelector('.circle-container').addEventListener('click', () => {
+    // Save attributes asynchronously, but don't block advancement
+    (async () => {
+      if (window.firebaseauth) {
+        const user = window.firebaseauth.currentUser;
+        if (user) {
+          try {
+            const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+            const docSnap = await window.getDoc(userRef);
+            let userData = docSnap.exists() ? docSnap.data() : {};
+            userData.atributos_temp = { ...clickCountGlobal };
+            await window.setDoc(userRef, userData);
+            console.log('Atributos salvos no realtime');
+          } catch (error) {
+            console.error('Erro ao salvar atributos no Firebase (bloqueado?), salvando localmente:', error);
+            localStorage.setItem('atributos_temp', JSON.stringify(clickCountGlobal));
+          }
+        } else {
+          localStorage.setItem('atributos_temp', JSON.stringify(clickCountGlobal));
+        }
+      } else {
+        localStorage.setItem('atributos_temp', JSON.stringify(clickCountGlobal));
+      }
+    })();
+
     showSection(secClasse);
     localStorage.setItem('currentSection', 'classe');
   });
 
   // Allow normal context menu after double-click on targets
-  document.addEventListener('dblclick', function(e) {
+  document.addEventListener('dblclick', function (e) {
     const target = e.target.closest('.icon, .counter');
     if (target) {
       allowNextContextMenu = true;

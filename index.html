@@ -7,11 +7,19 @@
     <title>Terras de Ébito - RPG Dark Fantasy</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script type="module" src="firebase.js"></script>
 </head>
 
 <body>
     <div id="main-screen" class="screen">
-        <div class="sidebar"></div>
+        <div class="sidebar">
+            <a href="index.html" class="sidebar-home">
+                <i class="fas fa-home"></i>
+            </a>
+            <button id="google-login" class="sidebar-google">
+                <i class="fab fa-google"></i>
+            </button>
+        </div>
 
         <div class="content">
             <div class="title-container">
@@ -20,19 +28,7 @@
             </div>
 
             <div class="slots">
-                <div class="slot filled">
-                    <button class="edit-btn"><i class="fa-solid fa-pen"></i></button>
-
-                    <div class="img-area">
-                        <img src="/imgs/Mago.png" alt="Classe Arcanista">
-                    </div>
-
-                    <div class="char-info">
-                        <div class="char-name">Nome</div>
-                        <div class="char-class">Classe: Arcanista</div>
-                    </div>
-                </div>
-
+                <div class="slot empty"><i class="fas fa-plus"></i></div>
                 <div class="slot empty"><i class="fas fa-plus"></i></div>
                 <div class="slot empty"><i class="fas fa-plus"></i></div>
                 <div class="slot empty"><i class="fas fa-plus"></i></div>
