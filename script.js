@@ -1,6 +1,63 @@
 document.addEventListener("DOMContentLoaded", () => {
     // Google login functionality - removed since in sidebar
 
+    // --- helpers para imagens ---
+    function sanitizeFileName(name) {
+        if (!name) return 'placeholder';
+        // remove acentos, trim, troca espaços por '-', minúsculas e remove chars estranhos
+        return String(name)
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9\-_\.]/g, '');
+    }
+
+    function tryLoadImage(imgEl, url) {
+        return new Promise(resolve => {
+            const tester = new Image();
+            tester.onload = () => { imgEl.src = url; resolve(true); };
+            tester.onerror = () => resolve(false);
+            // força teste (encoda espaços/acentos)
+            tester.src = encodeURI(url);
+        });
+    }
+
+    /**
+     * Tenta uma lista de caminhos e seta o primeiro que carregar.
+     * candidates: array de strings (caminhos)
+     * imgEl: elemento <img> já existente
+     */
+    async function setImageWithFallback(imgEl, candidates) {
+        for (const c of candidates) {
+            const ok = await tryLoadImage(imgEl, c);
+            if (ok) return true;
+        }
+        // fallback final
+        try { imgEl.src = '/imgs/placeholder.png'; } catch (e) { /* ignore */ }
+        return false;
+    }
+
+    /**
+     * Uso conveniente: dado um nome base (ex: "Arcano Branco") ele tenta variantes comuns.
+     * imgEl: elemento <img>
+     * baseName: string do nome sem extensão (ex: characters[index].classe)
+     */
+    async function setClassImage(imgEl, baseName) {
+        const sane = sanitizeFileName(baseName);
+        const tryNames = [
+            `/imgs/${sane}.png`,
+            `/imgs/${sane}.jpg`,
+            `./imgs/${sane}.png`,
+            `./imgs/${sane}.jpg`,
+            `imgs/${sane}.png`,
+            `imgs/${sane}.jpg`
+        ];
+        // Também tenta sem sufixo caso seu arquivo seja diferente (opcional)
+        await setImageWithFallback(imgEl, tryNames);
+    }
+
+
     // Update sidebar function
     const updateSidebar = (user) => {
         const sidebar = document.querySelector('.sidebar');
@@ -44,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
             let characters = [];
             if (userDocSnap.exists()) {
                 const data = userDocSnap.data();
-            characters = data.personagens || [];
+                characters = data.personagens || [];
             }
             displayCharacters(characters);
         } catch (error) {
@@ -54,7 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-            // Function to display characters in slots
+    // Function to display characters in slots
     const displayCharacters = (characters) => {
         const slots = document.querySelectorAll('.slot');
         slots.forEach((slot, index) => {
