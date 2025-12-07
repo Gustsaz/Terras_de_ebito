@@ -201,6 +201,10 @@ body {
     background-color: #5C2222;
 }
 
+.slot.filled {
+    cursor: pointer;
+}
+
 .slot.filled .edit-btn {
     position: absolute;
     top: -10px;
@@ -362,4 +366,75 @@ body {
 .classe .char-name {
     font-size: 1.6rem;
     color: white;
+}
+
+/* Delete modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: #2a2a2a;
+    color: white;
+    padding: 20px;
+    border-radius: 5px;
+    text-align: center;
+    width: 300px;
+}
+
+.modal-buttons {
+    margin-top: 20px;
+}
+
+.modal-buttons button {
+    margin: 0 10px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'MedievalSharp', serif;
+}
+
+#cancel-delete {
+    background: #555;
+    color: white;
+}
+
+#confirm-delete {
+    background: #d9534f;
+    color: white;
+}
+
+/* Delete button */
+.delete-btn {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    background: rgba(217, 83, 79, 0.8);
+    color: white;
+    border: none;
+    border-radius: 3px;
+    font-size: 14px;
+    padding: 5px;
+    cursor: pointer;
+    z-index: 10;
+    transition: transform 0.2s, font-size 0.2s;
+}
+
+.delete-btn:hover {
+    transform: scale(1.2);
+    font-size: 18px;
+}
+
+.filled {
+    position: relative;
 }

@@ -32,25 +32,26 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Auth state observer
-    window.onAuthStateChanged(window.firebaseauth, (user) => {
-        updateSidebar(user);
-        if (user) {
-            console.log('User signed in:', user);
-            localStorage.setItem('userLoggedIn', 'true');
-            loadUserCharacters(user);
-        } else {
-            console.log('No user signed in');
-            localStorage.removeItem('userLoggedIn');
-            // Show all slots as empty
+    // Function to load characters from Firebase DB or localStorage
+    const loadUserCharacters = async (user) => {
+        if (!user) {
             showEmptySlots();
+            return;
         }
-    });
-
-    // Function to load characters from localStorage
-    const loadUserCharacters = (user) => {
-        const characters = JSON.parse(localStorage.getItem('characters')) || [];
-        displayCharacters(characters);
+        try {
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+            const userDocSnap = await window.getDoc(userDocRef);
+            let characters = [];
+            if (userDocSnap.exists()) {
+                const data = userDocSnap.data();
+            characters = data.personnages || [];
+            }
+            displayCharacters(characters);
+        } catch (error) {
+            console.warn('Failed to load from Firebase, using localStorage', error);
+            const localChars = JSON.parse(localStorage.getItem('characters')) || [];
+            displayCharacters(localChars);
+        }
     };
 
             // Function to display characters in slots
@@ -64,6 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (characters[index]) {
                 slot.classList.add('filled');
                 slot.innerHTML = `
+                    <button class="delete-btn" data-char-id="${characters[index].uid}"><i class="fas fa-trash"></i></button>
                     <button class="edit-btn" data-char-id="${characters[index].uid}"><i class="fa-solid fa-pen"></i></button>
                     <div class="img-area">
                         <img src="imgs/${characters[index].classe.toLowerCase()}.png" alt="Classe ${characters[index].classe}">
@@ -74,13 +76,29 @@ document.addEventListener("DOMContentLoaded", () => {
                     </div>
                 `;
 
-                // Edit button click
+                // Delete button event
+                const deleteBtn = slot.querySelector('.delete-btn');
+                const charId = characters[index].uid;
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent slot click
+                    const deleteModal = document.getElementById('delete-modal');
+                    deleteModal.style.display = 'flex';
+                    deleteModal.dataset.charId = charId;
+                });
+
+                // Slot click to go to personagem
+                slot.addEventListener('click', () => {
+                    localStorage.setItem('selectedCharId', charId);
+                    window.location.href = 'personagem.html?uid=' + encodeURIComponent(charId);
+                });
+
+                // Edit button click (prevent slot click if edit clicked)
                 slot.querySelector('.edit-btn').addEventListener('click', (e) => {
                     e.stopPropagation(); // Prevent slot click
                     const charId = e.target.closest('.edit-btn').dataset.charId;
                     // Store character ID for personagem page
                     localStorage.setItem('selectedCharId', charId);
-                    window.location.href = 'personagem.html';
+                    window.location.href = 'personagem.html?uid=' + encodeURIComponent(charId);
                 });
             } else {
                 slot.classList.add('empty');
@@ -104,4 +122,49 @@ document.addEventListener("DOMContentLoaded", () => {
             };
         });
     };
+
+    // Start with empty slots
+    showEmptySlots();
+
+    // Auth observer to load characters
+    window.onAuthStateChanged(window.firebaseauth, (user) => {
+        updateSidebar(user);
+        loadUserCharacters(user);
+        if (user) {
+            localStorage.setItem('userLoggedIn', 'true');
+        } else {
+            localStorage.removeItem('userLoggedIn');
+        }
+    });
+
+    // Delete modal events
+    const deleteModal = document.getElementById('delete-modal');
+    const cancelDelete = document.getElementById('cancel-delete');
+    const confirmDelete = document.getElementById('confirm-delete');
+
+    cancelDelete.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteModal.style.display = 'none';
+    });
+
+    confirmDelete.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const charId = deleteModal.dataset.charId;
+        if (charId && window.firebaseauth.currentUser) {
+            try {
+                const userDocRef = window.doc(window.firestoredb, 'usuarios', window.firebaseauth.currentUser.uid);
+                const userDocSnap = await window.getDoc(userDocRef);
+                if (userDocSnap.exists()) {
+                    let characters = userDocSnap.data().personagens || [];
+                    characters = characters.filter(c => c.uid !== charId);
+                    await window.setDoc(userDocRef, { personagens: characters }, { merge: true });
+                    // Reload characters
+                    loadUserCharacters(window.firebaseauth.currentUser);
+                }
+            } catch (error) {
+                console.warn('Failed to delete character', error);
+            }
+        }
+        deleteModal.style.display = 'none';
+    });
 });

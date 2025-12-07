@@ -529,7 +529,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Create character button
     const createBtn = document.getElementById('create-character');
     if (createBtn) {
-      createBtn.addEventListener('click', () => {
+      createBtn.addEventListener('click', async () => {
         const charUid = generateUuid();
 
         const nome = nomeField.textContent.trim() || 'Herói Sem Nome';
@@ -608,14 +608,25 @@ document.addEventListener("DOMContentLoaded", () => {
           carga: carga
         };
 
-        // Save to localStorage since Firebase is blocked
-        let characters = JSON.parse(localStorage.getItem('characters')) || [];
-        characters.push(charData);
-        localStorage.setItem('characters', JSON.stringify(characters));
+        // Save only to Firebase DB if user logged in
+        if (window.firebaseauth?.currentUser) {
+          try {
+            const user = window.firebaseauth.currentUser;
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+            const userDocSnap = await window.getDoc(userDocRef);
+            let characters = [];
+            if (userDocSnap.exists()) {
+              characters = userDocSnap.data().personagens || [];
+            }
+            characters.push(charData);
+            await window.setDoc(userDocRef, { personagens: characters }, { merge: true });
+          } catch (e) {
+            console.warn('Failed to save to Firebase DB', e);
+          }
+        }
 
-        // Set charId and go to personagem
-        localStorage.setItem('selectedCharId', charUid);
-        window.location.href = 'personagem.html';
+        // Go to personagem with UID
+        window.location.href = 'personagem.html?uid=' + encodeURIComponent(charUid);
       });
     }
 

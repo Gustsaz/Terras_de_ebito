@@ -1,32 +1,91 @@
-// personagem.js - popula a personagem.html a partir do localStorage
-document.addEventListener('DOMContentLoaded', () => {
-    // Keys esperadas no localStorage:
-    // selectedRace, selectedSubrace, selectedClass, attributes (obj JSON),
-    // characterName, characterStory, characterAppearance, inventory (opcional array)
+// personagem.js - popula a personagem.html a partir do localStorage using selectedCharId
+
+// Simplificado: apenas home icon, sem auth
+console.log('Loading personagem.js');
+let clickCountGlobal = {};
+let allowNextContextMenu = false;
+
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('Loading personagem.js');
+
+    // Aguarda o Firebase inicializar o estado do usuário (onAuthStateChanged)
+    await new Promise((resolve) => {
+        // se já existe currentUser, resolve imediatamente
+        if (window.firebaseauth?.currentUser) return resolve();
+
+        // registra um observer e resolve na primeira chamada
+        let unsub = null;
+        try {
+            unsub = window.onAuthStateChanged(window.firebaseauth, (user) => {
+                if (typeof unsub === 'function') unsub();
+                resolve();
+            });
+        } catch (e) {
+            // caso onAuthStateChanged não exista por algum motivo, resolver para evitar travar
+            console.warn('onAuthStateChanged não disponível', e);
+            resolve();
+        }
+
+        // fallback: timeout curto para não travar indefinidamente
+        setTimeout(() => { if (typeof unsub === 'function') unsub(); resolve(); }, 2500);
+    });
+
+    // Agora sim checa se o usuário está logado
+    if (!window.firebaseauth?.currentUser) {
+        alert('User not logged in');
+        window.location.href = 'index.html';
+        return;
+    }
+
+    // Set sidebar to home icon
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) {
+        sidebar.innerHTML = '<a href="index.html" class="sidebar-home"><i class="fas fa-home"></i></a>';
+    }
+
+    console.log('DOMContentLoaded in personagem.js');
+    // Read UID from URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const charUid = urlParams.get('uid');
+    if (!charUid) {
+        alert('No character UID provided');
+        window.location.href = 'index.html';
+        return;
+    }
 
     // Helper normalize (remove acentos e deixar em minúsculas)
     const normalize = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-    // Ler attributes salvos
-    let attributes = {};
+    // Load character from Firestore
+    let charData = null;
     try {
-        const raw = localStorage.getItem('attributes');
-        if (raw) {
-            attributes = JSON.parse(raw);
-            // garantir valores numéricos
-            Object.keys(attributes).forEach(k => attributes[k] = Number(attributes[k] || 0));
+        const userDocRef = window.doc(window.firestoredb, 'usuarios', window.firebaseauth.currentUser.uid);
+        const userDocSnap = await window.getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+            const data = userDocSnap.data();
+            const characters = data.personnages || [];
+            charData = characters.find(c => c.uid === charUid);
         }
-    } catch (e) {
-        console.warn('Não foi possível ler attributes do localStorage', e);
+    } catch (error) {
+        console.warn('Error loading character from Firestore', error);
     }
 
-    // Dados basicos
-    const savedRace = localStorage.getItem('selectedRace') || null;
-    const savedSubrace = localStorage.getItem('selectedSubrace') || null;
-    const savedClass = localStorage.getItem('selectedClass') || null;
-    const charName = localStorage.getItem('characterName') || 'Herói Sem Nome';
-    const story = localStorage.getItem('characterStory') || '—';
-    const appearance = localStorage.getItem('characterAppearance') || '—';
+    if (!charData) {
+        alert('Personagem não encontrado');
+        window.location.href = 'index.html';
+        return;
+    }
+
+    // Extract data from charData
+    const attributes = charData.atributos || {};
+    Object.keys(attributes).forEach(k => attributes[k] = Number(attributes[k] || 0));
+
+    const savedRace = charData.raca || null;
+    const savedSubrace = charData.subraca || null;
+    const savedClass = charData.classe || null;
+    const charName = charData.nome || 'Herói Sem Nome';
+    const story = charData.historia || '—';
+    const appearance = charData.aparencia || '—';
 
     // Mapear atributos utilizados (chaves esperadas, sem acento)
     const attrKeys = {
@@ -73,6 +132,13 @@ document.addEventListener('DOMContentLoaded', () => {
         profs = 'Tomos, Armaduras Leves, Armas Leves';
     }
 
+    // Initialize atuals if missing
+    if (!charData.PV) charData.PV = { total: pv, atual: pv };
+    if (!charData.MN) charData.MN = { total: mn, atual: mn };
+    if (!charData.STA) charData.STA = { total: sta, atual: sta };
+    if (!charData.EXP) charData.EXP = { atual: 0 };
+    if (!('LVL' in charData)) charData.LVL = 1;
+
     // Preencher os elementos já presentes no HTML
     const el = id => document.getElementById(id);
     if (el('char-name')) el('char-name').textContent = charName;
@@ -94,9 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // calcular atributos base e bonus
-    const baseAttrs = { ...attributes };
-    const bonusAttrs = {};
+    // exibir valores dos atributos
     const attrMapToDom = {
         tecnica: 'attr-tecnica',
         intelecto: 'attr-intelecto',
@@ -106,87 +170,68 @@ document.addEventListener('DOMContentLoaded', () => {
         folego: 'attr-folego'
     };
 
-    // inicializar bonus como 0
-    Object.keys(attrMapToDom).forEach(k => bonusAttrs[normalize(Object.keys(attrMapToDom).find(key => attrMapToDom[key] === `attr-${normalize(k)}`))] = 0);
-
-    // aplicar bonuses
-    if (savedRace === 'Feéricos' && savedSubrace === 'Ágeis') {
-        bonusAttrs['tecnica'] += 1;
-    }
-    if (savedRace === 'Elfo') {
-        bonusAttrs['intelecto'] += 1;
-    }
-    if (savedRace === 'Meio Orc') {
-        bonusAttrs['bravura'] += 1;
-    }
-
-    // exibir apenas o total; tooltip com base + bonus
+    // exibir valores da Firestore
     Object.keys(attrMapToDom).forEach(key => {
         const id = attrMapToDom[key];
-        const base = baseAttrs[normalize(key)] ?? 0;
-        const bonus = bonusAttrs[normalize(key)] ?? 0;
-        const total = base + bonus;
-        const tooltip = `${base} + ${bonus}`;
+        const value = attributes[normalize(key)] ?? 0;
         if (el(id)) {
-            el(id).textContent = String(total);
-            el(id).title = tooltip;
+            el(id).textContent = String(value);
+            el(id).title = `Valor de ${key}`;
         }
     });
 
     // tornar atributos clicáveis para edição
     document.querySelectorAll('.attr-value').forEach(el => {
         el.style.cursor = 'pointer';
-        el.addEventListener('click', function(e) {
+        el.addEventListener('click', async (e) => {
             e.stopPropagation();
             const attrKey = el.id.replace('attr-', '');
             const normalizedKey = normalize(attrKey);
-            const base = baseAttrs[normalizedKey] ?? 0;
-            const bonus = bonusAttrs[normalizedKey] ?? 0;
-            const total = base + bonus;
+            const currentValue = attributes[normalizedKey] ?? 0;
 
-            // criar editor temporário
-            const editor = document.createElement('div');
-            editor.style.display = 'inline-flex';
-            editor.style.alignItems = 'center';
-            editor.style.gap = '4px';
-            editor.style.fontSize = '0.8rem';
-            editor.innerHTML = `
-                <input type="number" class="attr-input" value="${base}" max="20" style="width:50px;font-size:0.8rem;" />
-                + ${bonus}
-            `;
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.className = 'attr-input';
+            input.value = String(currentValue);
+            input.min = 0;
+            input.max = 50;
 
             el.style.display = 'none';
-            el.parentElement.appendChild(editor);
-
-            const input = editor.querySelector('.attr-input');
+            el.parentElement.appendChild(input);
             input.focus();
             input.select();
 
-            function finish(commit) {
+            const finish = async (commit) => {
                 if (commit) {
-                    let num = Number(input.value.trim());
-                    if (Number.isNaN(num)) num = 0;
-                    num = Math.floor(num);
-                    num = Math.min(20, num);
-                    // salvar novo base
-                    let attributes = {};
-                    try {
-                        const saved = localStorage.getItem('attributes');
-                        if (saved) attributes = JSON.parse(saved);
-                    } catch (e) { console.warn('Erro lendo attributes', e); }
-                    attributes[normalizedKey] = num;
-                    try {
-                        localStorage.setItem('attributes', JSON.stringify(attributes));
-                    } catch (e) { console.warn('Erro salvando attributes', e); }
-                    location.reload();
-                } else {
-                    // cancelar
-                }
-                editor.remove();
-                el.style.display = '';
-            }
+                    let newValue = Math.max(0, parseInt(input.value) || 0);
+                    newValue = Math.min(50, newValue);
 
-            input.addEventListener('keydown', ev => {
+                    // save to Firestore
+                    attributes[normalizedKey] = newValue;
+                    el.textContent = String(newValue);
+
+                    // update Firestore
+                    try {
+                        const userDocRef = window.doc(window.firestoredb, 'usuarios', window.firebaseauth.currentUser.uid);
+                        const userDocSnap = await window.getDoc(userDocRef);
+                        if (userDocSnap.exists()) {
+                            let characters = userDocSnap.data().personnages || [];
+                            const index = characters.findIndex(c => c.uid === charUid);
+                            if (index >= 0) {
+                                characters[index].atributos = attributes;
+                                await window.updateDoc(userDocRef, { personnages: characters });
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error saving attribute to Firestore', error);
+                    }
+                }
+
+                input.remove();
+                el.style.display = '';
+            };
+
+            input.addEventListener('keydown', (ev) => {
                 if (ev.key === 'Enter') finish(true);
                 else if (ev.key === 'Escape') finish(false);
             });
@@ -208,9 +253,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // proficiencias (elemento no HTML)
     if (el('char-proficiencias')) el('char-proficiencias').textContent = profs;
 
-    // história / aparência
     if (el('char-historia')) el('char-historia').textContent = story;
     if (el('char-aparencia')) el('char-aparencia').textContent = appearance;
+    if (el('char-historia-desc')) el('char-historia-desc').value = story;
+    if (el('char-aparencia-desc')) el('char-aparencia-desc').value = appearance;
+
 
     /* ---------- INVENTÁRIO: será injetado à direita para replicar mockup ---------- */
     // inventory pode existir no localStorage como array de objetos {id,name,img,qty}
@@ -352,10 +399,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Atualizar barras PV / MN / STA (com drag interativo) ---
 
     // --- estado inicial das barras (declarado ANTES do bloco EXP para evitar ReferenceError) ---
-    // tenta usar valores salvos; se não houver, usa os totais calculados (pv/mn/sta já foram definidos acima)
-    let curPV = Math.max(0, Math.min(Math.floor(Number(localStorage.getItem('currentPV') ?? localStorage.getItem('pvAtual') ?? pv) || 0), Math.max(0, Math.floor(Number(pv) || 0))));
-    let curMN = Math.max(0, Math.min(Math.floor(Number(localStorage.getItem('currentMN') ?? localStorage.getItem('mnAtual') ?? mn) || 0), Math.max(0, Math.floor(Number(mn) || 0))));
-    let curSTA = Math.max(0, Math.min(Math.floor(Number(localStorage.getItem('currentSTA') ?? localStorage.getItem('staAtual') ?? sta) || 0), Math.max(0, Math.floor(Number(sta) || 0))));
+    // usa valores da Firestore ou defaults (pv/mn/sta/exp já foram definidos acima)
+    let curPV = Math.max(0, Math.floor(charData.PV?.atual ?? pv));
+    let curMN = Math.max(0, Math.floor(charData.MN?.atual ?? mn));
+    let curSTA = Math.max(0, Math.floor(charData.STA?.atual ?? sta));
 
     const totPV = Math.max(0, Math.floor(Number(pv) || 0));
     const totMN = Math.max(0, Math.floor(Number(mn) || 0));
@@ -401,6 +448,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /* ---------- Function to save bar values to Firestore ---------- */
+    const saveBarsToFirestore = async () => {
+        console.log('Saving bars to Firestore:', curPV, curMN, curSTA, currentEXP, expLevel);
+        if (!window.firebaseauth.currentUser) return;
+        try {
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', window.firebaseauth.currentUser.uid);
+            const userDocSnap = await window.getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+                const characters = userDocSnap.data().personnages || [];
+                const index = characters.findIndex(c => c.uid === charUid);
+                if (index >= 0) {
+                    characters[index].PV.atual = curPV;
+                    characters[index].MN.atual = curMN;
+                    characters[index].STA.atual = curSTA;
+                    characters[index].EXP.atual = currentEXP;
+                    characters[index].LVL = expLevel;
+                    await window.updateDoc(userDocRef, { personnages: characters });
+                    console.log('Saved successfully');
+                }
+            }
+        } catch (error) {
+            console.error('Error saving bars to Firestore', error);
+        }
+    };
+
     /* ---------- EXP: limite por nível ---------- */
     function expLimitForLevel(level) {
         const base = 100;
@@ -408,8 +480,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* ---------- EXP state ---------- */
-    let expLevel = Math.max(1, Math.floor(Number(readCurrentOrFallback(['expLevel', 'level', 'nivel'], 1))));
-    let currentEXP = Math.max(0, Math.floor(Number(readCurrentOrFallback(['currentEXP', 'expAtual', 'exp_atual', 'exp'], 0))));
+    let expLevel = Math.max(1, Math.floor(charData.LVL ?? 1));
+    let currentEXP = Math.max(0, Math.floor(charData.EXP?.atual ?? 0));
     function normalizeExpState() {
         let limit = expLimitForLevel(expLevel);
         while (currentEXP >= limit) {
@@ -418,8 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
             limit = expLimitForLevel(expLevel);
         }
         if (currentEXP < 0) currentEXP = 0;
-        saveCurrent('expLevel', expLevel);
-        saveCurrent('currentEXP', currentEXP);
+        saveBarsToFirestore(); // Save adjusted values
     }
     normalizeExpState();
 
@@ -438,19 +509,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.getElementById('stat-pv')) document.getElementById('stat-pv').textContent = totPV;
         if (document.getElementById('stat-mn')) document.getElementById('stat-mn').textContent = totMN;
         if (document.getElementById('stat-sta')) document.getElementById('stat-sta').textContent = totSTA;
+
+        // Save to Firestore after update
+        saveBarsToFirestore();
     }
     updateAllBars();
 
     /* ---------- +/- buttons (PV/MN/STA) ---------- */
-    function wirePlusMinus(minusId, plusId, getCur, setCur, total, storageKey) {
+    function wirePlusMinus(minusId, plusId, getCur, setCur, total) {
         const minus = document.getElementById(minusId);
         const plus = document.getElementById(plusId);
-        if (minus) minus.addEventListener('click', (e) => { e.stopPropagation(); setCur(clamp(getCur() - 1, 0, total)); saveCurrent(storageKey, getCur()); updateAllBars(); });
-        if (plus) plus.addEventListener('click', (e) => { e.stopPropagation(); setCur(clamp(getCur() + 1, 0, total)); saveCurrent(storageKey, getCur()); updateAllBars(); });
+        if (minus) minus.addEventListener('click', (e) => { e.stopPropagation(); setCur(clamp(getCur() - 1, 0, total)); updateAllBars(); });
+        if (plus) plus.addEventListener('click', (e) => { e.stopPropagation(); setCur(clamp(getCur() + 1, 0, total)); updateAllBars(); });
     }
-    wirePlusMinus('pv-minus', 'pv-plus', () => curPV, (v) => { curPV = v; }, totPV, 'currentPV');
-    wirePlusMinus('mn-minus', 'mn-plus', () => curMN, (v) => { curMN = v; }, totMN, 'currentMN');
-    wirePlusMinus('sta-minus', 'sta-plus', () => curSTA, (v) => { curSTA = v; }, totSTA, 'currentSTA');
+    wirePlusMinus('pv-minus', 'pv-plus', () => curPV, (v) => { curPV = v; }, totPV);
+    wirePlusMinus('mn-minus', 'mn-plus', () => curMN, (v) => { curMN = v; }, totMN);
+    wirePlusMinus('sta-minus', 'sta-plus', () => curSTA, (v) => { curSTA = v; }, totSTA);
 
     /* ---------- edição inline (PV/MN/STA) ---------- */
     function enableInlineEdit(textEl, getCur, setCur, total, storageKey) {
@@ -916,7 +990,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
 
     // 7) Função pública para sincronizar/descriptografar o conteúdo da aba Descrição
-    window.syncDescriptionPanelsFromStorage = function() {
+    window.syncDescriptionPanelsFromStorage = function () {
         const story = localStorage.getItem('characterStory') || '—';
         const appearance = localStorage.getItem('characterAppearance') || '—';
         const personalityText = localStorage.getItem('characterPersonality') || '—';
