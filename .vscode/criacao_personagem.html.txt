@@ -19,24 +19,24 @@
 
     <section class="atributos">
         <div class="background">
-            <img src="/imgs/Galharda.png" alt="Galharda" class="galharda">
+            <img src="imgs/Galharda.png" alt="Galharda" class="galharda">
 
             <i class="fas fa-question-circle help-icon"></i>
 
-            <img src="/imgs/Hexagonos.png" alt="Hexágono Técnica" class="hex tecnica">
-            <img src="/imgs/Hexagonos.png" alt="Hexágono Intelecto" class="hex intelecto">
-            <img src="/imgs/Hexagonos.png" alt="Hexágono Essência" class="hex essencia">
-            <img src="/imgs/Hexagonos.png" alt="Hexágono Arcano" class="hex arcano">
-            <img src="/imgs/Hexagonos.png" alt="Hexágono Bravura" class="hex bravura">
-            <img src="/imgs/Hexagonos.png" alt="Hexágono Fôlego" class="hex folego">
+            <img src="imgs/Hexagonos.png" alt="Hexágono Técnica" class="hex tecnica">
+            <img src="imgs/Hexagonos.png" alt="Hexágono Intelecto" class="hex intelecto">
+            <img src="imgs/Hexagonos.png" alt="Hexágono Essência" class="hex essencia">
+            <img src="imgs/Hexagonos.png" alt="Hexágono Arcano" class="hex arcano">
+            <img src="imgs/Hexagonos.png" alt="Hexágono Bravura" class="hex bravura">
+            <img src="imgs/Hexagonos.png" alt="Hexágono Fôlego" class="hex folego">
 
             <div class="icons">
-                <img src="/imgs/Tecnica.png" class="icon tecnica" alt="Técnica">
-                <img src="/imgs/Intelecto.png" class="icon intelecto" alt="Intelecto">
-                <img src="/imgs/Essencia.png" class="icon essencia" alt="Essência">
-                <img src="/imgs/Arcano.png" class="icon arcano" alt="Arcano">
-                <img src="/imgs/Bravura.png" class="icon bravura" alt="Bravura">
-                <img src="/imgs/Folego.png" class="icon folego" alt="Fôlego">
+                <img src="imgs/Tecnica.png" class="icon tecnica" alt="Técnica">
+                <img src="imgs/Intelecto.png" class="icon intelecto" alt="Intelecto">
+                <img src="imgs/Essencia.png" class="icon essencia" alt="Essência">
+                <img src="imgs/Arcano.png" class="icon arcano" alt="Arcano">
+                <img src="imgs/Bravura.png" class="icon bravura" alt="Bravura">
+                <img src="imgs/Folego.png" class="icon folego" alt="Fôlego">
             </div>
 
             <div class="counters">
@@ -55,7 +55,7 @@
             </div>
 
             <div class="circle-container hidden">
-                <img src="/imgs/circulosemback.png" class="circle" alt="circle" />
+                <img src="imgs/circulosemback.png" class="circle" alt="circle" />
             </div>
 
             <div id="attr-description" class="attr-desc hidden">
@@ -110,25 +110,25 @@
                     <div class="card-inner">
                         <div class="card-front">
                             <div class="img-area">
-                                <img src="/imgs/arcanista.png" class="Mago" alt="Classe Arcanista">
+                                <img src="imgs/Mago.png" class="Mago" alt="Classe Arcanista">
                             </div>
                             <div class="char-info">
                                 <div class="char-name">Arcanista</div>
                                 <div class="char-desc">Mago / Controle</div>
                                 <div class="char-icons">
-                                    <img src="/imgs/Arcano Branco.png" alt="atributo 1">
-                                    <img src="/imgs/Intelecto Branco.png" alt="atributo 2">
+                                    <img src="imgs/Arcano Branco.png" alt="atributo 1">
+                                    <img src="imgs/Intelecto Branco.png" alt="atributo 2">
                                 </div>
                             </div>
                         </div>
 
                         <div class="card-back">
                             <h2>Arcanista</h2>
-                            <p><strong>PV:</strong> 8 + <img src="/imgs/Bravura Branco.png" alt="atributo 1"
+                            <p><strong>PV:</strong> 8 + <img src="imgs/Bravura Branco.png" alt="atributo 1"
                                     class="icon_carta"></p>
-                            <p><strong>MN:</strong> 10 + <img src="/imgs/Arcano Branco.png" alt="atributo 1"
+                            <p><strong>MN:</strong> 10 + <img src="imgs/Arcano Branco.png" alt="atributo 1"
                                     class="icon_carta"></p>
-                            <p><strong>STA:</strong> 6 + <img src="/imgs/Fôlego Branco.png" alt="atributo 2"
+                            <p><strong>STA:</strong> 6 + <img src="imgs/Fôlego Branco.png" alt="atributo 2"
                                     class="icon_carta"></p>
                             <h3>Proficências</h3>
                             <ul>
@@ -144,26 +144,26 @@
                     <div class="card-inner">
                         <div class="card-front">
                             <div class="img-area">
-                                <img src="/imgs/Escudeiro.png" alt="Classe Escudeiro">
+                                <img src="imgs/Escudeiro.png" alt="Classe Escudeiro">
                             </div>
                             <div class="char-info">
                                 <div class="char-name">Escudeiro</div>
                                 <div class="char-desc">Tanque / Combate físico</div>
                                 <div class="char-icons">
-                                    <img src="/imgs/Bravura Branco.png" alt="atributo 1" class="icon_carta">
-                                    <img src="/imgs/Fôlego Branco.png" alt="atributo 2">
+                                    <img src="imgs/Bravura Branco.png" alt="atributo 1" class="icon_carta">
+                                    <img src="imgs/Fôlego Branco.png" alt="atributo 2">
                                 </div>
                             </div>
                         </div>
 
                         <div class="card-back">
-                            <h2><img src="/imgs/Bravura Branco.png" alt="atributo 1" class="icon_carta">Escudeiro<img
-                                    src="/imgs/Fôlego Branco.png" alt="atributo 2" class="icon_carta"></h2>
-                            <p><strong>PV:</strong> 18 + <img src="/imgs/Bravura Branco.png" alt="atributo 1"
+                            <h2><img src="imgs/Bravura Branco.png" alt="atributo 1" class="icon_carta">Escudeiro<img
+                                    src="imgs/Fôlego Branco.png" alt="atributo 2" class="icon_carta"></h2>
+                            <p><strong>PV:</strong> 18 + <img src="imgs/Bravura Branco.png" alt="atributo 1"
                                     class="icon_carta"></p>
-                            <p><strong>MN:</strong> 3 + <img src="/imgs/Arcano Branco.png" alt="atributo 1"
+                            <p><strong>MN:</strong> 3 + <img src="imgs/Arcano Branco.png" alt="atributo 1"
                                     class="icon_carta"></p>
-                            <p><strong>STA:</strong> 8 + <img src="/imgs/Fôlego Branco.png" alt="atributo 2"
+                            <p><strong>STA:</strong> 8 + <img src="imgs/Fôlego Branco.png" alt="atributo 2"
                                     class="icon_carta"></p>
                             <h3>Proficências</h3>
                             <ul>
@@ -179,25 +179,25 @@
                     <div class="card-inner">
                         <div class="card-front">
                             <div class="img-area">
-                                <img src="/imgs/Errante.png" alt="Classe Escudeiro">
+                                <img src="imgs/Errante.png" alt="Classe Escudeiro">
                             </div>
                             <div class="char-info">
                                 <div class="char-name">Errante</div>
                                 <div class="char-desc">Dano / Mobilidade</div>
                                 <div class="char-icons">
-                                    <img src="/imgs/Tecnica Branco.png" alt="atributo 1">
-                                    <img src="/imgs/Fôlego Branco.png" alt="atributo 2">
+                                    <img src="imgs/Tecnica Branco.png" alt="atributo 1">
+                                    <img src="imgs/Fôlego Branco.png" alt="atributo 2">
                                 </div>
                             </div>
                         </div>
 
                         <div class="card-back">
                             <h2>Errante</h2>
-                            <p><strong>PV:</strong> 10 + <img src="/imgs/Bravura Branco.png" alt="atributo 1"
+                            <p><strong>PV:</strong> 10 + <img src="imgs/Bravura Branco.png" alt="atributo 1"
                                     class="icon_carta"></p>
-                            <p><strong>MN:</strong> 5 + <img src="/imgs/Arcano Branco.png" alt="atributo 1"
+                            <p><strong>MN:</strong> 5 + <img src="imgs/Arcano Branco.png" alt="atributo 1"
                                     class="icon_carta"></p>
-                            <p><strong>STA:</strong> 12 + <img src="/imgs/Fôlego Branco.png" alt="atributo 2"
+                            <p><strong>STA:</strong> 12 + <img src="imgs/Fôlego Branco.png" alt="atributo 2"
                                     class="icon_carta"></p>
                             <h3>Proficências</h3>
                             <ul>
@@ -213,14 +213,14 @@
                     <div class="card-inner">
                         <div class="card-front">
                             <div class="img-area">
-                                <img src="/imgs/Luminar.png" alt="Classe Escudeiro">
+                                <img src="imgs/Luminar.png" alt="Classe Escudeiro">
                             </div>
                             <div class="char-info">
                                 <div class="char-name">Luminar</div>
                                 <div class="char-desc">Cura / Suporte</div>
                                 <div class="char-icons">
-                                    <img src="/imgs/Essencia Branca.png" alt="atributo 1">
-                                    <img src="/imgs/Arcano Branco.png" alt="atributo 2">
+                                    <img src="imgs/Essencia Branca.png" alt="atributo 1">
+                                    <img src="imgs/Arcano Branco.png" alt="atributo 2">
                                 </div>
                             </div>
                         </div>
@@ -259,26 +259,26 @@
             <div class="raca-container">
                 <div class="raca-cards">
                     <div class="raca-card" data-raca="Anão">
-                        <img src="/imgs/anão 2.png" alt="Anão" class="raca-icon">
+                        <img src="imgs/anão 2.png" alt="Anão" class="raca-icon">
                         <p>Anão</p>
                     </div>
                     <div class="raca-card" data-raca="Feéricos">
-                        <img src="/imgs/Feéricos.png" alt="Feéricos" class="raca-icon">
+                        <img src="imgs/Feéricos.png" alt="Feéricos" class="raca-icon">
                         <p>Feéricos</p>
                     </div>
                     <div class="raca-card" data-raca="Elfo">
-                        <img src="/imgs/elf.png" alt="Elfo" class="raca-icon">
+                        <img src="imgs/elf.png" alt="Elfo" class="raca-icon">
                         <p>Elfo</p>
                     </div>
                     <div class="raca-card" data-raca="Meio Orc">
-                        <img src="/imgs/Meio orc.png" alt="Meio Orc" class="raca-icon">
+                        <img src="imgs/Meio orc.png" alt="Meio Orc" class="raca-icon">
                         <p>Meio Orc</p>
                     </div>
                 </div>
 
                 <div class="raca-descricao">
                     <div class="descricao-icon">
-                        <img src="/imgs/anão 2.png" alt="Ícone Raça Selecionada">
+                        <img src="imgs/anão 2.png" alt="Ícone Raça Selecionada">
                     </div>
                     <div class="descricao-texto">
                         <p>Os anões são o reflexo das montanhas de Herta: firmes, engenhosos e incansáveis. Vivem para
@@ -330,30 +330,30 @@
                     <!-- 3x2 grid for attributes -->
                     <div class="attr-row">
                         <div class="attr-item">
-                            <img src="/imgs/Tecnica Branco.png" alt="técnica">
+                            <img src="imgs/Tecnica Branco.png" alt="técnica">
                             <span class="attr-value">0</span>
                         </div>
                         <div class="attr-item">
-                            <img src="/imgs/Intelecto Branco.png" alt="intelecto">
+                            <img src="imgs/Intelecto Branco.png" alt="intelecto">
                             <span class="attr-value">0</span>
                         </div>
                         <div class="attr-item">
-                            <img src="/imgs/Essencia Branca.png" alt="essencia">
+                            <img src="imgs/Essencia Branca.png" alt="essencia">
                             <span class="attr-value">0</span>
                         </div>
                     </div>
 
                     <div class="attr-row">
                         <div class="attr-item">
-                            <img src="/imgs/Arcano Branco.png" alt="arcano">
+                            <img src="imgs/Arcano Branco.png" alt="arcano">
                             <span class="attr-value">0</span>
                         </div>
                         <div class="attr-item">
-                            <img src="/imgs/Bravura Branco.png" alt="bravura">
+                            <img src="imgs/Bravura Branco.png" alt="bravura">
                             <span class="attr-value">0</span>
                         </div>
                         <div class="attr-item">
-                            <img src="/imgs/Fôlego Branco.png" alt="fôlego">
+                            <img src="imgs/Fôlego Branco.png" alt="fôlego">
                             <span class="attr-value">0</span>
                         </div>
                     </div>
@@ -370,7 +370,7 @@
             <!-- Card Class -->
             <div class="card-class">
                 <div class="class-art">
-                    <img src="/imgs/anão 2.png" alt="imagem classe" class="class-img">
+                    <img src="imgs/anão 2.png" alt="imagem classe" class="class-img">
                 </div>
                 <div class="class-info">
                     <div class="class-title">—</div>

@@ -271,7 +271,8 @@ body {
 /* backstory and appearance panels - aparecem abaixo */
 .character-backstory,
 .character-appearance,
-.character-personality {
+.character-personality,
+.character-note {
     margin-top: 12px;
     background: #161414;
     border: 3px solid rgba(90, 22, 22, 0.9);
@@ -281,21 +282,24 @@ body {
 
 .character-backstory h2,
 .character-appearance h2,
-.character-personality h2 {
+.character-personality h2,
+.character-note h2 {
     margin: 0 0 8px 0;
     color: #efe6e2;
 }
 
 .story-panel,
 .appearance-panel,
-.personality-panel {
+.personality-panel,
+.note-panel {
     min-height: 80px;
     color: #f2eee9;
 }
 
 textarea.story-panel,
 textarea.appearance-panel,
-textarea.personality-panel {
+textarea.personality-panel,
+textarea.note-panel {
     width: 100%;
     min-height: 80px;
     background: transparent;

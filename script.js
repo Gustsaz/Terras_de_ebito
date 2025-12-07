@@ -68,7 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <button class="delete-btn" data-char-id="${characters[index].uid}"><i class="fas fa-trash"></i></button>
                     <button class="edit-btn" data-char-id="${characters[index].uid}"><i class="fa-solid fa-pen"></i></button>
                     <div class="img-area">
-                        <img src="./imgs/${characters[index].classe.toLowerCase()}.png" alt="Classe ${characters[index].classe}">
+                        <img src="/imgs/${characters[index].classe.toLowerCase()}.png" alt="Classe ${characters[index].classe}">
                     </div>
                     <div class="char-info">
                         <div class="char-name">${characters[index].nome}</div>

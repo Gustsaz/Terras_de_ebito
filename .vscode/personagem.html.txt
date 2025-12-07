@@ -38,7 +38,7 @@
                 <div class="tab-content tab-general" data-tab="general">
                     <div class="character-info">
                         <div class="char-portrait">
-                            <img id="char-img" src="/imgs/placeholder.png" alt="Imagem do Personagem">
+                            <img id="char-img" src="imgs/placeholder.png" alt="Imagem do Personagem">
                         </div>
                         <div class="char-basic">
                             <div class="char-name">
@@ -115,32 +115,32 @@
                             <h3>Atributos</h3>
                             <div class="attr-grid">
                                 <div class="attr-item">
-                                    <img src="/imgs/Tecnica Branco.png" alt="técnica">
+                                    <img src="imgs/Tecnica Branco.png" alt="técnica">
                                     <span class="attr-value" id="attr-tecnica">0</span>
                                     <span class="attr-name">Técnica</span>
                                 </div>
                                 <div class="attr-item">
-                                    <img src="/imgs/Intelecto Branco.png" alt="intelecto">
+                                    <img src="imgs/Intelecto Branco.png" alt="intelecto">
                                     <span class="attr-value" id="attr-intelecto">0</span>
                                     <span class="attr-name">Intelecto</span>
                                 </div>
                                 <div class="attr-item">
-                                    <img src="/imgs/Essencia Branca.png" alt="essencia">
+                                    <img src="imgs/Essencia Branca.png" alt="essencia">
                                     <span class="attr-value" id="attr-essencia">0</span>
                                     <span class="attr-name">Essência</span>
                                 </div>
                                 <div class="attr-item">
-                                    <img src="/imgs/Arcano Branco.png" alt="arcano">
+                                    <img src="imgs/Arcano Branco.png" alt="arcano">
                                     <span class="attr-value" id="attr-arcano">0</span>
                                     <span class="attr-name">Arcano</span>
                                 </div>
                                 <div class="attr-item">
-                                    <img src="/imgs/Bravura Branco.png" alt="bravura">
+                                    <img src="imgs/Bravura Branco.png" alt="bravura">
                                     <span class="attr-value" id="attr-bravura">0</span>
                                     <span class="attr-name">Bravura</span>
                                 </div>
                                 <div class="attr-item">
-                                    <img src="/imgs/Fôlego Branco.png" alt="fôlego">
+                                    <img src="imgs/Fôlego Branco.png" alt="fôlego">
                                     <span class="attr-value" id="attr-folego">0</span>
                                     <span class="attr-name">Fôlego</span>
                                 </div>
@@ -167,7 +167,7 @@
                     </div>
 
                     <!-- backstory e appearance (Geral) -->
-
+                    
                 </div><!-- /.tab-general -->
 
 
@@ -176,22 +176,18 @@
                     <!-- Descrição: backstory (cópia), appearance (cópia), personality (novo) -->
                     <div class="character-backstory">
                         <h2>História</h2>
-                        <textarea class="story-panel" id="char-historia-desc"
-                            placeholder="Conte a história do seu personagem...">—</textarea>
+                        <textarea class="story-panel" id="char-historia-desc" placeholder="Conte a história do seu personagem...">—</textarea>
                     </div>
 
                     <div class="character-appearance">
                         <h2>Aparência</h2>
-                        <textarea class="appearance-panel" id="char-aparencia-desc"
-                            placeholder="Descreva a aparência do seu personagem...">—</textarea>
+                        <textarea class="appearance-panel" id="char-aparencia-desc" placeholder="Descreva a aparência do seu personagem...">—</textarea>
                     </div>
 
                     <div class="character-personality">
                         <h2>Personalidade</h2>
-                        <textarea class="personality-panel" id="char-personality-desc"
-                            placeholder="Descreva a personalidade do seu personagem...">—</textarea>
+                        <textarea class="personality-panel" id="char-personality-desc" placeholder="Descreva a personalidade do seu personagem...">—</textarea>
                     </div>
-                    
                 </div><!-- /.tab-description -->
 
 
@@ -206,6 +202,86 @@
 
         <!-- inventory (lado direito) será mantido / injetado pelo JS (mantive a section principal) -->
     </section>
+
+
+
+
+    <script src="personagem.js"></script>
+</body>
+
+</html>
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const user = window.firebaseauth.currentUser;
+            if (!user) {
+                alert('User not logged in');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+            const userDoc = await window.getDoc(userDocRef);
+            if (!userDoc.exists()) {
+                alert('User data not found');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const userData = userDoc.data();
+            const character = userData.personagens.find(c => c.uid === selectedCharId);
+            if (!character) {
+                alert('Character not found');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Fill in basic info
+            document.getElementById('char-name').textContent = character.nome;
+            document.getElementById('char-class').textContent = character.classe;
+            document.getElementById('char-race').textContent = character.subraca ? `${character.raca} (${character.subraca})` : character.raca;
+
+            // Set portrait
+            const charImg = document.getElementById('char-img');
+            charImg.src = `imgs/${character.classe.toLowerCase()}.png`;
+
+            // Set attributes
+            const attrIds = {
+                tecnica: 'attr-tecnica',
+                intelecto: 'attr-intelecto',
+                essencia: 'attr-essencia',
+                arcano: 'attr-arcano',
+                bravura: 'attr-bravura',
+                folego: 'attr-folego'
+            };
+            Object.keys(attrIds).forEach(key => {
+                const element = document.getElementById(attrIds[key]);
+                if (element) {
+                    element.textContent = character.atributos[key] || 0;
+                }
+            });
+
+            // Battle stats
+            document.getElementById('stat-pv').textContent = character.PV.total;
+            document.getElementById('stat-mn').textContent = character.MN.total;
+            document.getElementById('stat-sta').textContent = character.STA.total;
+            document.getElementById('stat-deslocamento').textContent = character.deslocamento;
+            document.getElementById('stat-carga').textContent = character.carga;
+            document.getElementById('char-proficiencias').textContent = 'Armas Leves'; // placeholder
+
+            // Description panels
+            document.getElementById('char-historia-desc').textContent = character.historia || '';
+            document.getElementById('char-aparencia-desc').textContent = character.aparencia || '';
+            document.getElementById('char-personality-desc').textContent = character.personalidade || '';
+
+            // Make it global for personagem.js
+            window.currentCharacter = character;
+            window.currentCharId = selectedCharId;
+            window.userRef = userDocRef;
+            window.userData = userData;
+        });
+    </script>
 
     <script src="personagem.js"></script>
 </body>

@@ -35,6 +35,28 @@ body {
     left: 0;
     top: 0;
     z-index: 10;
+    transition: width 0.3s ease;
+}
+
+.sidebar:hover {
+    width: 120px;
+}
+
+.sidebar-home {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    color: #efe6e2;
+    font-size: 28px;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.sidebar:hover .sidebar-home {
+    opacity: 1;
 }
 
 .character-main {
@@ -66,7 +88,6 @@ body {
 .title {
     font-size: 2.4rem;
     color: #efe6e2;
-    letter-spacing: 2px;
     margin: 0 0 6px 0;
     text-align: left;
 }
@@ -249,7 +270,8 @@ body {
 
 /* backstory and appearance panels - aparecem abaixo */
 .character-backstory,
-.character-appearance {
+.character-appearance,
+.character-personality {
     margin-top: 12px;
     background: #161414;
     border: 3px solid rgba(90, 22, 22, 0.9);
@@ -258,15 +280,38 @@ body {
 }
 
 .character-backstory h2,
-.character-appearance h2 {
+.character-appearance h2,
+.character-personality h2 {
     margin: 0 0 8px 0;
     color: #efe6e2;
 }
 
 .story-panel,
-.appearance-panel {
+.appearance-panel,
+.personality-panel {
     min-height: 80px;
     color: #f2eee9;
+}
+
+textarea.story-panel,
+textarea.appearance-panel,
+textarea.personality-panel {
+    width: 100%;
+    min-height: 80px;
+    background: transparent;
+    border: none;
+    color: #f2eee9;
+    resize: vertical;
+    outline: none;
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+textarea::placeholder {
+    color: #ccc;
+    opacity: 0.7;
 }
 
 /* ————— INVENTÁRIO —————
