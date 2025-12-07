@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const userDocSnap = await window.getDoc(userDocRef);
         if (userDocSnap.exists()) {
             const data = userDocSnap.data();
-            const characters = data.personnages || [];
+            const characters = data.personagens || [];
             charData = characters.find(c => c.uid === charUid);
         }
     } catch (error) {
@@ -170,34 +170,61 @@ document.addEventListener('DOMContentLoaded', async () => {
         folego: 'attr-folego'
     };
 
-    // exibir valores da Firestore
+    // função para calcular bonus racial
+    const getBonus = (key) => {
+        let bonus = 0;
+        if (savedRace === 'Feéricos' && savedSubrace === 'Ágeis' && key === 'tecnica') bonus = 1;
+        if (savedRace === 'Elfo' && key === 'intelecto') bonus = 1;
+        if (savedRace === 'Meio Orc' && key === 'bravura') bonus = 1;
+        return bonus;
+    };
+
+    // exibir valores da Firestore (total = raw + bonus)
     Object.keys(attrMapToDom).forEach(key => {
         const id = attrMapToDom[key];
-        const value = attributes[normalize(key)] ?? 0;
+        const raw = attributes[normalize(key)] ?? 0;
+        const bonus = getBonus(normalize(key));
+        const total = raw + bonus;
         if (el(id)) {
-            el(id).textContent = String(value);
-            el(id).title = `Valor de ${key}`;
+            el(id).textContent = String(total);
+            el(id).title = bonus > 0 ? `${raw} + ${bonus}` : `${raw}`;
         }
     });
 
     // tornar atributos clicáveis para edição
-    document.querySelectorAll('.attr-value').forEach(el => {
-        el.style.cursor = 'pointer';
-        el.addEventListener('click', async (e) => {
+    document.querySelectorAll('.attr-value').forEach(attrEl => {
+        attrEl.style.cursor = 'pointer';
+        attrEl.addEventListener('click', async (e) => {
             e.stopPropagation();
-            const attrKey = el.id.replace('attr-', '');
+            const attrKey = attrEl.id.replace('attr-', '');
             const normalizedKey = normalize(attrKey);
-            const currentValue = attributes[normalizedKey] ?? 0;
+            const currentRaw = attributes[normalizedKey] ?? 0;
+            const bonus = getBonus(normalizedKey);
 
             const input = document.createElement('input');
             input.type = 'number';
             input.className = 'attr-input';
-            input.value = String(currentValue);
+            input.value = String(currentRaw);
             input.min = 0;
             input.max = 50;
 
-            el.style.display = 'none';
-            el.parentElement.appendChild(input);
+            let bonusSpan = null;
+            if (bonus > 0) {
+                bonusSpan = document.createElement('span');
+                bonusSpan.textContent = ` +${bonus}`;
+                bonusSpan.style.fontSize = '0.8em';
+                bonusSpan.style.color = '#ccc';
+                bonusSpan.style.marginLeft = '4px';
+            }
+
+            attrEl.style.display = 'none';
+            const label = document.createElement('span');
+            label.textContent = 'Valor Bruto: ';
+            label.style.fontSize = '0.8em';
+            label.style.color = '#ccc';
+            attrEl.parentElement.appendChild(label);
+            attrEl.parentElement.appendChild(input);
+            if (bonusSpan) attrEl.parentElement.appendChild(bonusSpan);
             input.focus();
             input.select();
 
@@ -208,17 +235,62 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     // save to Firestore
                     attributes[normalizedKey] = newValue;
-                    el.textContent = String(newValue);
+                    // update attrKeys (totals)
+                    attrKeys[normalizedKey] = newValue + bonus;
+                    // recalc stats
+                    if (savedClass === 'Arcanista') {
+                        pv = 8 + attrKeys.bravura;
+                        mn = 10 + attrKeys.arcano;
+                        sta = 6 + attrKeys.folego;
+                    } else if (savedClass === 'Escudeiro') {
+                        pv = 18 + attrKeys.bravura;
+                        mn = 2 + attrKeys.arcano;
+                        sta = 8 + attrKeys.folego;
+                    } else if (savedClass === 'Errante') {
+                        pv = 10 + attrKeys.bravura;
+                        mn = 5 + attrKeys.arcano;
+                        sta = 12 + attrKeys.folego;
+                    } else if (savedClass === 'Luminar') {
+                        pv = 9 + attrKeys.bravura;
+                        mn = 10 + attrKeys.arcano;
+                        sta = 4 + attrKeys.essencia;
+                    }
+                    charData.PV.total = pv;
+                    charData.MN.total = mn;
+                    charData.STA.total = sta;
+                    // curPV clamp if increased, but for simplicity keep or adjust proportionally
+                    if (curPV > pv) curPV = pv;
+                    if (curMN > mn) curMN = mn;
+                    if (curSTA > sta) curSTA = sta;
+                    totPV = pv;
+                    totMN = mn;
+                    totSTA = sta;
 
-                    // update Firestore
+                    // update display first
+                    const newTotal = newValue + bonus;
+                    attrEl.textContent = String(newTotal);
+                    attrEl.title = bonus > 0 ? `${newValue} + ${bonus}` : `${newValue}`;
+
+                    // update stats display
+                    if (el('stat-pv')) el('stat-pv').textContent = pv;
+                    if (el('stat-mn')) el('stat-mn').textContent = mn;
+                    if (el('stat-sta')) el('stat-sta').textContent = sta;
+                    if (el('stat-carga')) el('stat-carga').textContent = (8 + (attrKeys.bravura || 0));
+
+                    updateAllBars();
+
+                    // update Firestore for attributes and stats async
                     try {
                         const userDocRef = window.doc(window.firestoredb, 'usuarios', window.firebaseauth.currentUser.uid);
                         const userDocSnap = await window.getDoc(userDocRef);
                         if (userDocSnap.exists()) {
-                            let characters = userDocSnap.data().personnages || [];
+                            let characters = userDocSnap.data().personagens || [];
                             const index = characters.findIndex(c => c.uid === charUid);
                             if (index >= 0) {
                                 characters[index].atributos = attributes;
+                                characters[index].PV = charData.PV;
+                                characters[index].MN = charData.MN;
+                                characters[index].STA = charData.STA;
                                 await window.updateDoc(userDocRef, { personnages: characters });
                             }
                         }
@@ -228,7 +300,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 input.remove();
-                el.style.display = '';
+                if (bonusSpan) bonusSpan.remove();
+                if (label) label.remove();
+                attrEl.style.display = '';
             };
 
             input.addEventListener('keydown', (ev) => {
@@ -404,9 +478,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let curMN = Math.max(0, Math.floor(charData.MN?.atual ?? mn));
     let curSTA = Math.max(0, Math.floor(charData.STA?.atual ?? sta));
 
-    const totPV = Math.max(0, Math.floor(Number(pv) || 0));
-    const totMN = Math.max(0, Math.floor(Number(mn) || 0));
-    const totSTA = Math.max(0, Math.floor(Number(sta) || 0));
+    let totPV = Math.max(0, Math.floor(Number(pv) || 0));
+    let totMN = Math.max(0, Math.floor(Number(mn) || 0));
+    let totSTA = Math.max(0, Math.floor(Number(sta) || 0));
 
 
     /* ---------------- EXP + integração nas barras ---------------- */
@@ -456,7 +530,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const userDocRef = window.doc(window.firestoredb, 'usuarios', window.firebaseauth.currentUser.uid);
             const userDocSnap = await window.getDoc(userDocRef);
             if (userDocSnap.exists()) {
-                const characters = userDocSnap.data().personnages || [];
+                const characters = userDocSnap.data().personagens || [];
                 const index = characters.findIndex(c => c.uid === charUid);
                 if (index >= 0) {
                     characters[index].PV.atual = curPV;
@@ -464,7 +538,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     characters[index].STA.atual = curSTA;
                     characters[index].EXP.atual = currentEXP;
                     characters[index].LVL = expLevel;
-                    await window.updateDoc(userDocRef, { personnages: characters });
+                    await window.updateDoc(userDocRef, { personagens: characters });
                     console.log('Saved successfully');
                 }
             }

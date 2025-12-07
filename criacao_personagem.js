@@ -588,7 +588,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const charData = {
           uid: charUid,
-          atributos: totalAttrs,
+          atributos: attribs, // raw values
           classe: classe,
           raca: raca,
           subraca: subraca,

@@ -44,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
             let characters = [];
             if (userDocSnap.exists()) {
                 const data = userDocSnap.data();
-            characters = data.personnages || [];
+            characters = data.personagens || [];
             }
             displayCharacters(characters);
         } catch (error) {
