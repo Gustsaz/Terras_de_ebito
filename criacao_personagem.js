@@ -238,7 +238,7 @@ document.addEventListener("DOMContentLoaded", () => {
     slot.addEventListener("click", () => {
       const classe = slot.dataset.classe || slot.querySelector(".char-name")?.textContent || "—";
       const desc = slot.querySelector(".char-desc")?.textContent || "—";
-      const artImg = slot.querySelector(".img-area img")?.src || "imgs/anão 2.png";
+      const artImg = slot.querySelector(".img-area img")?.src || "./imgs/anão 2.png";
 
       if (resumoClasseNome) resumoClasseNome.textContent = classe;
       if (resumoDesc) resumoDesc.textContent = desc;
@@ -287,7 +287,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const descricaoTexto = document.querySelector('.raca .descricao-texto p');
       const bonus = document.querySelector('.raca .bonus');
 
-      if (descricaoIcon) descricaoIcon.src = "imgs/anão 2.png";
+      if (descricaoIcon) descricaoIcon.src = "./imgs/anão 2.png";
       if (descricaoTexto) descricaoTexto.textContent = "Os anões são o reflexo das montanhas de Herta: firmes, engenhosos e incansáveis. Vivem para construir, beber e lutar, acreditando que o trabalho é a forma mais pura de oração.";
       if (bonus) bonus.textContent = "Recebem +1 em aumento de Vida por nível devido à sua robustez e resistência natural.";
     });

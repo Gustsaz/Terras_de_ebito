@@ -151,12 +151,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // imagem do personagem (tenta usar imagem pelo nome da classe em lowercase)
     if (el('char-img')) {
         if (savedClass) {
-            const candidate = `imgs/${savedClass.toLowerCase()}.png`;
+            const candidate = `./imgs/${savedClass.toLowerCase()}.png`;
             // tenta carregar (sem fetch) - definimos src e se falhar, cai ao onerror
             el('char-img').src = candidate;
-            el('char-img').onerror = () => { el('char-img').src = 'imgs/placeholder.png'; };
+            el('char-img').onerror = () => { el('char-img').src = './imgs/placeholder.png'; };
         } else {
-            el('char-img').src = 'imgs/placeholder.png';
+            el('char-img').src = './imgs/placeholder.png';
         }
     }
 
@@ -383,8 +383,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (item) {
                     const img = document.createElement('img');
                     img.alt = item.name || `item-${i}`;
-                    img.src = item.img || `imgs/${(item.id || 'placeholder')}.png`;
-                    img.onerror = () => { img.src = 'imgs/placeholder.png'; };
+                    img.src = item.img || `./imgs/${(item.id || 'placeholder')}.png`;
+                    img.onerror = () => { img.src = './imgs/placeholder.png'; };
                     slotEl.appendChild(img);
 
                     if (item.qty && item.qty > 1) {
