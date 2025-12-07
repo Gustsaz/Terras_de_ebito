@@ -406,6 +406,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el('char-aparencia-desc')) el('char-aparencia-desc').value = appearance;
 
 
+
     /* ---------- Auto-save dos textareas (Firestore) + criação do note-panel ---------- */
     // garante que a aba de descrição exista
     const descriptionTabEl = document.querySelector('.tab-description') || document.querySelector('[data-tab="description"]');
@@ -773,6 +774,416 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveBarsToFirestore();
     }
     updateAllBars();
+
+    /* <<< ADICIONADO: slots de batalha, modal e integração com Firestore >>> */
+    (function setupBattleSlotsAndModal() {
+        // Mapeamento dos slots para os tipos de itens que deverão ser exibidos na lista
+        const slotMap = {
+            'armas': ['Arma', 'Equipamento'], // Arma e Equipamento
+            'protecao': ['Proteção'],          // Proteção (armaduras/escudos)
+            'utilitarios': ['Utilitário']      // Utilitários
+        };
+
+        // elements do modal/slots (já adicionados ao HTML conforme instruído)
+        const modal = document.getElementById('items-modal');
+        const itemsListEl = document.getElementById('items-list');
+        const detailPanel = document.getElementById('item-detail');
+        const detailName = document.getElementById('detail-name');
+        const detailFields = document.getElementById('detail-fields');
+        const confirmBtn = document.getElementById('confirm-equip');
+        const cancelBtn = document.getElementById('cancel-equip');
+        const closeModalBtn = document.getElementById('items-modal-close');
+
+        let currentSlotKey = null; // 'armas' | 'protecao' | 'utilitarios'
+        let selectedItem = null;   // armazenará { id, ...dados }
+
+        // util: obtém charUid (tenta usar variável global charUid, senão pega da URL ?uid=)
+        function getCharUidFromContext() {
+            if (typeof charUid !== 'undefined' && charUid) return charUid;
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const u = params.get('uid');
+                if (u) return u;
+            } catch (e) { /* ignore */ }
+            return null;
+        }
+
+        const resolvedCharUid = getCharUidFromContext();
+        if (!resolvedCharUid) {
+            console.warn('setupBattleSlotsAndModal: não encontrou charUid (declare var charUid ou use ?uid= na URL).');
+        }
+
+        // Abre o modal e carrega a lista de itens filtrada por tipo(s)
+        function openModalForSlot(slotKey) {
+            currentSlotKey = slotKey;
+            if (!itemsListEl || !detailPanel) return;
+            itemsListEl.innerHTML = '<div style="padding:8px;color:#ddd">Carregando...</div>';
+            const content = detailPanel.querySelector('.item-detail-content');
+            if (content) content.style.display = 'none';
+            const empty = detailPanel.querySelector('.item-detail-empty');
+            if (empty) empty.style.display = '';
+
+            // busca itens por tipo (usa where in para múltiplos tipos)
+            const types = slotMap[slotKey] || [];
+            (async () => {
+                try {
+                    const itensCol = window.collection(window.firestoredb, 'itens');
+                    // se types tiver apenas 1 elemento, também funciona: where('tipo_item', 'in', [thatOne])
+                    const q = window.query(itensCol, window.where('tipo_item', 'in', types));
+                    const snap = await window.getDocs(q);
+                    const items = [];
+                    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+                    renderItemsList(items);
+                } catch (err) {
+                    console.error('Erro carregando itens:', err);
+                    itemsListEl.innerHTML = '<div style="padding:8px;color:#faa">Erro ao carregar.</div>';
+                }
+            })();
+
+            if (modal) modal.setAttribute('aria-hidden', 'false');
+        }
+
+        // Fecha modal e reseta estado interno
+        function closeModal() {
+            if (!modal) return;
+            modal.setAttribute('aria-hidden', 'true');
+            selectedItem = null;
+            currentSlotKey = null;
+            if (itemsListEl) itemsListEl.innerHTML = '';
+            if (detailName) detailName.textContent = '';
+            if (detailFields) detailFields.innerHTML = '';
+            const content = detailPanel.querySelector('.item-detail-content');
+            if (content) content.style.display = 'none';
+            const empty = detailPanel.querySelector('.item-detail-empty');
+            if (empty) empty.style.display = '';
+        }
+
+        // Renderiza a lista de itens (coluna esquerda)
+        function renderItemsList(items) {
+            if (!itemsListEl) return;
+            if (!items || !items.length) {
+                itemsListEl.innerHTML = '<div style="padding:8px;color:#ddd">Nenhum item disponível deste tipo.</div>';
+                return;
+            }
+            itemsListEl.innerHTML = '';
+            items.forEach(it => {
+                const row = document.createElement('div');
+                row.className = 'item-row';
+                row.tabIndex = 0;
+                row.textContent = it.nome || '(sem nome)';
+                row.addEventListener('click', () => selectItemFromList(it));
+                row.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') selectItemFromList(it); });
+                itemsListEl.appendChild(row);
+            });
+        }
+
+        // Quando usuário clica em um item: mostra detalhes no painel direito omitindo campos "Nenhum"/null/""
+        function selectItemFromList(it) {
+            if (!it) return;
+            selectedItem = it;
+            const empty = detailPanel.querySelector('.item-detail-empty');
+            if (empty) empty.style.display = 'none';
+            const content = detailPanel.querySelector('.item-detail-content');
+            content.style.display = '';
+            if (detailName) detailName.textContent = it.nome || 'Item';
+            if (detailFields) detailFields.innerHTML = '';
+
+            // ordem e rótulos dos campos que queremos mostrar
+            const mapping = [
+                ['descricao', 'Descrição'],
+                ['efeito', 'Efeito'],
+                ['habilidade', 'Habilidade'],
+                ['dano', 'Dano'],
+                ['tipo_dano', 'Tipo de Dano'],
+                ['critico', 'Crítico'],
+                ['requisito', 'Requisito'],
+                ['peso', 'Peso'],
+                ['categoria', 'Categoria'],
+                ['tipo_item', 'Tipo']
+            ];
+
+            mapping.forEach(([k, label]) => {
+                const v = it[k];
+                if (v === undefined || v === null) return;
+                if (typeof v === 'string' && (v.trim() === '' || v.trim().toLowerCase() === 'nenhum')) return;
+                const wrap = document.createElement('div');
+                wrap.className = 'detail-row';
+                wrap.innerHTML = `<strong>${label}:</strong> <span>${String(v)}</span>`;
+                detailFields.appendChild(wrap);
+            });
+        }
+
+        // Ao confirmar: adiciona um objeto aleatório { uid: '<ITEM_ID>' } no array personagens[idx].itens do documento do usuário
+        async function confirmEquip() {
+            if (!selectedItem) {
+                alert('Nenhum item selecionado.');
+                return;
+            }
+
+            const charId = getCharUidFromContext();
+            if (!charId) {
+                alert('UID do personagem não definido.');
+                return;
+            }
+
+            try {
+                const user = window.firebaseauth.currentUser;
+                if (!user) throw new Error('Usuário não autenticado.');
+
+                const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+                const userSnap = await window.getDoc(userRef);
+                if (!userSnap.exists()) throw new Error('Documento de usuário não encontrado.');
+
+                const data = userSnap.data();
+                const characters = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+                const idx = characters.findIndex(c => c && c.uid === charId);
+                if (idx < 0) throw new Error('Personagem não encontrado.');
+
+                // garante array de itens
+                characters[idx].itens = Array.isArray(characters[idx].itens)
+                    ? characters[idx].itens.slice()
+                    : [];
+
+                // adiciona o novo item
+                characters[idx].itens.push({ uid: selectedItem.id });
+
+                // === NOVO → recalcula automaticamente o peso_atual ===
+                const novoPeso = await calcularPesoAtual(characters[idx].itens);
+                characters[idx].peso_atual = novoPeso;
+
+                // salva no Firestore
+                await window.updateDoc(userRef, { personagens: characters });
+
+                // atualiza slots visuais
+                await refreshSlotsFromCharData();
+
+                closeModal();
+            } catch (err) {
+                console.error('Erro ao equipar item:', err);
+                alert('Erro ao equipar item (veja o console).');
+            }
+        }
+
+        // Calcula a soma dos pesos dos itens equipados
+        async function calcularPesoAtual(arrayDeItens) {
+            let soma = 0;
+
+            for (const entry of arrayDeItens) {
+                if (!entry || !entry.uid) continue;
+
+                try {
+                    const itemRef = window.doc(window.firestoredb, 'itens', entry.uid);
+                    const itemSnap = await window.getDoc(itemRef);
+
+                    if (itemSnap.exists()) {
+                        const itemData = itemSnap.data();
+                        const peso = Number(itemData.peso) || 0;
+                        soma += peso;
+                    }
+                } catch (err) {
+                    console.warn('Item inválido ao calcular peso:', entry.uid, err);
+                }
+            }
+
+            return soma;
+        }
+
+
+        // Lê os dados do usuário e preenche os textos dos slots conforme itens equipados
+        // Substituir por esta versão — mostra LISTAS de itens por slot (cada item embaixo do outro)
+        async function refreshSlotsFromCharData() {
+            try {
+                const charId = getCharUidFromContext();
+                if (!charId) return;
+                const user = window.firebaseauth.currentUser;
+                if (!user) return;
+
+                const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+                const userSnap = await window.getDoc(userRef);
+                if (!userSnap.exists()) return;
+                const data = userSnap.data();
+                const characters = data.personagens || [];
+                const myChar = characters.find(c => c && c.uid === charId) || {};
+                const equipped = Array.isArray(myChar.itens) ? myChar.itens : [];
+
+                // limpa os slots (preparar container)
+                const slotIds = ['char-armas', 'char-protecao', 'char-utilitarios'];
+                slotIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        const body = el.querySelector('.slot-body');
+                        if (body) {
+                            // esvazia e coloca um placeholder durante carregamento
+                            body.innerHTML = '<div class="slot-loading">Carregando...</div>';
+                        }
+                    }
+                });
+
+                // cria listas vazias para preencher
+                const lists = {
+                    armas: [],
+                    protecao: [],
+                    utilitarios: []
+                };
+
+                // helper para classificar tipo do item (robusto para variações/acentos)
+                function classifyTipo(tipoRaw) {
+                    const t = String(tipoRaw || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                    if (t.includes('utilit')) return 'utilitarios';
+                    if (t.includes('prote') || t.includes('armadur') || t.includes('escud')) return 'protecao';
+                    // armas / equipamentos -> armas
+                    if (t.includes('arma') || t.includes('equip')) return 'armas';
+                    // fallback: se não bater, tratar como armas por padrão
+                    return 'armas';
+                }
+
+                // percorre cada reference de item no personagem e busca o documento correspondende
+                for (const e of equipped) {
+                    if (!e || !e.uid) continue;
+                    try {
+                        const itemRef = window.doc(window.firestoredb, 'itens', e.uid);
+                        const itemSnap = await window.getDoc(itemRef);
+                        if (!itemSnap.exists()) continue;
+                        const it = itemSnap.data();
+                        const slotKey = classifyTipo(it.tipo_item);
+                        lists[slotKey].push({ id: itemSnap.id, data: it });
+                    } catch (err) {
+                        console.warn('Erro lendo item referenciado', e.uid, err);
+                    }
+                }
+
+                // função auxiliar para montar a UL/LI e inserir no slot
+                function renderListInSlot(slotId, itemsArray) {
+                    const el = document.getElementById(slotId);
+                    if (!el) return;
+                    const body = el.querySelector('.slot-body');
+                    if (!body) return;
+
+                    body.innerHTML = ''; // limpa
+
+                    if (!itemsArray.length) {
+                        body.textContent = 'Vazio';
+                        return;
+                    }
+
+                    const ul = document.createElement('ul');
+                    ul.className = 'equipped-list';
+
+                    itemsArray.forEach((itemWrap, indexInFilteredList) => {
+                        const li = document.createElement('li');
+                        li.className = 'equipped-item';
+                        li.tabIndex = 0;
+                        li.dataset.uid = itemWrap.id;
+
+                        // nome
+                        const name = document.createElement('div');
+                        name.className = 'equipped-item-name';
+                        name.textContent = itemWrap.data.nome || '(sem nome)';
+                        li.appendChild(name);
+
+                        // metadados (peso, tipo, etc)
+                        const meta = document.createElement('div');
+                        meta.className = 'equipped-item-meta';
+                        const parts = [];
+                        if (itemWrap.data.peso !== undefined && itemWrap.data.peso !== null && String(itemWrap.data.peso).trim() !== '') {
+                            parts.push(`peso: ${itemWrap.data.peso}`);
+                        }
+                        if (itemWrap.data.tipo_item) parts.push(String(itemWrap.data.tipo_item));
+                        meta.textContent = parts.join(' • ');
+                        if (parts.length) li.appendChild(meta);
+
+                        const removeBtn = document.createElement('span');
+                        removeBtn.className = 'equipped-item-remove';
+                        removeBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+
+
+                        removeBtn.addEventListener('click', async (ev) => {
+                            ev.stopPropagation(); // evita abrir modal se clicar no item
+
+                            await removerItemEquipado(itemWrap.id);
+
+                            // atualiza interface
+                            await refreshSlotsFromCharData();
+                        });
+
+                        li.appendChild(removeBtn);
+
+                        ul.appendChild(li);
+                    });
+
+                    body.appendChild(ul);
+                }
+
+                async function removerItemEquipado(uidDoItem) {
+                    try {
+                        const charId = getCharUidFromContext();
+                        const user = window.firebaseauth.currentUser;
+                        if (!user || !charId) return;
+
+                        const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+                        const snap = await window.getDoc(userRef);
+                        if (!snap.exists()) return;
+
+                        const data = snap.data();
+                        const personagens = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+                        const idx = personagens.findIndex(p => p && p.uid === charId);
+                        if (idx < 0) return;
+
+                        const itens = Array.isArray(personagens[idx].itens) ? personagens[idx].itens.slice() : [];
+
+                        // remove apenas o que tem uid igual
+                        const novoArray = itens.filter(i => i.uid !== uidDoItem);
+                        personagens[idx].itens = novoArray;
+
+                        // recalcular peso
+                        const novoPeso = await calcularPesoAtual(novoArray);
+                        personagens[idx].peso_atual = novoPeso;
+
+                        // salvar
+                        await window.updateDoc(userRef, { personagens });
+
+                    } catch (err) {
+                        console.error('Erro ao remover item', err);
+                    }
+                }
+
+
+                // renderiza as três listas
+                renderListInSlot('char-armas', lists.armas);
+                renderListInSlot('char-protecao', lists.protecao);
+                renderListInSlot('char-utilitarios', lists.utilitarios);
+
+            } catch (err) {
+                console.error('Erro em refreshSlotsFromCharData', err);
+            }
+        }
+
+        // conecta eventos de clique nos slots
+        const slotArm = document.getElementById('char-armas');
+        const slotProt = document.getElementById('char-protecao');
+        const slotUtil = document.getElementById('char-utilitarios');
+        slotArm?.addEventListener('click', () => openModalForSlot('armas'));
+        slotProt?.addEventListener('click', () => openModalForSlot('protecao'));
+        slotUtil?.addEventListener('click', () => openModalForSlot('utilitarios'));
+
+        // botões do modal
+        closeModalBtn?.addEventListener('click', closeModal);
+        cancelBtn?.addEventListener('click', closeModal);
+        confirmBtn?.addEventListener('click', confirmEquip);
+        // fechar clicando no backdrop (se existir)
+        document.querySelector('.items-modal-backdrop')?.addEventListener('click', closeModal);
+
+        // refresca slots quando a página carregar (curto delay para garantir que auth e firestore estejam prontos)
+        setTimeout(() => refreshSlotsFromCharData(), 300);
+
+        // expo: em caso de necessidade externa, disponibiliza funções (opcional)
+        window.__battleSlots = {
+            openModalForSlot,
+            closeModal,
+            refreshSlotsFromCharData
+        };
+    })();
+
 
     /* ---------- +/- buttons (PV/MN/STA) ---------- */
     function wirePlusMinus(minusId, plusId, getCur, setCur, total) {
