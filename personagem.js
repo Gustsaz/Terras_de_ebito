@@ -913,7 +913,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        // Ao confirmar: adiciona um objeto aleatório { uid: '<ITEM_ID>' } no array personagens[idx].itens do documento do usuário
+        // REPLACE: função confirmEquip() (corrigida para ler carga a partir de characters[idx].carga)
         async function confirmEquip() {
             if (!selectedItem) {
                 alert('Nenhum item selecionado.');
@@ -922,9 +922,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const charId = getCharUidFromContext();
             if (!charId) {
-                alert('UID do personagem não definido.');
+                alert('UID do personagem não definido. Informe ?uid=<CHAR_UID> na URL ou defina a variável global charUid.');
                 return;
             }
+
+            // desativa botão para evitar cliques repetidos (se existir)
+            if (confirmBtn) confirmBtn.disabled = true;
 
             try {
                 const user = window.firebaseauth.currentUser;
@@ -937,30 +940,83 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const data = userSnap.data();
                 const characters = Array.isArray(data.personagens) ? data.personagens.slice() : [];
                 const idx = characters.findIndex(c => c && c.uid === charId);
-                if (idx < 0) throw new Error('Personagem não encontrado.');
+                if (idx < 0) throw new Error('Personagem não encontrado no array personagens.');
 
-                // garante array de itens
-                characters[idx].itens = Array.isArray(characters[idx].itens)
-                    ? characters[idx].itens.slice()
-                    : [];
+                // garante array de itens do personagem (estado atual antes da adição)
+                characters[idx].itens = Array.isArray(characters[idx].itens) ? characters[idx].itens.slice() : [];
 
-                // adiciona o novo item
+                // calcula peso atual (antes de adicionar)
+                const pesoAtual = await calcularPesoAtual(characters[idx].itens);
+
+                // tenta obter peso do item selecionado de forma robusta
+                let pesoDoItem = Number(selectedItem.peso);
+                if (!Number.isFinite(pesoDoItem)) {
+                    try {
+                        const docRef = window.doc(window.firestoredb, 'itens', selectedItem.id || selectedItem.uid || selectedItem);
+                        const docSnap = await window.getDoc(docRef);
+                        if (docSnap.exists()) {
+                            const d = docSnap.data();
+                            pesoDoItem = Number(d?.peso) || 0;
+                        } else {
+                            pesoDoItem = 0;
+                        }
+                    } catch (e) {
+                        console.warn('Não foi possível ler peso do documento do item, assumindo 0', e);
+                        pesoDoItem = 0;
+                    }
+                }
+
+                // --------- LER CARGA MÁXIMA (PRIMÁRIO: characters[idx].carga) ----------
+                let cargaMaxima = Number(characters[idx]?.carga);
+                if (!Number.isFinite(cargaMaxima) || cargaMaxima < 0) {
+                    // fallback para atributos.carga se o campo direto não existir
+                    cargaMaxima = Number(characters[idx]?.atributos?.carga);
+                }
+                if (!Number.isFinite(cargaMaxima) || cargaMaxima < 0) {
+                    // fallback para charData (caso esteja carregado localmente)
+                    cargaMaxima = Number(charData?.atributos?.carga);
+                }
+                if (!Number.isFinite(cargaMaxima) || cargaMaxima <= 0) {
+                    // último fallback prático: 8 + bravura RAW do personagem (sem tentar aplicar bônus de classe),
+                    // mas isso só roda se realmente não houver campo carga nas fontes anteriores.
+                    const bravuraRaw = Number(characters[idx]?.atributos?.bravura ?? charData?.atributos?.bravura ?? 0) || 0;
+                    cargaMaxima = 8 + bravuraRaw;
+                }
+
+                // normaliza para número inteiro ou mantem decimal se houver (mantemos Number)
+                cargaMaxima = Number(cargaMaxima);
+
+                console.debug('confirmEquip check -> pesoAtual:', pesoAtual, 'pesoDoItem:', pesoDoItem, 'cargaMaxima:', cargaMaxima, 'characters[idx].carga:', characters[idx]?.carga, 'characters[idx].atributos?.carga:', characters[idx]?.atributos?.carga);
+
+                // verifica se ultrapassa (permitido quando igual)
+                if ((pesoAtual + pesoDoItem) > cargaMaxima) {
+                    alert(
+                        `Não é possível equipar este item — ele aumentaria o peso de ${pesoAtual} → ${pesoAtual + pesoDoItem} ` +
+                        `e ultrapassaria a carga máxima do personagem (${cargaMaxima}).`
+                    );
+                    return; // não adiciona
+                }
+
+                // passa na checagem => adiciona item
                 characters[idx].itens.push({ uid: selectedItem.id });
 
-                // === NOVO → recalcula automaticamente o peso_atual ===
+                // recalcula peso_atual já com o novo item
                 const novoPeso = await calcularPesoAtual(characters[idx].itens);
                 characters[idx].peso_atual = novoPeso;
 
                 // salva no Firestore
                 await window.updateDoc(userRef, { personagens: characters });
 
-                // atualiza slots visuais
+                // atualiza UI
                 await refreshSlotsFromCharData();
 
                 closeModal();
             } catch (err) {
                 console.error('Erro ao equipar item:', err);
-                alert('Erro ao equipar item (veja o console).');
+                alert('Erro ao equipar item. Veja console para detalhes.');
+            } finally {
+                // reativa botão
+                if (confirmBtn) confirmBtn.disabled = false;
             }
         }
 
@@ -1038,7 +1094,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 // percorre cada reference de item no personagem e busca o documento correspondende
-                for (const e of equipped) {
+                // OBS: agora guardamos também o índice original (sourceIndex) para remover apenas a instância clicada
+                for (let i = 0; i < equipped.length; i++) {
+                    const e = equipped[i];
                     if (!e || !e.uid) continue;
                     try {
                         const itemRef = window.doc(window.firestoredb, 'itens', e.uid);
@@ -1046,7 +1104,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         if (!itemSnap.exists()) continue;
                         const it = itemSnap.data();
                         const slotKey = classifyTipo(it.tipo_item);
-                        lists[slotKey].push({ id: itemSnap.id, data: it });
+                        // guardamos sourceIndex para poder remover apenas esta ocorrência
+                        lists[slotKey].push({ id: itemSnap.id, data: it, sourceIndex: i });
                     } catch (err) {
                         console.warn('Erro lendo item referenciado', e.uid, err);
                     }
@@ -1069,11 +1128,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const ul = document.createElement('ul');
                     ul.className = 'equipped-list';
 
-                    itemsArray.forEach((itemWrap, indexInFilteredList) => {
+                    itemsArray.forEach((itemWrap) => {
                         const li = document.createElement('li');
                         li.className = 'equipped-item';
                         li.tabIndex = 0;
                         li.dataset.uid = itemWrap.id;
+                        // opcional: guarda também o sourceIndex como atributo data para debug/inspeção
+                        li.dataset.sourceIndex = String(itemWrap.sourceIndex);
 
                         // nome
                         const name = document.createElement('div');
@@ -1096,12 +1157,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         removeBtn.className = 'equipped-item-remove';
                         removeBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
 
-
+                        // ao clicar, removemos a instância pelo índice original (sourceIndex)
                         removeBtn.addEventListener('click', async (ev) => {
                             ev.stopPropagation(); // evita abrir modal se clicar no item
-
-                            await removerItemEquipado(itemWrap.id);
-
+                            // itemWrap.sourceIndex é o índice no array personagens[idx].itens
+                            await removerItemEquipado(itemWrap.sourceIndex);
                             // atualiza interface
                             await refreshSlotsFromCharData();
                         });
@@ -1114,7 +1174,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     body.appendChild(ul);
                 }
 
-                async function removerItemEquipado(uidDoItem) {
+                // Remove apenas a entrada na posição passada (não remove todas as que têm o mesmo uid)
+                async function removerItemEquipado(itemIndexToRemove) {
                     try {
                         const charId = getCharUidFromContext();
                         const user = window.firebaseauth.currentUser;
@@ -1131,12 +1192,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         const itens = Array.isArray(personagens[idx].itens) ? personagens[idx].itens.slice() : [];
 
-                        // remove apenas o que tem uid igual
-                        const novoArray = itens.filter(i => i.uid !== uidDoItem);
-                        personagens[idx].itens = novoArray;
+                        // se o índice for válido, removemos apenas essa posição
+                        if (Number.isFinite(itemIndexToRemove) && itemIndexToRemove >= 0 && itemIndexToRemove < itens.length) {
+                            const novoArray = itens.slice();
+                            novoArray.splice(itemIndexToRemove, 1); // remove somente esse elemento
+                            personagens[idx].itens = novoArray;
+
+                        } else {
+                            // fallback: se por algum motivo o índice estiver inválido, remove só a primeira ocorrência do uid
+                            console.warn('Índice inválido ao tentar remover item. Aplicando fallback (remover primeira ocorrência).', itemIndexToRemove);
+                            // tenta inferir uid a partir do array atual (caso você queira passar uid ao fallback)
+                            // aqui não temos o uid diretamente, então apenas mantemos o array como estava
+                            return;
+                        }
 
                         // recalcular peso
-                        const novoPeso = await calcularPesoAtual(novoArray);
+                        const novoPeso = await calcularPesoAtual(personagens[idx].itens);
                         personagens[idx].peso_atual = novoPeso;
 
                         // salvar
@@ -1146,7 +1217,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         console.error('Erro ao remover item', err);
                     }
                 }
-
 
                 // renderiza as três listas
                 renderListInSlot('char-armas', lists.armas);
