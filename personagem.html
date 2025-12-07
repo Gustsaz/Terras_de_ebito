@@ -191,14 +191,65 @@
                         <textarea class="personality-panel" id="char-personality-desc"
                             placeholder="Descreva a personalidade do seu personagem...">—</textarea>
                     </div>
-                    
+
                 </div><!-- /.tab-description -->
 
 
                 <!-- ======= Painel BATALHA (placeholder) ======= -->
+                <!-- ======= Painel BATALHA (com slots e modal) ======= -->
                 <div class="tab-content tab-battle" data-tab="battle" style="display:none;">
                     <h2>Batalha</h2>
-                    <div style="min-height:160px;color:#f2eee9">Em construção...</div>
+
+
+                    <div class="battle-equip">
+                        <div id="char-armas" class="char-equipment-slot" data-slot-type="armas" tabindex="0"
+                            role="button" aria-pressed="false">
+                            <div class="slot-title">Armas / Equipamentos</div>
+                            <div class="slot-body">Vazio</div>
+                        </div>
+
+
+                        <div id="char-protecao" class="char-equipment-slot" data-slot-type="protecao" tabindex="0"
+                            role="button" aria-pressed="false">
+                            <div class="slot-title">Proteção</div>
+                            <div class="slot-body">Vazio</div>
+                        </div>
+
+
+                        <div id="char-utilitarios" class="char-equipment-slot" data-slot-type="utilitarios" tabindex="0"
+                            role="button" aria-pressed="false">
+                            <div class="slot-title">Utilitários</div>
+                            <div class="slot-body">Vazio</div>
+                        </div>
+                    </div>
+
+
+                    <!-- Modal de itens (invisível por padrão) -->
+                    <div id="items-modal" class="items-modal" aria-hidden="true">
+                        <div class="items-modal-backdrop"></div>
+                        <div class="items-modal-panel" role="dialog" aria-modal="true"
+                            aria-labelledby="items-modal-title">
+                            <header class="items-modal-header">
+                                <h3 id="items-modal-title">Escolher Item</h3>
+                                <button id="items-modal-close" class="modal-close" aria-label="Fechar">✕</button>
+                            </header>
+                            <div class="items-modal-body">
+                                <aside class="items-list" id="items-list" role="list"></aside>
+                                <section class="item-detail" id="item-detail">
+                                    <div class="item-detail-empty">Selecione um item à esquerda para ver a descrição.
+                                    </div>
+                                    <div class="item-detail-content" style="display:none;">
+                                        <h4 id="detail-name"></h4>
+                                        <div id="detail-fields"></div>
+                                        <div class="item-detail-actions">
+                                            <button id="confirm-equip" class="btn-confirm">Confirmar</button>
+                                            <button id="cancel-equip" class="btn-cancel">Cancelar</button>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
             </div><!-- /.left-card-body -->
