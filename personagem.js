@@ -621,7 +621,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="inventory-top">
                 <div class="peso">
                     <i class="fa-solid fa-dumbbell"></i>
-                    <span id="peso-info">0 / 0</span>
+                    <span id="peso-info">0 / 0</span><span>kg</span>
                 </div>
                 <input class="search-field" placeholder="Buscar item..." />
             </div>
@@ -1418,6 +1418,436 @@ document.addEventListener('DOMContentLoaded', async () => {
             closeModal,
             refreshSlotsFromCharData
         };
+
+        /* ===== ADD: Feitiços / Milagres integration ===== */
+        (function setupMagicSlots() {
+            // elementos
+            const slotFeit = document.getElementById('char-feiticos');
+            const slotMil = document.getElementById('char-milagres');
+
+            // modal elements
+            const magicModal = document.getElementById('magic-modal');
+            const magicBackdrop = document.getElementById('magic-modal-backdrop');
+            const magicListEl = document.getElementById('magic-list');
+            const magicListTitle = document.getElementById('magic-list-title');
+            const magicDetailName = document.getElementById('magic-detail-name');
+            const magicDetailFields = document.getElementById('magic-detail-fields');
+            const magicConfirmBtn = document.getElementById('magic-confirm-btn');
+            const magicCancelBtn = document.getElementById('magic-cancel-btn');
+            const magicCloseBtn = document.getElementById('magic-modal-close');
+            const magicDetailContent = document.getElementById('magic-detail-content');
+            const magicDetailEmpty = document.getElementById('magic-detail-empty');
+
+            // mapping colors for feitiços by elemento
+            const elementColors = {
+                "Básico": "#ebe1cf",
+                "Arcano": "#5d2322",
+                "Vento": "#e6e6e6",
+                "Fogo": "#ffeb6b",
+                "Água": "#9fd3ff",
+                "Feras": "#bff2b0"
+            };
+
+            // mapping imagens para milagres por tomo
+            const tomoImgs = {
+                "Solyn": "./imgs/Solyn.png",
+                "Naruva": "./imgs/Naruva.png",
+                "Nyra": "./imgs/Nyra.png",
+                "Sanguis": "./imgs/Sanguis.png",
+                "Kaelun": "./imgs/Kaelun.png",
+                "Mileth": "./imgs/Mileth.png",
+                "Elyra": "./imgs/Elyra.png",
+                "Thalun": "./imgs/Thalun.png",
+                "Nenhum": null
+            };
+
+            // estado temporário
+            let activeCollection = null; // 'feitiços' or 'milagres'
+            let selectedDocUid = null;
+            let selectedDocData = null;
+
+            // abre modal e lista
+            async function openMagicModal(collectionName) {
+                activeCollection = collectionName;
+                selectedDocUid = null;
+                selectedDocData = null;
+                magicListEl.innerHTML = `<div style="padding:8px;color:#ddd">Carregando ${collectionName}...</div>`;
+                magicDetailContent.style.display = 'none';
+                magicDetailEmpty.style.display = '';
+                magicListTitle.textContent = (collectionName === 'feitiços') ? 'Feitiços' : 'Milagres';
+                magicConfirmBtn.disabled = true;
+
+                // show modal
+                magicBackdrop.classList.add('open'); magicBackdrop.setAttribute('aria-hidden', 'false');
+                magicModal.classList.add('open'); magicModal.setAttribute('aria-hidden', 'false');
+
+                try {
+                    const colRef = window.collection(window.firestoredb, collectionName);
+                    const snap = await window.getDocs(colRef);
+                    const docs = [];
+                    snap.forEach(d => docs.push({ id: d.id, data: d.data() }));
+
+                    if (!docs.length) {
+                        magicListEl.innerHTML = `<div style="padding:8px;color:#ddd">Nenhum documento em ${collectionName}.</div>`;
+                        return;
+                    }
+
+                    // render list
+                    magicListEl.innerHTML = '';
+                    for (const d of docs) {
+                        const it = document.createElement('div');
+                        it.className = 'magic-item';
+                        it.dataset.uid = d.id;
+
+                        const left = document.createElement('div'); left.className = 'mi-left';
+                        const nameSpan = document.createElement('div'); nameSpan.className = 'mi-name';
+                        nameSpan.textContent = d.data.nome || '(Sem nome)';
+
+                        // styling for feitiços by elemento
+                        if (collectionName === 'feitiços') {
+                            const el = d.data.elemento || 'Básico';
+                            const bg = elementColors[el] || '#e6e6e6';
+                            nameSpan.style.background = bg;
+                            nameSpan.style.opacity = '0.95';
+                            nameSpan.style.color = (el === 'Arcano' ? '#fff' : '#0d0d0d');
+                        }
+
+                        left.appendChild(nameSpan);
+
+                        // For milagres: show tomo icon on the right (small)
+                        if (collectionName === 'milagres') {
+                            const meta = document.createElement('div');
+                            meta.className = 'mi-meta';
+                            meta.textContent = d.data.tipo ? `${d.data.tipo}` : '';
+                            left.appendChild(meta);
+                        }
+
+                        it.appendChild(left);
+
+                        // right side: image for milagres tomo (if any) or elemento short text for feitiços
+                        const right = document.createElement('div');
+                        if (collectionName === 'milagres') {
+                            const tomo = d.data.tomo || 'Nenhum';
+                            const src = tomoImgs[tomo];
+                            if (src) {
+                                const img = document.createElement('img');
+                                img.src = src;
+                                img.alt = tomo;
+                                img.style.width = '44px'; img.style.height = '36px'; img.style.objectFit = 'contain';
+                                right.appendChild(img);
+                            }
+                        } else {
+                            const small = document.createElement('div');
+                            small.textContent = d.data.elemento || '';
+                            small.style.fontSize = '0.85rem';
+                            small.style.color = '#efe6e2';
+                            right.appendChild(small);
+                        }
+                        it.appendChild(right);
+
+                        // click handler
+                        it.addEventListener('click', () => {
+                            // unselect previous
+                            magicListEl.querySelectorAll('.magic-item').forEach(el => el.classList.remove('selected'));
+                            it.classList.add('selected');
+                            selectedDocUid = d.id;
+                            selectedDocData = d.data;
+                            renderMagicDetail(d.id, d.data);
+                            magicConfirmBtn.disabled = false;
+                        });
+
+                        magicListEl.appendChild(it);
+                    }
+
+                } catch (err) {
+                    console.error('Erro carregando coleção', collectionName, err);
+                    magicListEl.innerHTML = `<div style="padding:8px;color:#faa">Erro ao carregar ${collectionName}.</div>`;
+                }
+            }
+
+            function renderMagicDetail(uid, data) {
+                magicDetailName.textContent = data.nome || '(Sem nome)';
+                magicDetailFields.innerHTML = '';
+                // iterate fields and show only valid ones (excluir "Nenhum", "", null, undefined)
+                Object.entries(data).forEach(([k, v]) => {
+                    if (k === 'nome') return;
+                    if (v === 'Nenhum') return;
+                    if (v === '' || v === null || v === undefined) return;
+                    if (typeof v === 'string' && v.trim() === '') return;
+
+                    const row = document.createElement('div');
+                    row.className = 'detail-row';
+                    row.innerHTML = `<strong>${k}:</strong> ${v}`;
+                    magicDetailFields.appendChild(row);
+                });
+
+                magicDetailEmpty.style.display = 'none';
+                magicDetailContent.style.display = '';
+            }
+
+            function closeMagicModal() {
+                magicBackdrop.classList.remove('open'); magicBackdrop.setAttribute('aria-hidden', 'true');
+                magicModal.classList.remove('open'); magicModal.setAttribute('aria-hidden', 'true');
+                magicListEl.innerHTML = '';
+                magicDetailFields.innerHTML = '';
+                magicDetailName.textContent = '';
+                selectedDocUid = null;
+                selectedDocData = null;
+            }
+
+            async function confirmMagicSelection() {
+                if (!selectedDocUid || !activeCollection) return;
+                try {
+                    const user = window.firebaseauth.currentUser;
+                    if (!user) { alert('Usuário não autenticado'); return; }
+                    const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+                    const snap = await window.getDoc(userRef);
+                    if (!snap.exists()) { alert('Documento de usuário não encontrado'); return; }
+                    const data = snap.data();
+                    const personagens = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+                    const idx = personagens.findIndex(p => p && p.uid === charUid);
+                    if (idx < 0) { alert('Personagem não encontrado'); closeMagicModal(); return; }
+
+                    // garante o array correto e insere um documento aleatório (objeto) com 'uid' do feitiço/milagre
+                    const arrName = (activeCollection === 'feitiços') ? 'feiticos' : 'milagres';
+                    personagens[idx][arrName] = Array.isArray(personagens[idx][arrName]) ? personagens[idx][arrName].slice() : [];
+
+                    // cria documento aleatório (map) com campo uid (seguindo seu esquema)
+                    const randomId = String(Date.now()) + '_' + Math.random().toString(36).slice(2, 8);
+                    const mapObj = { uid: String(selectedDocUid), _id: randomId };
+
+                    personagens[idx][arrName].push(mapObj);
+
+                    // salva no Firestore
+                    await window.updateDoc(userRef, { personagens });
+                    // atualiza charData local para refletir na UI
+                    if (charData && Array.isArray(charData[arrName])) {
+                        charData[arrName].push(mapObj);
+                    } else if (charData) {
+                        charData[arrName] = [mapObj];
+                    }
+
+                    // recicla UI (tentamos atualizar os slots existentes)
+                    refreshSlotsFromCharData?.(); // se essa função existir no scope
+                    // fechar modal
+                    closeMagicModal();
+
+                } catch (err) {
+                    console.error('Erro ao salvar feitiço/milagre no personagem', err);
+                    alert('Erro ao salvar. Veja console.');
+                }
+            }
+
+            // Wire events
+            slotFeit?.addEventListener('click', () => openMagicModal('feitiços'));
+            slotMil?.addEventListener('click', () => openMagicModal('milagres'));
+            magicCloseBtn?.addEventListener('click', closeMagicModal);
+            magicCancelBtn?.addEventListener('click', closeMagicModal);
+            magicBackdrop?.addEventListener('click', closeMagicModal);
+            magicConfirmBtn?.addEventListener('click', confirmMagicSelection);
+
+            // function to refresh the display in the two slots from charData (called on load)
+            // ---- substituir a função refreshMagicSlotsFromCharData() existente por esta ----
+            async function refreshMagicSlotsFromCharData() {
+                try {
+                    const charObj = charData || {};
+
+                    // helper: renderiza lista vertical para um array (feiticos ou milagres)
+                    async function buildList(arr, collectionName, slotEl) {
+                        const body = slotEl.querySelector('.slot-body');
+                        body.innerHTML = ''; // limpa
+
+                        const validArray = Array.isArray(arr) ? arr : [];
+                        if (!validArray.length || validArray.every(a => !a?.uid)) {
+                            body.textContent = 'Vazio';
+                            return;
+                        }
+
+                        const ul = document.createElement('ul');
+                        ul.className = 'equipped-list';
+
+                        // percorre e busca cada documento por uid; usa index para remoção precisa
+                        for (let i = 0; i < validArray.length; i++) {
+                            const entry = validArray[i];
+                            if (!entry?.uid) continue;
+
+                            try {
+                                const dref = window.doc(window.firestoredb, collectionName, entry.uid);
+                                const ds = await window.getDoc(dref);
+                                const nameText = (ds && ds.exists()) ? (ds.data().nome || ds.id) : '(?)';
+
+                                const li = document.createElement('li');
+                                li.className = 'equipped-item';
+                                li.tabIndex = 0;
+                                li.dataset.index = String(i);
+
+                                // left: nome + meta
+                                const left = document.createElement('div');
+                                left.style.flex = '1';
+                                left.style.display = 'flex';
+                                left.style.flexDirection = 'column';
+                                left.style.gap = '4px';
+
+                                const nameDiv = document.createElement('div');
+                                nameDiv.className = 'equipped-item-name';
+                                nameDiv.textContent = nameText;
+
+                                // estilo especial para feitiços por elemento
+                                if (collectionName === 'feitiços' && ds && ds.exists()) {
+                                    const elField = ds.data().elemento || 'Básico';
+                                    const elementColors = {
+                                        "Básico": "#ebe1cf",
+                                        "Arcano": "#5d2322",
+                                        "Vento": "#e6e6e6",
+                                        "Fogo": "#ffeb6b",
+                                        "Água": "#9fd3ff",
+                                        "Feras": "#bff2b0"
+                                    };
+                                    const bg = elementColors[elField] || '#e6e6e6';
+                                    nameDiv.style.background = bg;
+                                    nameDiv.style.opacity = '0.95';
+                                    nameDiv.style.color = (elField === 'Arcano' ? '#fff' : '#0d0d0d');
+                                    nameDiv.style.padding = '6px 8px';
+                                    nameDiv.style.borderRadius = '6px';
+                                    nameDiv.style.display = 'inline-block';
+                                }
+
+                                left.appendChild(nameDiv);
+
+                                // meta breve (ex: tipo/tomo/custo)
+                                if (ds && ds.exists()) {
+                                    const d = ds.data();
+                                    const metaParts = [];
+                                    if (d.custo !== undefined && d.custo !== null && String(d.custo).trim() !== '') metaParts.push(String(d.custo));
+                                    if (d.elemento) metaParts.push(String(d.elemento));
+                                    if (d.tomo) metaParts.push(String(d.tomo));
+                                    if (metaParts.length) {
+                                        const meta = document.createElement('div');
+                                        meta.className = 'equipped-item-meta';
+                                        meta.textContent = metaParts.join(' • ');
+                                        left.appendChild(meta);
+                                    }
+                                }
+
+                                li.appendChild(left);
+
+                                // right: imagem de tomo (para milagres) + botão remover
+                                const right = document.createElement('div');
+                                right.style.display = 'flex';
+                                right.style.alignItems = 'center';
+                                right.style.gap = '8px';
+
+                                if (collectionName === 'milagres' && ds && ds.exists()) {
+                                    const tomoImgs = {
+                                        "Solyn": "./imgs/Solyn.png",
+                                        "Naruva": "./imgs/Naruva.png",
+                                        "Nyra": "./imgs/Nyra.png",
+                                        "Sanguis": "./imgs/Sanguis.png",
+                                        "Kaelun": "./imgs/Kaelun.png",
+                                        "Mileth": "./imgs/Mileth.png",
+                                        "Elyra": "./imgs/Elyra.png",
+                                        "Thalun": "./imgs/Thalun.png",
+                                        "Nenhum": null
+                                    };
+                                    const tomo = ds.data().tomo || 'Nenhum';
+                                    const src = tomoImgs[tomo];
+                                    if (src) {
+                                        const img = document.createElement('img');
+                                        img.src = src;
+                                        img.alt = tomo;
+                                        img.style.width = '44px';
+                                        img.style.height = '32px';
+                                        img.style.objectFit = 'contain';
+                                        right.appendChild(img);
+                                    }
+                                }
+
+                                // botão remover (remove apenas essa instância/index)
+                                const removeBtn = document.createElement('span');
+                                removeBtn.className = 'equipped-item-remove';
+                                removeBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+                                removeBtn.title = 'Remover';
+                                removeBtn.style.cursor = 'pointer';
+                                removeBtn.addEventListener('click', async (ev) => {
+                                    ev.stopPropagation();
+                                    // remove por índice no array do personagem
+                                    try {
+                                        const user = window.firebaseauth.currentUser;
+                                        if (!user) throw new Error('Usuário não autenticado');
+                                        const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+                                        const snap = await window.getDoc(userRef);
+                                        if (!snap.exists()) throw new Error('Documento de usuário não encontrado');
+                                        const data = snap.data();
+                                        const personagens = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+                                        const idx = personagens.findIndex(p => p && p.uid === charUid);
+                                        if (idx < 0) throw new Error('Personagem não encontrado no documento');
+
+                                        const arrName = (collectionName === 'feitiços') ? 'feiticos' : 'milagres';
+                                        const arrLocal = Array.isArray(personagens[idx][arrName]) ? personagens[idx][arrName].slice() : [];
+
+                                        // se índice válido, remover
+                                        if (i >= 0 && i < arrLocal.length) {
+                                            arrLocal.splice(i, 1);
+                                            personagens[idx][arrName] = arrLocal;
+                                            // salvar
+                                            await window.updateDoc(userRef, { personagens });
+                                            // atualizar charData local (manter sincronizado)
+                                            if (charData && Array.isArray(charData[arrName])) {
+                                                charData[arrName].splice(i, 1);
+                                            }
+                                            // refrescar UI
+                                            await refreshMagicSlotsFromCharData();
+                                        } else {
+                                            console.warn('Índice inválido ao remover magia/milagre', i);
+                                        }
+                                    } catch (err) {
+                                        console.error('Erro removendo magia/milagre:', err);
+                                        alert('Erro ao remover. Veja console.');
+                                    }
+                                });
+
+                                right.appendChild(removeBtn);
+                                li.appendChild(right);
+
+                                ul.appendChild(li);
+                            } catch (e) {
+                                console.warn('Erro ao buscar doc de', entry.uid, e);
+                            }
+                        } // end for
+
+                        body.appendChild(ul);
+                    } // end buildList
+
+                    // Feiticos
+                    if (slotFeit) {
+                        const arrF = Array.isArray(charObj?.feiticos) ? charObj.feiticos : [];
+                        await buildList(arrF, 'feitiços', slotFeit);
+                    }
+                    // Milagres
+                    if (slotMil) {
+                        const arrM = Array.isArray(charObj?.milagres) ? charObj.milagres : [];
+                        await buildList(arrM, 'milagres', slotMil);
+                    }
+
+                } catch (err) {
+                    console.warn('refreshMagicSlotsFromCharData erro', err);
+                }
+            }
+
+
+            // chama na inicialização (se existir a função global refreshSlotsFromCharData que você já usa, chamamos ela depois)
+            setTimeout(() => refreshMagicSlotsFromCharData(), 400);
+
+            // expose small API (opcional)
+            window.__magicSlots = {
+                open: openMagicModal,
+                close: closeMagicModal,
+                refresh: refreshMagicSlotsFromCharData
+            };
+
+        })();
+
+
     })();
 
 

@@ -3,6 +3,7 @@
 // Simplificado: apenas home icon, sem auth
 console.log('Loading personagem.js');
 let clickCountGlobal = {};
+let charData = null;
 let allowNextContextMenu = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -57,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const normalize = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
     // Load character from Firestore
-    let charData = null;
+    charData = null;
     try {
         const userDocRef = window.doc(window.firestoredb, 'usuarios', window.firebaseauth.currentUser.uid);
         const userDocSnap = await window.getDoc(userDocRef);
@@ -87,26 +88,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     const story = charData.historia || '—';
     const appearance = charData.aparencia || '—';
 
-    // Mapear atributos utilizados (chaves esperadas, sem acento)
+    // Mapear atributos utilizados (RAW)
     const attrKeys = {
-        bravura: attributes['bravura'] ?? attributes['bravura'] ?? attributes['bravura'] ?? 0,
+        bravura: attributes['bravura'] ?? 0,
         arcano: attributes['arcano'] ?? 0,
-        folego: attributes['fôlego'] ?? attributes['folego'] ?? attributes['fôlego'] ?? 0,
+        folego: attributes['fôlego'] ?? attributes['folego'] ?? 0,
         essencia: attributes['essencia'] ?? attributes['essência'] ?? 0,
         tecnica: attributes['técnica'] ?? attributes['tecnica'] ?? 0,
         intelecto: attributes['intelecto'] ?? 0
     };
 
-    // Aplicar bônus raciais automáticos
-    if (savedRace === 'Feéricos' && savedSubrace === 'Ágeis') {
-        attrKeys['tecnica'] = (attrKeys['tecnica'] || 0) + 1;
+    function applyRacialBonus(rawValue, key) {
+        if (rawValue > 7) return rawValue;  // evita aplicar novamente ao recarregar
+
+        if (savedRace === 'Feéricos' && savedSubrace === 'Ágeis' && key === 'tecnica')
+            return rawValue + 1;
+
+        if (savedRace === 'Elfo' && key === 'intelecto')
+            return rawValue + 1;
+
+        if (savedRace === 'Meio Orc' && key === 'bravura')
+            return rawValue + 1;
+
+        return rawValue;
     }
-    if (savedRace === 'Elfo') {
-        attrKeys['intelecto'] = (attrKeys['intelecto'] || 0) + 1;
-    }
-    if (savedRace === 'Meio Orc') {
-        attrKeys['bravura'] = (attrKeys['bravura'] || 0) + 1;
-    }
+
+    // ✔️ TRANSFORMA RAW → TOTAL (com bônus)
+    attrKeys.bravura = applyRacialBonus(attrKeys.bravura, 'bravura');
+    attrKeys.arcano = applyRacialBonus(attrKeys.arcano, 'arcano');
+    attrKeys.tecnica = applyRacialBonus(attrKeys.tecnica, 'tecnica');
+    attrKeys.folego = applyRacialBonus(attrKeys.folego, 'folego');
+    attrKeys.essencia = applyRacialBonus(attrKeys.essencia, 'essencia');
+    attrKeys.intelecto = applyRacialBonus(attrKeys.intelecto, 'intelecto');
+
 
     // Calcula estatísticas de batalha por classe
     let pv = 0, mn = 0, sta = 0, profs = '—';
@@ -151,12 +165,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // imagem do personagem (tenta usar imagem pelo nome da classe em lowercase)
     if (el('char-img')) {
         if (savedClass) {
-            const candidate = `imgs/${savedClass.toLowerCase()}.png`;
+            const candidate = `./imgs/${savedClass.toLowerCase()}.png`;
             // tenta carregar (sem fetch) - definimos src e se falhar, cai ao onerror
             el('char-img').src = candidate;
-            el('char-img').onerror = () => { el('char-img').src = 'imgs/placeholder.png'; };
+            el('char-img').onerror = () => { el('char-img').src = './imgs/placeholder.png'; };
         } else {
-            el('char-img').src = 'imgs/placeholder.png';
+            el('char-img').src = './imgs/placeholder.png';
         }
     }
 
@@ -191,7 +205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // tornar atributos clicáveis para edição
+    // tornar atributos clicáveis para edição (com restrição de soma, alert 1x e revert)
     document.querySelectorAll('.attr-value').forEach(attrEl => {
         attrEl.style.cursor = 'pointer';
         attrEl.addEventListener('click', async (e) => {
@@ -199,14 +213,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             const attrKey = attrEl.id.replace('attr-', '');
             const normalizedKey = normalize(attrKey);
             const currentRaw = attributes[normalizedKey] ?? 0;
+            const prevRaw = currentRaw;             // guarda valor anterior para possível revert
             const bonus = getBonus(normalizedKey);
 
             const input = document.createElement('input');
             input.type = 'number';
             input.className = 'attr-input';
             input.value = String(currentRaw);
-            input.min = 0;
-            input.max = 50;
+            input.min = -1;    // permite -1
+            input.max = 7;
+            input.step = 1;
 
             let bonusSpan = null;
             if (bonus > 0) {
@@ -228,16 +244,70 @@ document.addEventListener('DOMContentLoaded', async () => {
             input.focus();
             input.select();
 
+            const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego'];
+            let alertShown = false; // garante um alerta só por edição
+
+            const revertToPrevious = () => {
+                // restaura valores locais e UI para como estavam antes da edição
+                attributes[normalizedKey] = prevRaw;
+                attrKeys[normalizedKey] = (prevRaw ?? 0) + bonus;
+                const prevTotal = (prevRaw ?? 0) + bonus;
+                attrEl.textContent = String(prevTotal);
+                attrEl.title = bonus > 0 ? `${prevRaw} + ${bonus}` : `${prevRaw}`;
+                // limpa UI temporária
+                input.remove();
+                if (bonusSpan) bonusSpan.remove();
+                if (label) label.remove();
+                attrEl.style.display = '';
+            };
+
             const finish = async (commit) => {
                 if (commit) {
-                    let newValue = Math.max(0, parseInt(input.value) || 0);
-                    newValue = Math.min(50, newValue);
+                    // parseia número (pode ser -1)
+                    let newValue = parseInt(input.value, 10);
+                    if (Number.isNaN(newValue)) newValue = prevRaw;
+                    newValue = Math.max(-1, Math.min(7, newValue)); // clamp entre -1 e 7
 
-                    // save to Firestore
+                    // calcula se existe algum -1 (considerando o novo valor)
+                    const anyMinusOne = ATTR_KEYS_LIST.some(k => {
+                        const kn = normalize(k);
+                        if (kn === normalizedKey) return newValue === -1;
+                        return (attributes[kn] === -1);
+                    });
+                    const allowedCap = anyMinusOne ? 8 : 7;
+
+                    // soma dos valores brutos com a substituição do valor em edição
+                    let sumRaw = 0;
+                    for (const k of ATTR_KEYS_LIST) {
+                        const kn = normalize(k);
+                        if (kn === normalizedKey) sumRaw += newValue;
+                        else sumRaw += Number(attributes[kn] ?? 0);
+                    }
+
+                    if (sumRaw > allowedCap) {
+                        // mostra alerta 1 vez e reverte ao valor anterior
+                        if (!alertShown) {
+                            const remainingBefore = allowedCap - (sumRaw - newValue);
+                            alert(`Não é possível atribuir esse valor: total de pontos excederia ${allowedCap}.\nPontos restantes antes desta alteração: ${remainingBefore}.\nSoma proposta: ${sumRaw}.`);
+                            alertShown = true;
+                        }
+                        // feedback visual leve
+                        input.animate([
+                            { transform: 'translateX(0)' },
+                            { transform: 'translateX(-6px)' },
+                            { transform: 'translateX(6px)' },
+                            { transform: 'translateX(0)' }
+                        ], { duration: 220, iterations: 1 });
+                        // revert e encerra (sem salvar)
+                        revertToPrevious();
+                        return;
+                    }
+
+                    // Aceita a mudança: atualiza dados locais
                     attributes[normalizedKey] = newValue;
-                    // update attrKeys (totals)
                     attrKeys[normalizedKey] = newValue + bonus;
-                    // recalc stats
+
+                    // recalcula stats conforme sua lógica existente
                     if (savedClass === 'Arcanista') {
                         pv = 8 + attrKeys.bravura;
                         mn = 10 + attrKeys.arcano;
@@ -258,15 +328,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     charData.PV.total = pv;
                     charData.MN.total = mn;
                     charData.STA.total = sta;
-                    // curPV clamp if increased, but for simplicity keep or adjust proportionally
+                    // ajustar atuais se necessário
                     if (curPV > pv) curPV = pv;
                     if (curMN > mn) curMN = mn;
                     if (curSTA > sta) curSTA = sta;
-                    totPV = pv;
-                    totMN = mn;
-                    totSTA = sta;
+                    totPV = pv; totMN = mn; totSTA = sta;
 
-                    // update display first
+                    // Atualiza UI (mostrando raw+bonus)
                     const newTotal = newValue + bonus;
                     attrEl.textContent = String(newTotal);
                     attrEl.title = bonus > 0 ? `${newValue} + ${bonus}` : `${newValue}`;
@@ -279,30 +347,75 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     updateAllBars();
 
-                    // update Firestore for attributes and stats async
+                    // grava no Firestore (mesma rotina que você já tinha)
                     try {
                         const userDocRef = window.doc(window.firestoredb, 'usuarios', window.firebaseauth.currentUser.uid);
                         const userDocSnap = await window.getDoc(userDocRef);
                         if (userDocSnap.exists()) {
-                            let characters = userDocSnap.data().personagens || [];
+                            const characters = userDocSnap.data().personagens || [];
                             const index = characters.findIndex(c => c.uid === charUid);
                             if (index >= 0) {
-                                characters[index].atributos = attributes;
+                                // garante que os atributos armazenados no documento sejam números
+                                characters[index].atributos = characters[index].atributos || {};
+                                Object.keys(attributes).forEach(k => {
+                                    const raw = Number(attributes[k] ?? 0);
+                                    const bonus = getBonus(k);        // já existe na sua função
+                                    const total = raw + bonus;
+                                    characters[index].atributos[k] = raw;
+                                });
+
+                                // atualiza os totais de PV/MN/STA
                                 characters[index].PV = charData.PV;
                                 characters[index].MN = charData.MN;
                                 characters[index].STA = charData.STA;
-                                await window.updateDoc(userDocRef, { personnages: characters });
+
+                                // ----------- ATUALIZAÇÃO AUTOMÁTICA DA CARGA -----------
+                                // Usa BRAVURA TOTAL — inclusive com bônus racial aplicado.
+                                const bravuraTotal = Number(attrKeys.bravura ?? 0);
+                                const novaCarga = 8 + bravuraTotal;
+
+
+                                // salva no objeto local
+                                characters[index].carga = novaCarga;
+
+                                // também salva em atributos.carga (compatibilidade retroativa)
+                                characters[index].atributos = characters[index].atributos || {};
+                                characters[index].atributos.carga = novaCarga;
+
+                                // atualiza UI do stat-carga
+                                const cargaEl = document.getElementById('stat-carga');
+                                if (cargaEl) cargaEl.textContent = novaCarga;
+                                updatePesoUI();
+
+                                // mantém charData em sincronia
+                                if (charData) {
+                                    charData.carga = novaCarga;
+                                    if (charData.atributos) charData.atributos.carga = novaCarga;
+                                }
+
+
+                                // SALVA no campo CORRETO 'personagens'
+                                await window.updateDoc(userDocRef, { personagens: characters });
+                                console.log('Atributos salvos em personagens[' + index + ']', characters[index].atributos);
+                            } else {
+                                console.warn('Índice do personagem não encontrado ao salvar atributos');
                             }
+                        } else {
+                            console.warn('Documento de usuário não existe ao tentar salvar atributos');
                         }
                     } catch (error) {
                         console.error('Error saving attribute to Firestore', error);
                     }
                 }
 
-                input.remove();
-                if (bonusSpan) bonusSpan.remove();
-                if (label) label.remove();
-                attrEl.style.display = '';
+                // limpa UI temporária (para caso commit ou não-commit sem exceder)
+                // caso já tenhamos revertido, revertToPrevious já removeu os elementos
+                if (document.body.contains(input)) {
+                    input.remove();
+                    if (bonusSpan) bonusSpan.remove();
+                    if (label) label.remove();
+                    attrEl.style.display = '';
+                }
             };
 
             input.addEventListener('keydown', (ev) => {
@@ -312,6 +425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             input.addEventListener('blur', () => finish(true));
         });
     });
+
 
     // estatísticas de batalha
     if (el('stat-pv')) el('stat-pv').textContent = pv;
@@ -333,118 +447,319 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el('char-aparencia-desc')) el('char-aparencia-desc').value = appearance;
 
 
-    /* ---------- INVENTÁRIO: será injetado à direita para replicar mockup ---------- */
-    // inventory pode existir no localStorage como array de objetos {id,name,img,qty}
-    let inventory = [];
-    try {
-        const invRaw = localStorage.getItem('inventory');
-        if (invRaw) inventory = JSON.parse(invRaw);
-    } catch (e) {
-        console.warn('inventory inválido', e);
-    }
 
-    // criar wrapper à direita
-    const main = document.querySelector('.character-main');
-    if (main) {
-        // evita duplicar se já foi inserido
-        if (!document.getElementById('inventory-wrap')) {
-            const wrap = document.createElement('div');
-            wrap.id = 'inventory-wrap';
+    /* ---------- Auto-save dos textareas (Firestore) + criação do note-panel ---------- */
+    // garante que a aba de descrição exista
+    const descriptionTabEl = document.querySelector('.tab-description') || document.querySelector('[data-tab="description"]');
 
-            // inventário card
-            wrap.innerHTML = `
-        <div class="inventory-card" aria-label="Inventário">
-          <div class="inventory-top">
-            <div class="peso">0 / 0 kg</div>
-            <input class="search-field" placeholder="Buscar item..." />
-          </div>
-          <div class="inventory-grid" role="list" aria-label="Slots do inventario"></div>
-        </div>
-      `;
-            main.appendChild(wrap);
-
-            // preencher slots
-            const grid = wrap.querySelector('.inventory-grid');
-
-            // padrão: grade 4x5 = 20 slots
-            const slotsCount = 20;
-            // função para montar slot
-            const createSlot = (slotIndex) => {
-                const s = document.createElement('div');
-                s.className = 'inv-slot';
-                s.dataset.slot = slotIndex;
-                return s;
-            };
-
-            // preencher cada slot com item se existir
-            for (let i = 0; i < slotsCount; i++) {
-                const slotEl = createSlot(i);
-                const item = inventory[i] || null;
-                if (item) {
-                    const img = document.createElement('img');
-                    img.alt = item.name || `item-${i}`;
-                    img.src = item.img || `imgs/${(item.id || 'placeholder')}.png`;
-                    img.onerror = () => { img.src = 'imgs/placeholder.png'; };
-                    slotEl.appendChild(img);
-
-                    if (item.qty && item.qty > 1) {
-                        const qty = document.createElement('div');
-                        qty.className = 'inv-qty';
-                        qty.textContent = item.qty;
-                        slotEl.appendChild(qty);
-                    }
-                    // tooltip on hover
-                    slotEl.title = item.name || 'Item';
-                    slotEl.addEventListener('click', () => {
-                        // ação simples: copia nome do item para clipboard / mostra alerta - você pode customizar
-                        navigator.clipboard?.writeText(item.name || '').catch(() => { });
-                        const prev = document.querySelector('.inv-slot.active');
-                        if (prev) prev.classList.remove('active');
-                        slotEl.classList.add('active');
-                        // feedback simples
-                        slotEl.animate([{ transform: 'translateY(-6px)' }, { transform: 'translateY(0)' }], { duration: 200 });
-                    });
-                }
-                grid.appendChild(slotEl);
-            }
-
-            // search filter
-            const searchField = wrap.querySelector('.search-field');
-            if (searchField) {
-                searchField.addEventListener('input', (e) => {
-                    const q = e.target.value.trim().toLowerCase();
-                    const slots = grid.querySelectorAll('.inv-slot');
-                    slots.forEach((slot, idx) => {
-                        const item = inventory[idx];
-                        if (!q) { slot.style.opacity = '1'; slot.style.filter = 'none'; return; }
-                        if (!item) { slot.style.opacity = '0.25'; return; }
-                        const name = (item.name || '').toLowerCase();
-                        if (name.includes(q)) {
-                            slot.style.opacity = '1';
-                            slot.style.filter = 'none';
-                        } else {
-                            slot.style.opacity = '0.25';
-                        }
-                    });
-                });
-            }
-
-            // update peso (se você armazenar peso por item)
-            const pesoEl = wrap.querySelector('.peso');
-            if (pesoEl) {
-                let totalPeso = 0;
-                let maxPeso = 0;
-                inventory.forEach(it => {
-                    const w = Number(it.weight || 0);
-                    totalPeso += (w * (it.qty || 1));
-                    maxPeso += w * (it.qty || 1);
-                });
-                // fallback: se não houver peso, mostrar contagem
-                if (totalPeso === 0) pesoEl.textContent = `${inventory.length} / ${slotsCount} itens`;
-                else pesoEl.textContent = `${totalPeso} / ${Math.max(12, Math.round(maxPeso || 12))} kg`;
-            }
+    if (descriptionTabEl) {
+        // cria note-panel se não existir (id: char-note-desc)
+        if (!document.getElementById('char-note-desc')) {
+            const noteWrapper = document.createElement('div');
+            noteWrapper.className = 'character-note';
+            noteWrapper.innerHTML = `
+            <h2>Notas</h2>
+            <textarea class="note-panel" id="char-note-desc" placeholder="Notas sobre o personagem...">${(charData && charData.notas) ? charData.notas : ''}</textarea>
+        `;
+            // insere no fim da aba descrição (após personalidade)
+            descriptionTabEl.appendChild(noteWrapper);
         }
     }
+
+    // helper debounce
+    function debounce(fn, wait = 700) {
+        let t = null;
+        return function (...args) {
+            clearTimeout(t);
+            t = setTimeout(() => fn.apply(this, args), wait);
+        };
+    }
+
+    // função que salva um campo do personagem no array 'personagens' do documento do usuário
+    async function saveCharacterField(fieldName, value) {
+        if (!window.firebaseauth?.currentUser) return;
+        try {
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', window.firebaseauth.currentUser.uid);
+            const userDocSnap = await window.getDoc(userDocRef);
+            if (!userDocSnap.exists()) {
+                console.warn('Documento do usuário não existe ao tentar salvar campo', fieldName);
+                return;
+            }
+            const data = userDocSnap.data();
+            const characters = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+            const idx = characters.findIndex(c => c && c.uid === charUid);
+            if (idx < 0) {
+                console.warn('Personagem não encontrado ao salvar campo', fieldName);
+                return;
+            }
+            // garante o objeto do personagem
+            characters[idx] = characters[idx] || {};
+            // atualiza o campo (mantendo outros campos)
+            characters[idx][fieldName] = value;
+            // grava no Firestore
+            await window.updateDoc(userDocRef, { personagens: characters });
+            // atualiza charData local para manter sincronizado
+            if (charData) charData[fieldName] = value;
+            console.log(`Campo '${fieldName}' salvo para personagem[${idx}]`);
+        } catch (err) {
+            console.error('Erro ao salvar campo do personagem:', fieldName, err);
+        }
+    }
+
+    // pega referências aos textareas (compatibilidade com ids/classes que você usa)
+    const storyTA = document.getElementById('char-historia-desc') || document.querySelector('.story-panel');
+    const appearanceTA = document.getElementById('char-aparencia-desc') || document.querySelector('.appearance-panel');
+    const personalityTA = document.getElementById('char-personality-desc') || document.getElementById('char-personality') || document.querySelector('.personality-panel');
+    const noteTA = document.getElementById('char-note-desc') || document.querySelector('.note-panel');
+
+    // preenche initial values (caso ainda não tenham sido preenchidos antes)
+    if (storyTA && (storyTA.value === '' || storyTA.value === '—')) storyTA.value = (charData && charData.historia) ? charData.historia : '';
+    if (appearanceTA && (appearanceTA.value === '' || appearanceTA.value === '—')) appearanceTA.value = (charData && charData.aparencia) ? charData.aparencia : '';
+    if (personalityTA && (personalityTA.value === '' || personalityTA.value === '—')) personalityTA.value = (charData && charData.personalidade) ? charData.personalidade : '';
+    if (noteTA && (noteTA.value === '' || noteTA.value === '—')) noteTA.value = (charData && charData.notas) ? charData.notas : '';
+
+    // debounced savers
+    const debSaveStory = debounce((v) => saveCharacterField('historia', v), 700);
+    const debSaveAppearance = debounce((v) => saveCharacterField('aparencia', v), 700);
+    const debSavePersonality = debounce((v) => saveCharacterField('personalidade', v), 700);
+    const debSaveNotes = debounce((v) => saveCharacterField('notas', v), 700);
+
+    // attach listeners (evita duplicar)
+    if (storyTA && !storyTA.hasAttribute('data-listener-added-firestore')) {
+        storyTA.addEventListener('input', (e) => {
+            const v = e.target.value;
+            // opcional: também manter localStorage para fallback offline
+            try { localStorage.setItem('characterStory', v); } catch (err) { /* ignore */ }
+            debSaveStory(v);
+        });
+        storyTA.setAttribute('data-listener-added-firestore', 'true');
+    }
+    if (appearanceTA && !appearanceTA.hasAttribute('data-listener-added-firestore')) {
+        appearanceTA.addEventListener('input', (e) => {
+            const v = e.target.value;
+            try { localStorage.setItem('characterAppearance', v); } catch (err) { /* ignore */ }
+            debSaveAppearance(v);
+        });
+        appearanceTA.setAttribute('data-listener-added-firestore', 'true');
+    }
+    if (personalityTA && !personalityTA.hasAttribute('data-listener-added-firestore')) {
+        personalityTA.addEventListener('input', (e) => {
+            const v = e.target.value;
+            try { localStorage.setItem('characterPersonality', v); } catch (err) { /* ignore */ }
+            debSavePersonality(v);
+        });
+        personalityTA.setAttribute('data-listener-added-firestore', 'true');
+    }
+    if (noteTA && !noteTA.hasAttribute('data-listener-added-firestore')) {
+        noteTA.addEventListener('input', (e) => {
+            const v = e.target.value;
+            try { localStorage.setItem('characterNotes', v); } catch (err) { /* ignore */ }
+            debSaveNotes(v);
+        });
+        noteTA.setAttribute('data-listener-added-firestore', 'true');
+    }
+
+    function openItemDetailModal(itemId, itemData) {
+
+        const modal = document.getElementById("inventory-item-modal");
+        const titleEl = modal.querySelector(".item-detail-title");
+        const fieldsEl = modal.querySelector(".item-detail-fields");
+
+        if (!modal || !titleEl || !fieldsEl) {
+            console.warn("Modal do inventário não encontrado no HTML");
+            return;
+        }
+
+        // título
+        titleEl.textContent = itemData.nome || "(Sem nome)";
+
+        // limpa conteúdo
+        fieldsEl.innerHTML = "";
+
+        // adiciona campos válidos
+        for (const [key, value] of Object.entries(itemData)) {
+
+            if (key === "nome") continue;
+
+            // --- regras para ocultar campo ---
+            if (value === "Nenhum") continue;          // 1) exatamente "Nenhum"
+            if (value === "" || value === null) continue;
+            if (typeof value === "string" && value.trim() === "") continue;
+            if (value === undefined) continue;
+
+            // cria a linha normal
+            const row = document.createElement("div");
+            row.className = "detail-row";
+            row.innerHTML = `<strong>${key}:</strong> ${value}`;
+            fieldsEl.appendChild(row);
+        }
+
+        // abre o modal
+        modal.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+
+        // botão fechar
+        const closeBtn = document.getElementById("inv-item-close");
+        closeBtn.onclick = () => {
+            modal.classList.remove("open");
+            modal.setAttribute("aria-hidden", "true");
+        };
+    }
+
+    /* ---------- INVENTÁRIO (real-time Firestore) ---------- */
+
+    let inventoryFromFirebase = []; // usado no peso
+
+    const main = document.querySelector('.character-main');
+    if (main && !document.getElementById('inventory-wrap')) {
+
+        const wrap = document.createElement('div');
+        wrap.id = 'inventory-wrap';
+
+        wrap.innerHTML = `
+        <div class="inventory-card" aria-label="Inventário">
+            <div class="inventory-top">
+                <div class="peso">
+                    <i class="fa-solid fa-dumbbell"></i>
+                    <span id="peso-info">0 / 0</span>
+                </div>
+                <input class="search-field" placeholder="Buscar item..." />
+            </div>
+            <div class="inventory-grid" role="list" aria-label="Slots do inventário"></div>
+        </div>`;
+
+        main.appendChild(wrap);
+
+        const grid = wrap.querySelector(".inventory-grid");
+        const slotsCount = 20;
+
+        function createEmptySlots() {
+            grid.innerHTML = "";
+            for (let i = 0; i < slotsCount; i++) {
+                const s = document.createElement("div");
+                s.className = "inv-slot";
+                s.dataset.slot = i;
+                s.setAttribute("tabindex", "0");
+                grid.appendChild(s);
+            }
+        }
+
+        createEmptySlots();
+
+        /* ----------- REALTIME FIRESTORE LISTENER ----------- */
+        function enableRealtimeInventory() {
+            const user = window.firebaseauth.currentUser;
+            if (!user) return;
+
+            const userRef = window.doc(window.firestoredb, "usuarios", user.uid);
+
+            // 🔥 AQUI É O **CORRETO**
+            window.firebaseOnSnapshot(userRef, async (snap) => {
+
+                if (!snap.exists()) return;
+
+                const data = snap.data();
+                const personagens = data.personagens || [];
+                const myChar = personagens.find(p => p.uid === charUid);
+                if (!myChar) return;
+
+                const equipped = Array.isArray(myChar.itens) ? myChar.itens : [];
+
+                // reseta a UI
+                inventoryFromFirebase = [];
+                createEmptySlots();
+
+                const slots = grid.querySelectorAll(".inv-slot");
+                let index = 0;
+
+                for (const entry of equipped) {
+
+                    if (!entry?.uid) continue;
+                    if (index >= slotsCount) break;
+
+                    try {
+                        const itemRef = window.doc(window.firestoredb, "itens", entry.uid);
+                        const itemSnap = await window.getDoc(itemRef);
+                        if (!itemSnap.exists()) continue;
+
+                        const item = itemSnap.data();
+                        inventoryFromFirebase.push(item);
+
+                        const s = slots[index];
+
+                        const div = document.createElement("div");
+                        div.className = "inv-name";
+                        div.textContent = item.nome || "(Sem nome)";
+
+                        s.appendChild(div);
+
+                        s.onclick = () => openItemDetailModal(itemSnap.id, item);
+
+                        index++;
+
+                    } catch (err) {
+                        console.warn("Erro lendo item:", err);
+                    }
+                }
+
+                if (typeof updatePesoUI === "function") updatePesoUI();
+            });
+        }
+
+        // ativa listener realtime
+        setTimeout(enableRealtimeInventory, 300);
+
+        /* ----------- BUSCA ----------- */
+        const searchField = wrap.querySelector(".search-field");
+        searchField?.addEventListener("input", () => {
+            const q = searchField.value.trim().toLowerCase();
+            grid.querySelectorAll(".inv-slot").forEach(s => {
+                const txt = s.innerText.toLowerCase();
+                s.style.opacity = txt.includes(q) ? "1" : "0.25";
+            });
+        });
+
+    }
+
+
+    /* ---------- PESO (permanece igual, só estava fora do lugar) ---------- */
+
+    const pesoInfoSpan = document.getElementById('peso-info');
+    if (pesoInfoSpan) {
+
+        let totalPesoInventory = 0;
+        inventoryFromFirebase.forEach(it => {
+            const w = Number(it.peso ?? 0);
+            totalPesoInventory += w;
+        });
+
+        let pesoAtual = Number(charData?.peso_atual);
+        if (!Number.isFinite(pesoAtual) || pesoAtual === 0) {
+            pesoAtual = totalPesoInventory || 0;
+        }
+
+        let cargaMax = Number(charData?.carga ?? charData?.atributos?.carga);
+        if (!Number.isFinite(cargaMax) || cargaMax <= 0) {
+            const bravuraRaw = Number(charData?.atributos?.bravura ?? 0) || 0;
+            cargaMax = 8 + bravuraRaw;
+        }
+
+        pesoInfoSpan.textContent = `${pesoAtual} / ${cargaMax}`;
+    }
+
+    function updatePesoUI() {
+        const pesoInfo = document.getElementById('peso-info');
+        if (!pesoInfo) return;
+
+        let pesoAtual = Number(charData?.peso_atual ?? 0);
+        if (!Number.isFinite(pesoAtual)) pesoAtual = 0;
+
+        const bravuraTotal = Number(attrKeys.bravura ?? 0);
+        const cargaMax = 8 + bravuraTotal;
+
+        pesoInfo.textContent = `${pesoAtual} / ${cargaMax}`;
+    }
+
 
     // Pequeno ajuste visual: criar a left-card shell caso seu HTML não tenha layout exato
     // Se .left-card não existir, vamos agrupar o conteúdo atual numa .left-card para estilizar
@@ -588,6 +903,812 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveBarsToFirestore();
     }
     updateAllBars();
+
+    /* <<< ADICIONADO: slots de batalha, modal e integração com Firestore >>> */
+    (function setupBattleSlotsAndModal() {
+        // Mapeamento dos slots para os tipos de itens que deverão ser exibidos na lista
+        const slotMap = {
+            'armas': ['Arma', 'Equipamento'], // Arma e Equipamento
+            'protecao': ['Proteção'],          // Proteção (armaduras/escudos)
+            'utilitarios': ['Utilitário']      // Utilitários
+        };
+
+        // elements do modal/slots (já adicionados ao HTML conforme instruído)
+        const modal = document.getElementById('items-modal');
+        const itemsListEl = document.getElementById('items-list');
+        const detailPanel = document.getElementById('item-detail');
+        const detailName = document.getElementById('detail-name');
+        const detailFields = document.getElementById('detail-fields');
+        const confirmBtn = document.getElementById('confirm-equip');
+        const cancelBtn = document.getElementById('cancel-equip');
+        const closeModalBtn = document.getElementById('items-modal-close');
+
+        let currentSlotKey = null; // 'armas' | 'protecao' | 'utilitarios'
+        let selectedItem = null;   // armazenará { id, ...dados }
+
+        // util: obtém charUid (tenta usar variável global charUid, senão pega da URL ?uid=)
+        function getCharUidFromContext() {
+            if (typeof charUid !== 'undefined' && charUid) return charUid;
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const u = params.get('uid');
+                if (u) return u;
+            } catch (e) { /* ignore */ }
+            return null;
+        }
+
+        const resolvedCharUid = getCharUidFromContext();
+        if (!resolvedCharUid) {
+            console.warn('setupBattleSlotsAndModal: não encontrou charUid (declare var charUid ou use ?uid= na URL).');
+        }
+
+        // Abre o modal e carrega a lista de itens filtrada por tipo(s)
+        function openModalForSlot(slotKey) {
+            currentSlotKey = slotKey;
+            if (!itemsListEl || !detailPanel) return;
+            itemsListEl.innerHTML = '<div style="padding:8px;color:#ddd">Carregando...</div>';
+            const content = detailPanel.querySelector('.item-detail-content');
+            if (content) content.style.display = 'none';
+            const empty = detailPanel.querySelector('.item-detail-empty');
+            if (empty) empty.style.display = '';
+
+            // busca itens por tipo (usa where in para múltiplos tipos)
+            const types = slotMap[slotKey] || [];
+            (async () => {
+                try {
+                    const itensCol = window.collection(window.firestoredb, 'itens');
+                    // se types tiver apenas 1 elemento, também funciona: where('tipo_item', 'in', [thatOne])
+                    const q = window.query(itensCol, window.where('tipo_item', 'in', types));
+                    const snap = await window.getDocs(q);
+                    const items = [];
+                    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+                    renderItemsList(items);
+                } catch (err) {
+                    console.error('Erro carregando itens:', err);
+                    itemsListEl.innerHTML = '<div style="padding:8px;color:#faa">Erro ao carregar.</div>';
+                }
+            })();
+
+            if (modal) modal.setAttribute('aria-hidden', 'false');
+        }
+
+        // Fecha modal e reseta estado interno
+        function closeModal() {
+            if (!modal) return;
+            modal.setAttribute('aria-hidden', 'true');
+            selectedItem = null;
+            currentSlotKey = null;
+            if (itemsListEl) itemsListEl.innerHTML = '';
+            if (detailName) detailName.textContent = '';
+            if (detailFields) detailFields.innerHTML = '';
+            const content = detailPanel.querySelector('.item-detail-content');
+            if (content) content.style.display = 'none';
+            const empty = detailPanel.querySelector('.item-detail-empty');
+            if (empty) empty.style.display = '';
+        }
+
+        // Renderiza a lista de itens (coluna esquerda)
+        function renderItemsList(items) {
+            if (!itemsListEl) return;
+            if (!items || !items.length) {
+                itemsListEl.innerHTML = '<div style="padding:8px;color:#ddd">Nenhum item disponível deste tipo.</div>';
+                return;
+            }
+            itemsListEl.innerHTML = '';
+            items.forEach(it => {
+                const row = document.createElement('div');
+                row.className = 'item-row';
+                row.tabIndex = 0;
+                row.textContent = it.nome || '(sem nome)';
+                row.addEventListener('click', () => selectItemFromList(it));
+                row.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') selectItemFromList(it); });
+                itemsListEl.appendChild(row);
+            });
+        }
+
+        // Quando usuário clica em um item: mostra detalhes no painel direito omitindo campos "Nenhum"/null/""
+        function selectItemFromList(it) {
+            if (!it) return;
+            selectedItem = it;
+            const empty = detailPanel.querySelector('.item-detail-empty');
+            if (empty) empty.style.display = 'none';
+            const content = detailPanel.querySelector('.item-detail-content');
+            content.style.display = '';
+            if (detailName) detailName.textContent = it.nome || 'Item';
+            if (detailFields) detailFields.innerHTML = '';
+
+            // ordem e rótulos dos campos que queremos mostrar
+            const mapping = [
+                ['descricao', 'Descrição'],
+                ['efeito', 'Efeito'],
+                ['habilidade', 'Habilidade'],
+                ['dano', 'Dano'],
+                ['tipo_dano', 'Tipo de Dano'],
+                ['critico', 'Crítico'],
+                ['requisito', 'Requisito'],
+                ['peso', 'Peso'],
+                ['categoria', 'Categoria'],
+                ['tipo_item', 'Tipo']
+            ];
+
+            mapping.forEach(([k, label]) => {
+                const v = it[k];
+                if (v === undefined || v === null) return;
+                if (typeof v === 'string' && (v.trim() === '' || v.trim().toLowerCase() === 'nenhum')) return;
+                const wrap = document.createElement('div');
+                wrap.className = 'detail-row';
+                wrap.innerHTML = `<strong>${label}:</strong> <span>${String(v)}</span>`;
+                detailFields.appendChild(wrap);
+            });
+        }
+
+        // REPLACE: função confirmEquip() (corrigida para ler carga a partir de characters[idx].carga)
+        async function confirmEquip() {
+            if (!selectedItem) {
+                alert('Nenhum item selecionado.');
+                return;
+            }
+
+            const charId = getCharUidFromContext();
+            if (!charId) {
+                alert('UID do personagem não definido. Informe ?uid=<CHAR_UID> na URL ou defina a variável global charUid.');
+                return;
+            }
+
+            // desativa botão para evitar cliques repetidos (se existir)
+            if (confirmBtn) confirmBtn.disabled = true;
+
+            try {
+                const user = window.firebaseauth.currentUser;
+                if (!user) throw new Error('Usuário não autenticado.');
+
+                const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+                const userSnap = await window.getDoc(userRef);
+                if (!userSnap.exists()) throw new Error('Documento de usuário não encontrado.');
+
+                const data = userSnap.data();
+                const characters = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+                const idx = characters.findIndex(c => c && c.uid === charId);
+                if (idx < 0) throw new Error('Personagem não encontrado no array personagens.');
+
+                // garante array de itens do personagem (estado atual antes da adição)
+                characters[idx].itens = Array.isArray(characters[idx].itens) ? characters[idx].itens.slice() : [];
+
+                // calcula peso atual (antes de adicionar)
+                const pesoAtual = await calcularPesoAtual(characters[idx].itens);
+
+                // tenta obter peso do item selecionado de forma robusta
+                let pesoDoItem = Number(selectedItem.peso);
+                if (!Number.isFinite(pesoDoItem)) {
+                    try {
+                        const docRef = window.doc(window.firestoredb, 'itens', selectedItem.id || selectedItem.uid || selectedItem);
+                        const docSnap = await window.getDoc(docRef);
+                        if (docSnap.exists()) {
+                            const d = docSnap.data();
+                            pesoDoItem = Number(d?.peso) || 0;
+                        } else {
+                            pesoDoItem = 0;
+                        }
+                    } catch (e) {
+                        console.warn('Não foi possível ler peso do documento do item, assumindo 0', e);
+                        pesoDoItem = 0;
+                    }
+                }
+
+                // --------- LER CARGA MÁXIMA (criar variável ANTES de usar) ----------
+                let cargaMaxima = Number(characters[idx].carga ?? characters[idx].atributos?.carga);
+
+                if (!Number.isFinite(cargaMaxima) || cargaMaxima <= 0) {
+
+                    const raw = Number(characters[idx]?.atributos?.bravura ?? charData?.atributos?.bravura ?? 0) || 0;
+
+                    let bonus = 0;
+                    const r = characters[idx].raca;
+                    const sr = characters[idx].subraca;
+
+                    if (r === 'Feéricos' && sr === 'Ágeis') bonus = 1;
+                    if (r === 'Elfo') bonus = 1;
+                    if (r === 'Meio Orc') bonus = 1;
+
+                    cargaMaxima = 8 + (raw + bonus);
+                }
+
+                // normaliza para número inteiro ou mantem decimal se houver (mantemos Number)
+                cargaMaxima = Number(cargaMaxima);
+
+                console.debug('confirmEquip check -> pesoAtual:', pesoAtual, 'pesoDoItem:', pesoDoItem, 'cargaMaxima:', cargaMaxima, 'characters[idx].carga:', characters[idx]?.carga, 'characters[idx].atributos?.carga:', characters[idx]?.atributos?.carga);
+
+                // verifica se ultrapassa (permitido quando igual)
+                if ((pesoAtual + pesoDoItem) > cargaMaxima) {
+                    alert(
+                        `Não é possível equipar este item — ele aumentaria o peso de ${pesoAtual} → ${pesoAtual + pesoDoItem} ` +
+                        `e ultrapassaria a carga máxima do personagem (${cargaMaxima}).`
+                    );
+                    return; // não adiciona
+                }
+
+                // passa na checagem => adiciona item
+                characters[idx].itens.push({ uid: selectedItem.id });
+
+                // recalcula peso_atual já com o novo item
+                const novoPeso = await calcularPesoAtual(characters[idx].itens);
+                characters[idx].peso_atual = novoPeso;
+
+                // salva no Firestore
+                await window.updateDoc(userRef, { personagens: characters });
+
+                // Atualiza UI imediatamente
+                updatePesoUI();
+
+                // atualiza UI
+                await refreshSlotsFromCharData();
+
+                closeModal();
+            } catch (err) {
+                console.error('Erro ao equipar item:', err);
+                alert('Erro ao equipar item. Veja console para detalhes.');
+            } finally {
+                // reativa botão
+                if (confirmBtn) confirmBtn.disabled = false;
+            }
+        }
+
+        // Calcula a soma dos pesos dos itens equipados
+        async function calcularPesoAtual(arrayDeItens) {
+            let soma = 0;
+
+            for (const entry of arrayDeItens) {
+                if (!entry || !entry.uid) continue;
+
+                try {
+                    const itemRef = window.doc(window.firestoredb, 'itens', entry.uid);
+                    const itemSnap = await window.getDoc(itemRef);
+
+                    if (itemSnap.exists()) {
+                        const itemData = itemSnap.data();
+                        const peso = Number(itemData.peso) || 0;
+                        soma += peso;
+                    }
+                } catch (err) {
+                    console.warn('Item inválido ao calcular peso:', entry.uid, err);
+                }
+            }
+
+            return soma;
+        }
+
+
+        // Lê os dados do usuário e preenche os textos dos slots conforme itens equipados
+        // Substituir por esta versão — mostra LISTAS de itens por slot (cada item embaixo do outro)
+        async function refreshSlotsFromCharData() {
+            try {
+                const charId = getCharUidFromContext();
+                if (!charId) return;
+                const user = window.firebaseauth.currentUser;
+                if (!user) return;
+
+                const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+                const userSnap = await window.getDoc(userRef);
+                if (!userSnap.exists()) return;
+                const data = userSnap.data();
+                const characters = data.personagens || [];
+                const myChar = characters.find(c => c && c.uid === charId) || {};
+                const equipped = Array.isArray(myChar.itens) ? myChar.itens : [];
+
+                // limpa os slots (preparar container)
+                const slotIds = ['char-armas', 'char-protecao', 'char-utilitarios'];
+                slotIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        const body = el.querySelector('.slot-body');
+                        if (body) {
+                            // esvazia e coloca um placeholder durante carregamento
+                            body.innerHTML = '<div class="slot-loading">Carregando...</div>';
+                        }
+                    }
+                });
+
+                // --- atualiza o display de peso no inventory-card ---
+                const pesoInfoEl = document.getElementById('peso-info');
+                let pesoAtual = Number(myChar.peso_atual ?? 0);
+                try {
+                    // se peso_atual não estiver presente ou for 0/invalid, calcula a partir do array de equipped
+                    if (!Number.isFinite(pesoAtual) || pesoAtual === 0) {
+                        pesoAtual = Number(await calcularPesoAtual(equipped)) || 0;
+                    }
+                } catch (e) {
+                    pesoAtual = Number(myChar.peso_atual ?? 0) || 0;
+                }
+                let cargaMax = Number(myChar.carga ?? myChar.atributos?.carga);
+
+                if (!Number.isFinite(cargaMax) || cargaMax <= 0) {
+                    // RAW + bônus racial
+                    const raw = Number(myChar.atributos?.bravura ?? 0) || 0;
+
+                    let bonus = 0;
+                    if (myChar.raca === 'Feéricos' && myChar.subraca === 'Ágeis') bonus = 1;
+                    if (myChar.raca === 'Elfo') bonus = 1;
+                    if (myChar.raca === 'Meio Orc') bonus = 1;
+
+                    const bravuraTotal = raw + bonus;
+
+                    cargaMax = 8 + bravuraTotal;
+                }
+
+                if (pesoInfoEl) pesoInfoEl.textContent = `${pesoAtual} / ${cargaMax}`;
+
+
+                // cria listas vazias para preencher
+                const lists = {
+                    armas: [],
+                    protecao: [],
+                    utilitarios: []
+                };
+
+                // helper para classificar tipo do item (robusto para variações/acentos)
+                function classifyTipo(tipoRaw) {
+                    const t = String(tipoRaw || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                    if (t.includes('utilit')) return 'utilitarios';
+                    if (t.includes('prote') || t.includes('armadur') || t.includes('escud')) return 'protecao';
+                    // armas / equipamentos -> armas
+                    if (t.includes('arma') || t.includes('equip')) return 'armas';
+                    // fallback: se não bater, tratar como armas por padrão
+                    return 'armas';
+                }
+
+                // percorre cada reference de item no personagem e busca o documento correspondende
+                // OBS: agora guardamos também o índice original (sourceIndex) para remover apenas a instância clicada
+                for (let i = 0; i < equipped.length; i++) {
+                    const e = equipped[i];
+                    if (!e || !e.uid) continue;
+                    try {
+                        const itemRef = window.doc(window.firestoredb, 'itens', e.uid);
+                        const itemSnap = await window.getDoc(itemRef);
+                        if (!itemSnap.exists()) continue;
+                        const it = itemSnap.data();
+                        const slotKey = classifyTipo(it.tipo_item);
+                        // guardamos sourceIndex para poder remover apenas esta ocorrência
+                        lists[slotKey].push({ id: itemSnap.id, data: it, sourceIndex: i });
+                    } catch (err) {
+                        console.warn('Erro lendo item referenciado', e.uid, err);
+                    }
+                }
+
+                // função auxiliar para montar a UL/LI e inserir no slot
+                function renderListInSlot(slotId, itemsArray) {
+                    const el = document.getElementById(slotId);
+                    if (!el) return;
+                    const body = el.querySelector('.slot-body');
+                    if (!body) return;
+
+                    body.innerHTML = ''; // limpa
+
+                    if (!itemsArray.length) {
+                        body.textContent = 'Vazio';
+                        return;
+                    }
+
+                    const ul = document.createElement('ul');
+                    ul.className = 'equipped-list';
+
+                    itemsArray.forEach((itemWrap) => {
+                        const li = document.createElement('li');
+                        li.className = 'equipped-item';
+                        li.tabIndex = 0;
+                        li.dataset.uid = itemWrap.id;
+                        // opcional: guarda também o sourceIndex como atributo data para debug/inspeção
+                        li.dataset.sourceIndex = String(itemWrap.sourceIndex);
+
+                        // nome
+                        const name = document.createElement('div');
+                        name.className = 'equipped-item-name';
+                        name.textContent = itemWrap.data.nome || '(sem nome)';
+                        li.appendChild(name);
+
+                        // metadados (peso, tipo, etc)
+                        const meta = document.createElement('div');
+                        meta.className = 'equipped-item-meta';
+                        const parts = [];
+                        if (itemWrap.data.peso !== undefined && itemWrap.data.peso !== null && String(itemWrap.data.peso).trim() !== '') {
+                            parts.push(`peso: ${itemWrap.data.peso}`);
+                        }
+                        if (itemWrap.data.tipo_item) parts.push(String(itemWrap.data.tipo_item));
+                        meta.textContent = parts.join(' • ');
+                        if (parts.length) li.appendChild(meta);
+
+                        const removeBtn = document.createElement('span');
+                        removeBtn.className = 'equipped-item-remove';
+                        removeBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+
+                        // ao clicar, removemos a instância pelo índice original (sourceIndex)
+                        removeBtn.addEventListener('click', async (ev) => {
+                            ev.stopPropagation(); // evita abrir modal se clicar no item
+                            // itemWrap.sourceIndex é o índice no array personagens[idx].itens
+                            await removerItemEquipado(itemWrap.sourceIndex);
+                            // atualiza interface
+                            await refreshSlotsFromCharData();
+                        });
+
+                        li.appendChild(removeBtn);
+
+                        ul.appendChild(li);
+                    });
+
+                    body.appendChild(ul);
+                }
+
+                // Remove apenas a entrada na posição passada (não remove todas as que têm o mesmo uid)
+                async function removerItemEquipado(itemIndexToRemove) {
+                    try {
+                        const charId = getCharUidFromContext();
+                        const user = window.firebaseauth.currentUser;
+                        if (!user || !charId) return;
+
+                        const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+                        const snap = await window.getDoc(userRef);
+                        if (!snap.exists()) return;
+
+                        const data = snap.data();
+                        const personagens = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+                        const idx = personagens.findIndex(p => p && p.uid === charId);
+                        if (idx < 0) return;
+
+                        const itens = Array.isArray(personagens[idx].itens) ? personagens[idx].itens.slice() : [];
+
+                        // se o índice for válido, removemos apenas essa posição
+                        if (Number.isFinite(itemIndexToRemove) && itemIndexToRemove >= 0 && itemIndexToRemove < itens.length) {
+                            const novoArray = itens.slice();
+                            novoArray.splice(itemIndexToRemove, 1); // remove somente esse elemento
+                            personagens[idx].itens = novoArray;
+
+                        } else {
+                            // fallback: se por algum motivo o índice estiver inválido, remove só a primeira ocorrência do uid
+                            console.warn('Índice inválido ao tentar remover item. Aplicando fallback (remover primeira ocorrência).', itemIndexToRemove);
+                            // tenta inferir uid a partir do array atual (caso você queira passar uid ao fallback)
+                            // aqui não temos o uid diretamente, então apenas mantemos o array como estava
+                            return;
+                        }
+
+                        // recalcular peso
+                        const novoPeso = await calcularPesoAtual(personagens[idx].itens);
+                        personagens[idx].peso_atual = novoPeso;
+
+                        // salvar
+                        await window.updateDoc(userRef, { personagens });
+
+                        updatePesoUI();
+
+
+                    } catch (err) {
+                        console.error('Erro ao remover item', err);
+                    }
+                }
+
+                // renderiza as três listas
+                renderListInSlot('char-armas', lists.armas);
+                renderListInSlot('char-protecao', lists.protecao);
+                renderListInSlot('char-utilitarios', lists.utilitarios);
+
+            } catch (err) {
+                console.error('Erro em refreshSlotsFromCharData', err);
+            }
+        }
+
+        // conecta eventos de clique nos slots
+        const slotArm = document.getElementById('char-armas');
+        const slotProt = document.getElementById('char-protecao');
+        const slotUtil = document.getElementById('char-utilitarios');
+        slotArm?.addEventListener('click', () => openModalForSlot('armas'));
+        slotProt?.addEventListener('click', () => openModalForSlot('protecao'));
+        slotUtil?.addEventListener('click', () => openModalForSlot('utilitarios'));
+
+        // botões do modal
+        closeModalBtn?.addEventListener('click', closeModal);
+        cancelBtn?.addEventListener('click', closeModal);
+        confirmBtn?.addEventListener('click', confirmEquip);
+        // fechar clicando no backdrop (se existir)
+        document.querySelector('.items-modal-backdrop')?.addEventListener('click', closeModal);
+
+        // refresca slots quando a página carregar (curto delay para garantir que auth e firestore estejam prontos)
+        setTimeout(() => refreshSlotsFromCharData(), 300);
+
+        // expo: em caso de necessidade externa, disponibiliza funções (opcional)
+        window.__battleSlots = {
+            openModalForSlot,
+            closeModal,
+            refreshSlotsFromCharData
+        };
+
+        /* ===== ADD: Feitiços / Milagres integration ===== */
+        (function setupMagicSlots() {
+            // elementos
+            const slotFeit = document.getElementById('char-feiticos');
+            const slotMil = document.getElementById('char-milagres');
+
+            // modal elements
+            const magicModal = document.getElementById('magic-modal');
+            const magicBackdrop = document.getElementById('magic-modal-backdrop');
+            const magicListEl = document.getElementById('magic-list');
+            const magicListTitle = document.getElementById('magic-list-title');
+            const magicDetailName = document.getElementById('magic-detail-name');
+            const magicDetailFields = document.getElementById('magic-detail-fields');
+            const magicConfirmBtn = document.getElementById('magic-confirm-btn');
+            const magicCancelBtn = document.getElementById('magic-cancel-btn');
+            const magicCloseBtn = document.getElementById('magic-modal-close');
+            const magicDetailContent = document.getElementById('magic-detail-content');
+            const magicDetailEmpty = document.getElementById('magic-detail-empty');
+
+            // mapping colors for feitiços by elemento
+            const elementColors = {
+                "Básico": "#ebe1cf",
+                "Arcano": "#5d2322",
+                "Vento": "#e6e6e6",
+                "Fogo": "#ffeb6b",
+                "Água": "#9fd3ff",
+                "Feras": "#bff2b0"
+            };
+
+            // mapping imagens para milagres por tomo
+            const tomoImgs = {
+                "Solyn": "./imgs/Solyn.png",
+                "Naruva": "./imgs/Naruva.png",
+                "Nyra": "./imgs/Nyra.png",
+                "Sanguis": "./imgs/Sanguis.png",
+                "Kaelun": "./imgs/Kaelun.png",
+                "Mileth": "./imgs/Mileth.png",
+                "Elyra": "./imgs/Elyra.png",
+                "Thalun": "./imgs/Thalun.png",
+                "Nenhum": null
+            };
+
+            // estado temporário
+            let activeCollection = null; // 'feitiços' or 'milagres'
+            let selectedDocUid = null;
+            let selectedDocData = null;
+
+            // abre modal e lista
+            async function openMagicModal(collectionName) {
+                activeCollection = collectionName;
+                selectedDocUid = null;
+                selectedDocData = null;
+                magicListEl.innerHTML = `<div style="padding:8px;color:#ddd">Carregando ${collectionName}...</div>`;
+                magicDetailContent.style.display = 'none';
+                magicDetailEmpty.style.display = '';
+                magicListTitle.textContent = (collectionName === 'feitiços') ? 'Feitiços' : 'Milagres';
+                magicConfirmBtn.disabled = true;
+
+                // show modal
+                magicBackdrop.classList.add('open'); magicBackdrop.setAttribute('aria-hidden', 'false');
+                magicModal.classList.add('open'); magicModal.setAttribute('aria-hidden', 'false');
+
+                try {
+                    const colRef = window.collection(window.firestoredb, collectionName);
+                    const snap = await window.getDocs(colRef);
+                    const docs = [];
+                    snap.forEach(d => docs.push({ id: d.id, data: d.data() }));
+
+                    if (!docs.length) {
+                        magicListEl.innerHTML = `<div style="padding:8px;color:#ddd">Nenhum documento em ${collectionName}.</div>`;
+                        return;
+                    }
+
+                    // render list
+                    magicListEl.innerHTML = '';
+                    for (const d of docs) {
+                        const it = document.createElement('div');
+                        it.className = 'magic-item';
+                        it.dataset.uid = d.id;
+
+                        const left = document.createElement('div'); left.className = 'mi-left';
+                        const nameSpan = document.createElement('div'); nameSpan.className = 'mi-name';
+                        nameSpan.textContent = d.data.nome || '(Sem nome)';
+
+                        // styling for feitiços by elemento
+                        if (collectionName === 'feitiços') {
+                            const el = d.data.elemento || 'Básico';
+                            const bg = elementColors[el] || '#e6e6e6';
+                            nameSpan.style.background = bg;
+                            nameSpan.style.opacity = '0.95';
+                            nameSpan.style.color = (el === 'Arcano' ? '#fff' : '#0d0d0d');
+                        }
+
+                        left.appendChild(nameSpan);
+
+                        // For milagres: show tomo icon on the right (small)
+                        if (collectionName === 'milagres') {
+                            const meta = document.createElement('div');
+                            meta.className = 'mi-meta';
+                            meta.textContent = d.data.tipo ? `${d.data.tipo}` : '';
+                            left.appendChild(meta);
+                        }
+
+                        it.appendChild(left);
+
+                        // right side: image for milagres tomo (if any) or elemento short text for feitiços
+                        const right = document.createElement('div');
+                        if (collectionName === 'milagres') {
+                            const tomo = d.data.tomo || 'Nenhum';
+                            const src = tomoImgs[tomo];
+                            if (src) {
+                                const img = document.createElement('img');
+                                img.src = src;
+                                img.alt = tomo;
+                                img.style.width = '44px'; img.style.height = '36px'; img.style.objectFit = 'contain';
+                                right.appendChild(img);
+                            }
+                        } else {
+                            const small = document.createElement('div');
+                            small.textContent = d.data.elemento || '';
+                            small.style.fontSize = '0.85rem';
+                            small.style.color = '#efe6e2';
+                            right.appendChild(small);
+                        }
+                        it.appendChild(right);
+
+                        // click handler
+                        it.addEventListener('click', () => {
+                            // unselect previous
+                            magicListEl.querySelectorAll('.magic-item').forEach(el => el.classList.remove('selected'));
+                            it.classList.add('selected');
+                            selectedDocUid = d.id;
+                            selectedDocData = d.data;
+                            renderMagicDetail(d.id, d.data);
+                            magicConfirmBtn.disabled = false;
+                        });
+
+                        magicListEl.appendChild(it);
+                    }
+
+                } catch (err) {
+                    console.error('Erro carregando coleção', collectionName, err);
+                    magicListEl.innerHTML = `<div style="padding:8px;color:#faa">Erro ao carregar ${collectionName}.</div>`;
+                }
+            }
+
+            function renderMagicDetail(uid, data) {
+                magicDetailName.textContent = data.nome || '(Sem nome)';
+                magicDetailFields.innerHTML = '';
+                // iterate fields and show only valid ones (excluir "Nenhum", "", null, undefined)
+                Object.entries(data).forEach(([k, v]) => {
+                    if (k === 'nome') return;
+                    if (v === 'Nenhum') return;
+                    if (v === '' || v === null || v === undefined) return;
+                    if (typeof v === 'string' && v.trim() === '') return;
+
+                    const row = document.createElement('div');
+                    row.className = 'detail-row';
+                    row.innerHTML = `<strong>${k}:</strong> ${v}`;
+                    magicDetailFields.appendChild(row);
+                });
+
+                magicDetailEmpty.style.display = 'none';
+                magicDetailContent.style.display = '';
+            }
+
+            function closeMagicModal() {
+                magicBackdrop.classList.remove('open'); magicBackdrop.setAttribute('aria-hidden', 'true');
+                magicModal.classList.remove('open'); magicModal.setAttribute('aria-hidden', 'true');
+                magicListEl.innerHTML = '';
+                magicDetailFields.innerHTML = '';
+                magicDetailName.textContent = '';
+                selectedDocUid = null;
+                selectedDocData = null;
+            }
+
+            async function confirmMagicSelection() {
+                if (!selectedDocUid || !activeCollection) return;
+                try {
+                    const user = window.firebaseauth.currentUser;
+                    if (!user) { alert('Usuário não autenticado'); return; }
+                    const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+                    const snap = await window.getDoc(userRef);
+                    if (!snap.exists()) { alert('Documento de usuário não encontrado'); return; }
+                    const data = snap.data();
+                    const personagens = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+                    const idx = personagens.findIndex(p => p && p.uid === charUid);
+                    if (idx < 0) { alert('Personagem não encontrado'); closeMagicModal(); return; }
+
+                    // garante o array correto e insere um documento aleatório (objeto) com 'uid' do feitiço/milagre
+                    const arrName = (activeCollection === 'feitiços') ? 'feiticos' : 'milagres';
+                    personagens[idx][arrName] = Array.isArray(personagens[idx][arrName]) ? personagens[idx][arrName].slice() : [];
+
+                    // cria documento aleatório (map) com campo uid (seguindo seu esquema)
+                    const randomId = String(Date.now()) + '_' + Math.random().toString(36).slice(2, 8);
+                    const mapObj = { uid: String(selectedDocUid), _id: randomId };
+
+                    personagens[idx][arrName].push(mapObj);
+
+                    // salva no Firestore
+                    await window.updateDoc(userRef, { personagens });
+                    // atualiza charData local para refletir na UI
+                    if (charData && Array.isArray(charData[arrName])) {
+                        charData[arrName].push(mapObj);
+                    } else if (charData) {
+                        charData[arrName] = [mapObj];
+                    }
+
+                    // recicla UI (tentamos atualizar os slots existentes)
+                    refreshSlotsFromCharData?.(); // se essa função existir no scope
+                    // fechar modal
+                    closeMagicModal();
+
+                } catch (err) {
+                    console.error('Erro ao salvar feitiço/milagre no personagem', err);
+                    alert('Erro ao salvar. Veja console.');
+                }
+            }
+
+            // Wire events
+            slotFeit?.addEventListener('click', () => openMagicModal('feitiços'));
+            slotMil?.addEventListener('click', () => openMagicModal('milagres'));
+            magicCloseBtn?.addEventListener('click', closeMagicModal);
+            magicCancelBtn?.addEventListener('click', closeMagicModal);
+            magicBackdrop?.addEventListener('click', closeMagicModal);
+            magicConfirmBtn?.addEventListener('click', confirmMagicSelection);
+
+            // function to refresh the display in the two slots from charData (called on load)
+            async function refreshMagicSlotsFromCharData() {
+                try {
+                    const charObj = charData || null;
+                    // Feiticos
+                    if (slotFeit) {
+                        const arr = Array.isArray(charObj?.feiticos) ? charObj.feiticos : [];
+                        if (!arr.length || arr.every(a => !a?.uid)) {
+                            slotFeit.querySelector('.slot-body').textContent = 'Vazio';
+                        } else {
+                            // show the names (async fetch titles)
+                            const names = [];
+                            for (const entry of arr) {
+                                if (!entry?.uid) continue;
+                                try {
+                                    const dref = window.doc(window.firestoredb, 'feitiços', entry.uid);
+                                    const ds = await window.getDoc(dref);
+                                    if (ds.exists()) names.push(ds.data().nome || ds.id);
+                                } catch (e) { names.push('(?)'); }
+                            }
+                            slotFeit.querySelector('.slot-body').textContent = names.join(', ') || 'Vazio';
+                        }
+                    }
+
+                    // Milagres
+                    if (slotMil) {
+                        const arr = Array.isArray(charObj?.milagres) ? charObj.milagres : [];
+                        if (!arr.length || arr.every(a => !a?.uid)) {
+                            slotMil.querySelector('.slot-body').textContent = 'Vazio';
+                        } else {
+                            const names = [];
+                            for (const entry of arr) {
+                                if (!entry?.uid) continue;
+                                try {
+                                    const dref = window.doc(window.firestoredb, 'milagres', entry.uid);
+                                    const ds = await window.getDoc(dref);
+                                    if (ds.exists()) names.push(ds.data().nome || ds.id);
+                                } catch (e) { names.push('(?)'); }
+                            }
+                            slotMil.querySelector('.slot-body').textContent = names.join(', ') || 'Vazio';
+                        }
+                    }
+
+                } catch (err) {
+                    console.warn('refreshMagicSlotsFromCharData erro', err);
+                }
+            }
+
+            // chama na inicialização (se existir a função global refreshSlotsFromCharData que você já usa, chamamos ela depois)
+            setTimeout(() => refreshMagicSlotsFromCharData(), 400);
+
+            // expose small API (opcional)
+            window.__magicSlots = {
+                open: openMagicModal,
+                close: closeMagicModal,
+                refresh: refreshMagicSlotsFromCharData
+            };
+
+        })();
+
+
+    })();
+
 
     /* ---------- +/- buttons (PV/MN/STA) ---------- */
     function wirePlusMinus(minusId, plusId, getCur, setCur, total) {
@@ -879,13 +2000,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 });
 
-/* ------------------ TABS: wiring e sincronização de conteúdo ------------------ */
+/* ------------------ TABS: wiring e sincronização de conteúdo (corrigido) ------------------ */
 (function setupTabsAndDescriptionCopy() {
     const leftCard = document.querySelector('.left-card');
-    const tabs = leftCard?.querySelectorAll('.tab');
-    const panels = leftCard?.querySelectorAll('.tab-panel');
+    if (!leftCard) return;
 
-    if (!tabs || !panels) return;
+    // seletores corretos para seus botões/painéis
+    const tabs = Array.from(leftCard.querySelectorAll('.card-tab'));
+    const panels = Array.from(leftCard.querySelectorAll('.tab-content'));
+
+    // fallback: se não houver tabs/panels (por algum carregamento diferente), não estoure — apenas continue
+    if (!tabs.length || !panels.length) {
+        // tenta encontrar pelo HTML original (caso você já tenha um markup inicial diferente)
+        // não retorna aqui para não impedir execuções posteriores
+    }
+
+    function panelNameFromEl(p) {
+        // preferimos data-tab; se não existir, tentamos extrair da classe 'tab-xxx'
+        if (p.dataset && p.dataset.tab) return p.dataset.tab;
+        const m = p.className.match(/\btab-(\w+)\b/);
+        return m ? m[1] : null;
+    }
 
     function setActiveTab(name) {
         tabs.forEach(t => {
@@ -893,73 +2028,52 @@ document.addEventListener('DOMContentLoaded', async () => {
             t.classList.toggle('active', is);
             t.setAttribute('aria-selected', is ? 'true' : 'false');
         });
-        panels.forEach(p => p.style.display = (p.dataset.tab === name) ? 'block' : 'none');
-    }
-
-    // inicial: garantir que 'geral' esteja ativo
-    setActiveTab('geral');
-
-    tabs.forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            const target = tab.dataset.tab;
-            // se já é a ativa, não faz alteração visual (comportamento pedido)
-            const currentlyActive = tab.classList.contains('active');
-            if (currentlyActive) return;
-            setActiveTab(target);
+        panels.forEach(p => {
+            const pn = panelNameFromEl(p);
+            // se não souber o nome do painel, mantém display (não esconde) para evitar cortar conteúdo crítico
+            if (pn) p.style.display = (pn === name) ? '' : 'none';
         });
-    });
-
-    // garantir que a left-card mantenha o mesmo tamanho/posicao:
-    // pegamos a altura atual e fixamos em px (assim trocar o conteúdo não altera o tamanho do cartão)
-    try {
-        const rectH = leftCard.getBoundingClientRect().height;
-        // somente aplica se não for responsivo pequeno (evita cortar conteúdo em small)
-        leftCard.style.height = rectH + 'px';
-    } catch (e) { /* ignore */ }
-
-    // Copiar conteúdo do storage para a tab "Descrição" (ids *_desc)
-    function syncDescriptionPanelsFromStorage() {
-        const historia = localStorage.getItem('characterStory') || '';
-        const apariencia = localStorage.getItem('characterAppearance') || '';
-        const personality = localStorage.getItem('characterPersonality') || ''; // caso queira salvar futuramente
-
-        const hGeral = document.getElementById('char-historia');
-        const aGeral = document.getElementById('char-aparencia');
-        const hDesc = document.getElementById('char-historia-desc');
-        const aDesc = document.getElementById('char-aparencia-desc');
-        const pDesc = document.getElementById('char-personality-desc');
-
-        if (hGeral) hGeral.textContent = historia || '—';
-        if (aGeral) aGeral.textContent = apariencia || '—';
-
-        if (hDesc) hDesc.value = historia || '—';
-        if (aDesc) aDesc.value = apariencia || '—';
-        if (pDesc) pDesc.value = personality || '—';
-
-        // Add event listeners for saving (only add if not already added)
-        if (hDesc && !hDesc.hasAttribute('data-listener-added')) {
-            hDesc.addEventListener('input', () => localStorage.setItem('characterStory', hDesc.value));
-            hDesc.setAttribute('data-listener-added', 'true');
-        }
-        if (aDesc && !aDesc.hasAttribute('data-listener-added')) {
-            aDesc.addEventListener('input', () => localStorage.setItem('characterAppearance', aDesc.value));
-            aDesc.setAttribute('data-listener-added', 'true');
-        }
-        if (pDesc && !pDesc.hasAttribute('data-listener-added')) {
-            pDesc.addEventListener('input', () => localStorage.setItem('characterPersonality', pDesc.value));
-            pDesc.setAttribute('data-listener-added', 'true');
-        }
     }
 
-    // Chamar uma vez na inicialização (se o resto do seu JS sobrescrever depois, ok)
-    syncDescriptionPanelsFromStorage();
+    // inicial: garantir que 'general' esteja ativo (se houver)
+    setActiveTab('general');
 
-    // Também expor uma função para sincronizar manualmente
-    window.syncDescriptionPanelsFromStorage = syncDescriptionPanelsFromStorage;
+    // listeners nas tabs — clique na ativa não faz nada
+    tabs.forEach(tab => tab.addEventListener('click', (e) => {
+        const name = tab.dataset.tab;
+        if (!name) return;
+        if (tab.classList.contains('active')) return;
+        setActiveTab(name);
+        // se for descrição, atualiza os campos a partir do storage / firestore (só se existir a função)
+        if (name === 'description' && typeof window.syncDescriptionPanelsFromStorage === 'function') {
+            try { window.syncDescriptionPanelsFromStorage(); } catch (err) { console.warn('syncDescriptionPanelsFromStorage erro:', err); }
+        }
+    }));
 
-    // Se o usuário editar a história/aparência via outras telas e salvar no localStorage,
-    // você pode chamar window.syncDescriptionPanelsFromStorage() para sincronizar os textos.
+    // expõe uma versão segura caso outra parte do código tente chamar
+    if (typeof window.syncDescriptionPanelsFromStorage !== 'function') {
+        window.syncDescriptionPanelsFromStorage = function () {
+            // fallback: preenche campos com localStorage se existir (não lança error)
+            const story = localStorage.getItem('characterStory') || '';
+            const appearance = localStorage.getItem('characterAppearance') || '';
+            const personalityText = localStorage.getItem('characterPersonality') || '';
+
+            const back = leftCard.querySelector('.character-backstory');
+            if (back) {
+                const panel = back.querySelector('.story-panel') || back.querySelector('textarea');
+                if (panel) panel.value = story;
+            }
+            const app = leftCard.querySelector('.character-appearance');
+            if (app) {
+                const panel = app.querySelector('.appearance-panel') || app.querySelector('textarea');
+                if (panel) panel.value = appearance;
+            }
+            const pers = leftCard.querySelector('#char-personality-desc, #char-personality, .personality-panel');
+            if (pers) pers.value = personalityText;
+        };
+    }
 })();
+
 
 /* ---------- TABS "orelinhas" (UI + troca de conteúdo) ---------- */
 (function setupCardTabs() {

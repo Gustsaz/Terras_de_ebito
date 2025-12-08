@@ -3,7 +3,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebas
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 import { getDatabase } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
-import { getFirestore, doc, setDoc, getDoc, updateDoc, addDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+import {
+  getFirestore, doc, setDoc, getDoc, updateDoc, addDoc, collection,
+  query, where, getDocs, onSnapshot
+} from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -40,5 +43,6 @@ window.collection = collection;
 window.query = query;
 window.where = where;
 window.getDocs = getDocs;
+window.firebaseOnSnapshot = onSnapshot;
 
 console.log("Firebase initialized");
