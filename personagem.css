@@ -706,159 +706,299 @@ html.dragging {
 /* (apenas para consistência visual) exp bar usa o mesmo tamanho do PV (já é .stat-bar) */
 
 /* ---------- TABS "orelinhas" na borda superior da left-card ---------- */
-.left-card { position: relative; /* já existe, reafirmando para garantir posicionamento absoluto das tabs */ }
+.left-card {
+    position: relative;
+    /* já existe, reafirmando para garantir posicionamento absoluto das tabs */
+}
 
 /* wrapper que segura o conteúdo interno da left-card e impede que o card mude de tamanho */
 .left-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  /* ocupa o espaço restante dentro do left-card */
-  flex: 1 1 auto;
-  overflow-y: auto;
-  /* manter padding interno do left-card (o left-card já tem padding) */
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    /* ocupa o espaço restante dentro do left-card */
+    flex: 1 1 auto;
+    overflow-y: auto;
+    /* manter padding interno do left-card (o left-card já tem padding) */
 }
 
 /* barra de tabs (as "orelinhas") */
 .card-tabs {
-  position: absolute;
-  top: -28px; /* faz as tabs "grudarem" fora do topo do card */
-  left: 24px; /* ajuste fino se precisar alinhar */
-  display: flex;
-  gap: 12px;
-  z-index: 50;
-  pointer-events: auto;
+    position: absolute;
+    top: -28px;
+    /* faz as tabs "grudarem" fora do topo do card */
+    left: 24px;
+    /* ajuste fino se precisar alinhar */
+    display: flex;
+    gap: 12px;
+    z-index: 50;
+    pointer-events: auto;
 }
 
 /* cada tab estilo "orelinha" — aparenta ser um pedaço da borda do card */
 .card-tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 22px;
-  border-radius: 12px 12px 6px 6px;
-  font-weight: 700;
-  background: linear-gradient(180deg, rgba(60,18,18,0.95), rgba(40,12,12,0.9));
-  color: #efe6e2;
-  border: 6px solid rgba(92,34,34,1); /* mesma borda do left-card */
-  border-bottom: 0; /* colar com a borda do card */
-  box-shadow: 0 6px 18px rgba(0,0,0,0.6);
-  cursor: pointer;
-  transform: translateY(0);
-  transition: transform 140ms ease, background 140ms;
-  user-select: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 22px;
+    border-radius: 12px 12px 6px 6px;
+    font-weight: 700;
+    background: linear-gradient(180deg, rgba(60, 18, 18, 0.95), rgba(40, 12, 12, 0.9));
+    color: #efe6e2;
+    border: 6px solid rgba(92, 34, 34, 1);
+    /* mesma borda do left-card */
+    border-bottom: 0;
+    /* colar com a borda do card */
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+    cursor: pointer;
+    transform: translateY(0);
+    transition: transform 140ms ease, background 140ms;
+    user-select: none;
 }
 
 /* quando ativa, fica "encaixada" com o card (parecer colada) */
 .card-tab.active {
-  background: linear-gradient(180deg, rgba(92,34,34,0.95), rgba(53,17,17,0.95));
-  transform: translateY(2px);
+    background: linear-gradient(180deg, rgba(92, 34, 34, 0.95), rgba(53, 17, 17, 0.95));
+    transform: translateY(2px);
 }
 
 /* hover / foco */
-.card-tab:hover { transform: translateY(2px) scale(1.02); }
+.card-tab:hover {
+    transform: translateY(2px) scale(1.02);
+}
 
 /* tab vizualmente menor / arredondada para se parecer com "orelinha" */
-.card-tab[data-tab="battle"] { border-radius: 10px 10px 6px 6px; }
+.card-tab[data-tab="battle"] {
+    border-radius: 10px 10px 6px 6px;
+}
 
 /* garantir que o conteúdo das tabs (dentro do left-card-body) não cause redimensionamento do left-card */
 
 /* esconder overflow do topo (para que a "orelinha" pareça "fora" do card) */
-.left-card { overflow: visible; }
+.left-card {
+    overflow: visible;
+}
 
 /* <<< ADICIONADO: Batalha - slots */
 .battle-equip {
-display: flex;
-gap: 18px;
-margin-top: 12px;
-align-items: stretch;
+    display: flex;
+    gap: 18px;
+    margin-top: 12px;
+    align-items: stretch;
 }
 
 
 .char-equipment-slot {
-flex: 1;
-min-height: 140px;
-background: linear-gradient(180deg, #121212, #221818);
-border: 3px solid rgba(90,22,22,0.9);
-border-radius: 12px;
-padding: 12px;
-display: flex;
-flex-direction: column;
-gap: 8px;
-cursor: pointer;
-transition: transform .12s ease, box-shadow .12s ease;
+    flex: 1;
+    min-height: 140px;
+    background: linear-gradient(180deg, #121212, #221818);
+    border: 3px solid rgba(90, 22, 22, 0.9);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease;
 }
 
 
-.char-equipment-slot:hover { transform: translateY(-6px); box-shadow: 0 12px 30px rgba(0,0,0,0.6); }
+.char-equipment-slot:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+}
 
 
-.char-equipment-slot .slot-title { font-weight:700; color:#efe6e2; font-size:1.05rem; }
-.char-equipment-slot .slot-body { color:#dcd6d2; font-size:0.95rem; margin-top:6px; }
+.char-equipment-slot .slot-title {
+    font-weight: 700;
+    color: #efe6e2;
+    font-size: 1.05rem;
+}
+
+.char-equipment-slot .slot-body {
+    color: #dcd6d2;
+    font-size: 0.95rem;
+    margin-top: 6px;
+}
 
 
 /* <<< ADICIONADO: Modal de itens */
-.items-modal { position: fixed; inset: 0; z-index: 9999; display:none; }
-.items-modal[aria-hidden="false"] { display: block; }
-.items-modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.65); }
-.items-modal-panel { position: absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:880px; max-width:94%; background:linear-gradient(180deg,#161414,#241a1a); border:6px solid rgba(92,34,34,0.95); border-radius:14px; padding:12px; box-shadow:0 20px 60px rgba(0,0,0,0.7); display:flex; gap:12px; }
-.items-modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
-.items-modal-body { display:flex; gap:12px; width:100%; }
-.items-list { width:38%; max-height:420px; overflow:auto; border-right:2px solid rgba(90,22,22,0.6); padding-right:10px; }
-.items-list .item-row { padding:8px; border-radius:8px; margin-bottom:8px; cursor:pointer; background:rgba(0,0,0,0.12); border:1px solid rgba(255,255,255,0.02); }
-.items-list .item-row:hover { transform:translateX(6px); }
-.item-detail { flex:1; padding:8px; max-height:420px; overflow:auto; }
-.item-detail h4 { margin:0 0 10px 0; }
-#detail-fields { display:flex; flex-direction:column; gap:8px; }
-.item-detail-actions { margin-top:12px; display:flex; gap:8px; }
-.btn-confirm { background:#5c7a2f; padding:8px 12px; border-radius:8px; border:none; cursor:pointer; }
-.btn-cancel { background:transparent; color:#efe6e2; padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); cursor:pointer; }
-.modal-close { background:transparent; border:none; color:#efe6e2; font-size:18px; cursor:pointer; }
+.items-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+}
+
+.items-modal[aria-hidden="false"] {
+    display: block;
+}
+
+.items-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+}
+
+.items-modal-panel {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 880px;
+    max-width: 94%;
+    background: linear-gradient(180deg, #161414, #241a1a);
+    border: 6px solid rgba(92, 34, 34, 0.95);
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+    display: flex;
+    gap: 12px;
+}
+
+.items-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.items-modal-body {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+}
+
+.items-list {
+    width: 38%;
+    max-height: 420px;
+    overflow: auto;
+    border-right: 2px solid rgba(90, 22, 22, 0.6);
+    padding-right: 10px;
+}
+
+.items-list .item-row {
+    padding: 8px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.items-list .item-row:hover {
+    transform: translateX(6px);
+}
+
+.item-detail {
+    flex: 1;
+    padding: 8px;
+    max-height: 420px;
+    overflow: auto;
+}
+
+.item-detail h4 {
+    margin: 0 0 10px 0;
+}
+
+#detail-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.item-detail-actions {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+}
+
+.btn-confirm {
+    background: #5c7a2f;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-cancel {
+    background: transparent;
+    color: #efe6e2;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+}
+
+.modal-close {
+    background: transparent;
+    border: none;
+    color: #efe6e2;
+    font-size: 18px;
+    cursor: pointer;
+}
 
 /* estilo para listas de itens equipados nos slots */
 .slot-body .equipped-list {
-  list-style: none;
-  margin: 6px 0 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+    list-style: none;
+    margin: 6px 0 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
+
 .slot-body .equipped-item {
-  padding: 8px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.03);
-  cursor: default;
-  outline: none;
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    cursor: default;
+    outline: none;
 }
+
 .slot-body .equipped-item:focus {
-  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
-  transform: translateY(-3px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    transform: translateY(-3px);
 }
-.equipped-item-name { font-weight: 700; font-size: 0.95rem; color: #efe6e2; }
-.equipped-item-meta { font-size: 0.82rem; color: #cfc6c2; margin-top:4px; }
-.slot-body .slot-loading { color: #ddd; padding:6px 0; }
+
+.equipped-item-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #efe6e2;
+}
+
+.equipped-item-meta {
+    font-size: 0.82rem;
+    color: #cfc6c2;
+    margin-top: 4px;
+}
+
+.slot-body .slot-loading {
+    color: #ddd;
+    padding: 6px 0;
+}
 
 /* ícone de remover item (Font Awesome) */
 .equipped-item {
-  position: relative;
-  padding-right: 40px; /* espaço para o ícone */
+    position: relative;
+    padding-right: 40px;
+    /* espaço para o ícone */
 }
 
 .equipped-item-remove {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 18px;
-  cursor: pointer;
-  color: #ffffffd0;
-  transition: color .15s ease;
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    cursor: pointer;
+    color: #ffffffd0;
+    transition: color .15s ease;
 }
 
 .equipped-item-remove:hover {
-  color: #ff4a4a;
+    color: #ff4a4a;
 }
 
 .peso {
@@ -872,4 +1012,35 @@ transition: transform .12s ease, box-shadow .12s ease;
 .peso i {
     color: #fff;
     font-size: 18px;
+}
+
+.inventory-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+}
+
+.inventory-modal.open {
+    display: flex;
+}
+
+.inventory-modal .modal-content {
+    background: rgba(90, 22, 22);
+    padding: 20px;
+    border-radius: 10px;
+    width: 380px;
+    color: white;
+}
+
+.close-btn {
+    float: right;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
 }

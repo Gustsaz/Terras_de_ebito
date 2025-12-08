@@ -88,26 +88,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     const story = charData.historia || '—';
     const appearance = charData.aparencia || '—';
 
-    // Mapear atributos utilizados (chaves esperadas, sem acento)
+    // Mapear atributos utilizados (RAW)
     const attrKeys = {
-        bravura: attributes['bravura'] ?? attributes['bravura'] ?? attributes['bravura'] ?? 0,
+        bravura: attributes['bravura'] ?? 0,
         arcano: attributes['arcano'] ?? 0,
-        folego: attributes['fôlego'] ?? attributes['folego'] ?? attributes['fôlego'] ?? 0,
+        folego: attributes['fôlego'] ?? attributes['folego'] ?? 0,
         essencia: attributes['essencia'] ?? attributes['essência'] ?? 0,
         tecnica: attributes['técnica'] ?? attributes['tecnica'] ?? 0,
         intelecto: attributes['intelecto'] ?? 0
     };
 
-    // Aplicar bônus raciais automáticos
-    if (savedRace === 'Feéricos' && savedSubrace === 'Ágeis') {
-        attrKeys['tecnica'] = (attrKeys['tecnica'] || 0) + 1;
+    function applyRacialBonus(rawValue, key) {
+        if (rawValue > 7) return rawValue;  // evita aplicar novamente ao recarregar
+
+        if (savedRace === 'Feéricos' && savedSubrace === 'Ágeis' && key === 'tecnica')
+            return rawValue + 1;
+
+        if (savedRace === 'Elfo' && key === 'intelecto')
+            return rawValue + 1;
+
+        if (savedRace === 'Meio Orc' && key === 'bravura')
+            return rawValue + 1;
+
+        return rawValue;
     }
-    if (savedRace === 'Elfo') {
-        attrKeys['intelecto'] = (attrKeys['intelecto'] || 0) + 1;
-    }
-    if (savedRace === 'Meio Orc') {
-        attrKeys['bravura'] = (attrKeys['bravura'] || 0) + 1;
-    }
+
+    // ✔️ TRANSFORMA RAW → TOTAL (com bônus)
+    attrKeys.bravura = applyRacialBonus(attrKeys.bravura, 'bravura');
+    attrKeys.arcano = applyRacialBonus(attrKeys.arcano, 'arcano');
+    attrKeys.tecnica = applyRacialBonus(attrKeys.tecnica, 'tecnica');
+    attrKeys.folego = applyRacialBonus(attrKeys.folego, 'folego');
+    attrKeys.essencia = applyRacialBonus(attrKeys.essencia, 'essencia');
+    attrKeys.intelecto = applyRacialBonus(attrKeys.intelecto, 'intelecto');
+
 
     // Calcula estatísticas de batalha por classe
     let pv = 0, mn = 0, sta = 0, profs = '—';
@@ -345,13 +358,41 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 // garante que os atributos armazenados no documento sejam números
                                 characters[index].atributos = characters[index].atributos || {};
                                 Object.keys(attributes).forEach(k => {
-                                    characters[index].atributos[k] = Number(attributes[k] ?? 0);
+                                    const raw = Number(attributes[k] ?? 0);
+                                    const bonus = getBonus(k);        // já existe na sua função
+                                    const total = raw + bonus;
+                                    characters[index].atributos[k] = raw;
                                 });
 
                                 // atualiza os totais de PV/MN/STA
                                 characters[index].PV = charData.PV;
                                 characters[index].MN = charData.MN;
                                 characters[index].STA = charData.STA;
+
+                                // ----------- ATUALIZAÇÃO AUTOMÁTICA DA CARGA -----------
+                                // Usa BRAVURA TOTAL — inclusive com bônus racial aplicado.
+                                const bravuraTotal = Number(attrKeys.bravura ?? 0);
+                                const novaCarga = 8 + bravuraTotal;
+
+
+                                // salva no objeto local
+                                characters[index].carga = novaCarga;
+
+                                // também salva em atributos.carga (compatibilidade retroativa)
+                                characters[index].atributos = characters[index].atributos || {};
+                                characters[index].atributos.carga = novaCarga;
+
+                                // atualiza UI do stat-carga
+                                const cargaEl = document.getElementById('stat-carga');
+                                if (cargaEl) cargaEl.textContent = novaCarga;
+                                updatePesoUI();
+
+                                // mantém charData em sincronia
+                                if (charData) {
+                                    charData.carga = novaCarga;
+                                    if (charData.atributos) charData.atributos.carga = novaCarga;
+                                }
+
 
                                 // SALVA no campo CORRETO 'personagens'
                                 await window.updateDoc(userDocRef, { personagens: characters });
@@ -518,137 +559,207 @@ document.addEventListener('DOMContentLoaded', async () => {
         noteTA.setAttribute('data-listener-added-firestore', 'true');
     }
 
+    function openItemDetailModal(itemId, itemData) {
 
-    /* ---------- INVENTÁRIO: será injetado à direita para replicar mockup ---------- */
-    // inventory pode existir no localStorage como array de objetos {id,name,img,qty}
-    let inventory = [];
-    try {
-        const invRaw = localStorage.getItem('inventory');
-        if (invRaw) inventory = JSON.parse(invRaw);
-    } catch (e) {
-        console.warn('inventory inválido', e);
-    }
+        const modal = document.getElementById("inventory-item-modal");
+        const titleEl = modal.querySelector(".item-detail-title");
+        const fieldsEl = modal.querySelector(".item-detail-fields");
 
-    // criar wrapper à direita
-    const main = document.querySelector('.character-main');
-    if (main) {
-        // evita duplicar se já foi inserido
-        if (!document.getElementById('inventory-wrap')) {
-            const wrap = document.createElement('div');
-            wrap.id = 'inventory-wrap';
-
-            // inventário card
-            wrap.innerHTML = `
-        <div class="inventory-card" aria-label="Inventário">
-          <div class="inventory-top">
-            <div class="peso">
-                <i class="fa-solid fa-dumbbell"></i>
-                <span id="peso-info">0 / 0</span>
-            </div>
-            <input class="search-field" placeholder="Buscar item..." />
-          </div>
-          <div class="inventory-grid" role="list" aria-label="Slots do inventario"></div>
-        </div>
-      `;
-            main.appendChild(wrap);
-
-            // preencher slots
-            const grid = wrap.querySelector('.inventory-grid');
-
-            // padrão: grade 4x5 = 20 slots
-            const slotsCount = 20;
-            // função para montar slot
-            const createSlot = (slotIndex) => {
-                const s = document.createElement('div');
-                s.className = 'inv-slot';
-                s.dataset.slot = slotIndex;
-                return s;
-            };
-
-            // preencher cada slot com item se existir
-            for (let i = 0; i < slotsCount; i++) {
-                const slotEl = createSlot(i);
-                const item = inventory[i] || null;
-                if (item) {
-                    const img = document.createElement('img');
-                    img.alt = item.name || `item-${i}`;
-                    img.src = item.img || `./imgs/${(item.id || 'placeholder')}.png`;
-                    img.onerror = () => { img.src = './imgs/placeholder.png'; };
-                    slotEl.appendChild(img);
-
-                    if (item.qty && item.qty > 1) {
-                        const qty = document.createElement('div');
-                        qty.className = 'inv-qty';
-                        qty.textContent = item.qty;
-                        slotEl.appendChild(qty);
-                    }
-                    // tooltip on hover
-                    slotEl.title = item.name || 'Item';
-                    slotEl.addEventListener('click', () => {
-                        // ação simples: copia nome do item para clipboard / mostra alerta - você pode customizar
-                        navigator.clipboard?.writeText(item.name || '').catch(() => { });
-                        const prev = document.querySelector('.inv-slot.active');
-                        if (prev) prev.classList.remove('active');
-                        slotEl.classList.add('active');
-                        // feedback simples
-                        slotEl.animate([{ transform: 'translateY(-6px)' }, { transform: 'translateY(0)' }], { duration: 200 });
-                    });
-                }
-                grid.appendChild(slotEl);
-            }
-
-            // search filter
-            const searchField = wrap.querySelector('.search-field');
-            if (searchField) {
-                searchField.addEventListener('input', (e) => {
-                    const q = e.target.value.trim().toLowerCase();
-                    const slots = grid.querySelectorAll('.inv-slot');
-                    slots.forEach((slot, idx) => {
-                        const item = inventory[idx];
-                        if (!q) { slot.style.opacity = '1'; slot.style.filter = 'none'; return; }
-                        if (!item) { slot.style.opacity = '0.25'; return; }
-                        const name = (item.name || '').toLowerCase();
-                        if (name.includes(q)) {
-                            slot.style.opacity = '1';
-                            slot.style.filter = 'none';
-                        } else {
-                            slot.style.opacity = '0.25';
-                        }
-                    });
-                });
-            }
-
-            // --- update peso inicial: usa carga do personagem (charData) como max, e peso_atual se disponível ---
-            const pesoInfoSpan = wrap.querySelector('#peso-info') || wrap.querySelector('.peso span');
-            if (pesoInfoSpan) {
-                // calcula total de peso a partir do inventory (fallback caso charData.peso_atual não exista)
-                let totalPesoInventory = 0;
-                inventory.forEach(it => {
-                    // aceita tanto "weight" quanto "peso" por segurança
-                    const w = Number(it.weight ?? it.peso ?? 0);
-                    totalPesoInventory += (w * (it.qty || 1));
-                });
-
-                // preferir peso_atual salvo no documento do personagem (charData), se for válido
-                let pesoAtual = Number(charData?.peso_atual);
-                if (!Number.isFinite(pesoAtual) || pesoAtual === 0) {
-                    // se não houver peso_atual, usa o somatório do inventory (pode ser 0)
-                    pesoAtual = totalPesoInventory || 0;
-                }
-
-                // obter carga máxima: prioridade para charData.carga -> charData.atributos.carga -> fallback 8 + bravura
-                let cargaMax = Number(charData?.carga ?? charData?.atributos?.carga);
-                if (!Number.isFinite(cargaMax) || cargaMax <= 0) {
-                    const bravuraRaw = Number(charData?.atributos?.bravura ?? 0) || 0;
-                    cargaMax = 8 + bravuraRaw;
-                }
-
-                // escreve só no span filho — mantém o ícone intacto
-                pesoInfoSpan.textContent = `${pesoAtual} / ${cargaMax}`;
-            }
-
+        if (!modal || !titleEl || !fieldsEl) {
+            console.warn("Modal do inventário não encontrado no HTML");
+            return;
         }
+
+        // título
+        titleEl.textContent = itemData.nome || "(Sem nome)";
+
+        // limpa conteúdo
+        fieldsEl.innerHTML = "";
+
+        // adiciona campos válidos
+        for (const [key, value] of Object.entries(itemData)) {
+
+            if (key === "nome") continue;
+
+            // --- regras para ocultar campo ---
+            if (value === "Nenhum") continue;          // 1) exatamente "Nenhum"
+            if (value === "" || value === null) continue;
+            if (typeof value === "string" && value.trim() === "") continue;
+            if (value === undefined) continue;
+
+            // cria a linha normal
+            const row = document.createElement("div");
+            row.className = "detail-row";
+            row.innerHTML = `<strong>${key}:</strong> ${value}`;
+            fieldsEl.appendChild(row);
+        }
+
+        // abre o modal
+        modal.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+
+        // botão fechar
+        const closeBtn = document.getElementById("inv-item-close");
+        closeBtn.onclick = () => {
+            modal.classList.remove("open");
+            modal.setAttribute("aria-hidden", "true");
+        };
     }
+
+    /* ---------- INVENTÁRIO (real-time Firestore) ---------- */
+
+    let inventoryFromFirebase = []; // usado no peso
+
+    const main = document.querySelector('.character-main');
+    if (main && !document.getElementById('inventory-wrap')) {
+
+        const wrap = document.createElement('div');
+        wrap.id = 'inventory-wrap';
+
+        wrap.innerHTML = `
+        <div class="inventory-card" aria-label="Inventário">
+            <div class="inventory-top">
+                <div class="peso">
+                    <i class="fa-solid fa-dumbbell"></i>
+                    <span id="peso-info">0 / 0</span>
+                </div>
+                <input class="search-field" placeholder="Buscar item..." />
+            </div>
+            <div class="inventory-grid" role="list" aria-label="Slots do inventário"></div>
+        </div>`;
+
+        main.appendChild(wrap);
+
+        const grid = wrap.querySelector(".inventory-grid");
+        const slotsCount = 20;
+
+        function createEmptySlots() {
+            grid.innerHTML = "";
+            for (let i = 0; i < slotsCount; i++) {
+                const s = document.createElement("div");
+                s.className = "inv-slot";
+                s.dataset.slot = i;
+                s.setAttribute("tabindex", "0");
+                grid.appendChild(s);
+            }
+        }
+
+        createEmptySlots();
+
+        /* ----------- REALTIME FIRESTORE LISTENER ----------- */
+        function enableRealtimeInventory() {
+            const user = window.firebaseauth.currentUser;
+            if (!user) return;
+
+            const userRef = window.doc(window.firestoredb, "usuarios", user.uid);
+
+            // 🔥 AQUI É O **CORRETO**
+            window.firebaseOnSnapshot(userRef, async (snap) => {
+
+                if (!snap.exists()) return;
+
+                const data = snap.data();
+                const personagens = data.personagens || [];
+                const myChar = personagens.find(p => p.uid === charUid);
+                if (!myChar) return;
+
+                const equipped = Array.isArray(myChar.itens) ? myChar.itens : [];
+
+                // reseta a UI
+                inventoryFromFirebase = [];
+                createEmptySlots();
+
+                const slots = grid.querySelectorAll(".inv-slot");
+                let index = 0;
+
+                for (const entry of equipped) {
+
+                    if (!entry?.uid) continue;
+                    if (index >= slotsCount) break;
+
+                    try {
+                        const itemRef = window.doc(window.firestoredb, "itens", entry.uid);
+                        const itemSnap = await window.getDoc(itemRef);
+                        if (!itemSnap.exists()) continue;
+
+                        const item = itemSnap.data();
+                        inventoryFromFirebase.push(item);
+
+                        const s = slots[index];
+
+                        const div = document.createElement("div");
+                        div.className = "inv-name";
+                        div.textContent = item.nome || "(Sem nome)";
+
+                        s.appendChild(div);
+
+                        s.onclick = () => openItemDetailModal(itemSnap.id, item);
+
+                        index++;
+
+                    } catch (err) {
+                        console.warn("Erro lendo item:", err);
+                    }
+                }
+
+                if (typeof updatePesoUI === "function") updatePesoUI();
+            });
+        }
+
+        // ativa listener realtime
+        setTimeout(enableRealtimeInventory, 300);
+
+        /* ----------- BUSCA ----------- */
+        const searchField = wrap.querySelector(".search-field");
+        searchField?.addEventListener("input", () => {
+            const q = searchField.value.trim().toLowerCase();
+            grid.querySelectorAll(".inv-slot").forEach(s => {
+                const txt = s.innerText.toLowerCase();
+                s.style.opacity = txt.includes(q) ? "1" : "0.25";
+            });
+        });
+
+    }
+
+
+    /* ---------- PESO (permanece igual, só estava fora do lugar) ---------- */
+
+    const pesoInfoSpan = document.getElementById('peso-info');
+    if (pesoInfoSpan) {
+
+        let totalPesoInventory = 0;
+        inventoryFromFirebase.forEach(it => {
+            const w = Number(it.peso ?? 0);
+            totalPesoInventory += w;
+        });
+
+        let pesoAtual = Number(charData?.peso_atual);
+        if (!Number.isFinite(pesoAtual) || pesoAtual === 0) {
+            pesoAtual = totalPesoInventory || 0;
+        }
+
+        let cargaMax = Number(charData?.carga ?? charData?.atributos?.carga);
+        if (!Number.isFinite(cargaMax) || cargaMax <= 0) {
+            const bravuraRaw = Number(charData?.atributos?.bravura ?? 0) || 0;
+            cargaMax = 8 + bravuraRaw;
+        }
+
+        pesoInfoSpan.textContent = `${pesoAtual} / ${cargaMax}`;
+    }
+
+    function updatePesoUI() {
+        const pesoInfo = document.getElementById('peso-info');
+        if (!pesoInfo) return;
+
+        let pesoAtual = Number(charData?.peso_atual ?? 0);
+        if (!Number.isFinite(pesoAtual)) pesoAtual = 0;
+
+        const bravuraTotal = Number(attrKeys.bravura ?? 0);
+        const cargaMax = 8 + bravuraTotal;
+
+        pesoInfo.textContent = `${pesoAtual} / ${cargaMax}`;
+    }
+
 
     // Pequeno ajuste visual: criar a left-card shell caso seu HTML não tenha layout exato
     // Se .left-card não existir, vamos agrupar o conteúdo atual numa .left-card para estilizar
@@ -984,21 +1095,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
 
-                // --------- LER CARGA MÁXIMA (PRIMÁRIO: characters[idx].carga) ----------
-                let cargaMaxima = Number(characters[idx]?.carga);
-                if (!Number.isFinite(cargaMaxima) || cargaMaxima < 0) {
-                    // fallback para atributos.carga se o campo direto não existir
-                    cargaMaxima = Number(characters[idx]?.atributos?.carga);
-                }
-                if (!Number.isFinite(cargaMaxima) || cargaMaxima < 0) {
-                    // fallback para charData (caso esteja carregado localmente)
-                    cargaMaxima = Number(charData?.atributos?.carga);
-                }
+                // --------- LER CARGA MÁXIMA (criar variável ANTES de usar) ----------
+                let cargaMaxima = Number(characters[idx].carga ?? characters[idx].atributos?.carga);
+
                 if (!Number.isFinite(cargaMaxima) || cargaMaxima <= 0) {
-                    // último fallback prático: 8 + bravura RAW do personagem (sem tentar aplicar bônus de classe),
-                    // mas isso só roda se realmente não houver campo carga nas fontes anteriores.
-                    const bravuraRaw = Number(characters[idx]?.atributos?.bravura ?? charData?.atributos?.bravura ?? 0) || 0;
-                    cargaMaxima = 8 + bravuraRaw;
+
+                    const raw = Number(characters[idx]?.atributos?.bravura ?? charData?.atributos?.bravura ?? 0) || 0;
+
+                    let bonus = 0;
+                    const r = characters[idx].raca;
+                    const sr = characters[idx].subraca;
+
+                    if (r === 'Feéricos' && sr === 'Ágeis') bonus = 1;
+                    if (r === 'Elfo') bonus = 1;
+                    if (r === 'Meio Orc') bonus = 1;
+
+                    cargaMaxima = 8 + (raw + bonus);
                 }
 
                 // normaliza para número inteiro ou mantem decimal se houver (mantemos Number)
@@ -1024,6 +1136,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // salva no Firestore
                 await window.updateDoc(userRef, { personagens: characters });
+
+                // Atualiza UI imediatamente
+                updatePesoUI();
 
                 // atualiza UI
                 await refreshSlotsFromCharData();
@@ -1105,10 +1220,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                     pesoAtual = Number(myChar.peso_atual ?? 0) || 0;
                 }
                 let cargaMax = Number(myChar.carga ?? myChar.atributos?.carga);
+
                 if (!Number.isFinite(cargaMax) || cargaMax <= 0) {
-                    const bravuraRaw = Number(myChar.atributos?.bravura ?? 0) || 0;
-                    cargaMax = 8 + bravuraRaw;
+                    // RAW + bônus racial
+                    const raw = Number(myChar.atributos?.bravura ?? 0) || 0;
+
+                    let bonus = 0;
+                    if (myChar.raca === 'Feéricos' && myChar.subraca === 'Ágeis') bonus = 1;
+                    if (myChar.raca === 'Elfo') bonus = 1;
+                    if (myChar.raca === 'Meio Orc') bonus = 1;
+
+                    const bravuraTotal = raw + bonus;
+
+                    cargaMax = 8 + bravuraTotal;
                 }
+
                 if (pesoInfoEl) pesoInfoEl.textContent = `${pesoAtual} / ${cargaMax}`;
 
 
@@ -1249,6 +1375,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         // salvar
                         await window.updateDoc(userRef, { personagens });
+
+                        updatePesoUI();
+
 
                     } catch (err) {
                         console.error('Erro ao remover item', err);

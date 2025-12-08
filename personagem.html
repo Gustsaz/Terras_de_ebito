@@ -255,8 +255,17 @@
             </div><!-- /.left-card-body -->
         </div><!-- /.left-card -->
 
-        <!-- inventory (lado direito) será mantido / injetado pelo JS (mantive a section principal) -->
     </section>
+
+    <!-- Modal de DETALHE do inventário (lado direito) -->
+    <div id="inventory-item-modal" class="inventory-modal" aria-hidden="true">
+        <div class="modal-content">
+            <button id="inv-item-close" class="close-btn">X</button>
+            <h2 class="item-detail-title"></h2>
+            <div class="item-detail-fields"></div>
+        </div>
+    </div>
+
 
     <script src="personagem.js"></script>
 </body>
