@@ -1042,7 +1042,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        // REPLACE: função confirmEquip() (corrigida para ler carga a partir de characters[idx].carga)
+        // REPLACE: confirmEquip() com verificação única para "Armadura" e "Escudo"
         async function confirmEquip() {
             if (!selectedItem) {
                 alert('Nenhum item selecionado.');
@@ -1055,7 +1055,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            // desativa botão para evitar cliques repetidos (se existir)
             if (confirmBtn) confirmBtn.disabled = true;
 
             try {
@@ -1074,14 +1073,58 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // garante array de itens do personagem (estado atual antes da adição)
                 characters[idx].itens = Array.isArray(characters[idx].itens) ? characters[idx].itens.slice() : [];
 
+                // Lê doc do item selecionado (robusto: aceita selectedItem.id ou selectedItem.uid)
+                const selItemId = String(selectedItem.id || selectedItem.uid || selectedItem);
+                const selItemRef = window.doc(window.firestoredb, 'itens', selItemId);
+                const selItemSnap = await window.getDoc(selItemRef);
+                const selItemData = selItemSnap && selItemSnap.exists() ? selItemSnap.data() : selectedItem;
+
+                // categoria do item (normalizada)
+                const categoriaRaw = (selItemData && selItemData.categoria) ? String(selItemData.categoria) : '';
+                const categoriaNorm = categoriaRaw.normalize ? categoriaRaw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase() : String(categoriaRaw).trim().toLowerCase();
+
+                // helper: verifica se já existe um item equipado com determinada categoria
+                async function isCategoryAlreadyEquipped(itemsArray, categoriaToCheck) {
+                    if (!categoriaToCheck) return false;
+                    const norm = String(categoriaToCheck).normalize ? categoriaToCheck.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase() : String(categoriaToCheck).trim().toLowerCase();
+                    // percorre os itens equipados e busca documentos (paralelizar requisições)
+                    const promises = (itemsArray || []).map(async (entry) => {
+                        if (!entry || !entry.uid) return false;
+                        try {
+                            const ref = window.doc(window.firestoredb, 'itens', entry.uid);
+                            const snap = await window.getDoc(ref);
+                            if (!snap.exists()) return false;
+                            const d = snap.data();
+                            const cat = (d && d.categoria) ? String(d.categoria) : '';
+                            const catNorm = cat.normalize ? cat.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase() : String(cat).trim().toLowerCase();
+                            return catNorm === norm;
+                        } catch (e) {
+                            console.warn('isCategoryAlreadyEquipped: erro ao ler item', entry.uid, e);
+                            return false;
+                        }
+                    });
+
+                    const results = await Promise.all(promises);
+                    return results.some(Boolean);
+                }
+
+                // Se o item que será equipado for "Armadura" ou "Escudo", checamos duplicata
+                if (categoriaNorm === 'armadura' || categoriaNorm === 'escudo') {
+                    const already = await isCategoryAlreadyEquipped(characters[idx].itens, categoriaNorm);
+                    if (already) {
+                        alert(`Já existe um item equipado com categoria "${categoriaRaw}". Só é permitido ter 1 ${categoriaRaw} equipado por personagem.`);
+                        return;
+                    }
+                }
+
                 // calcula peso atual (antes de adicionar)
                 const pesoAtual = await calcularPesoAtual(characters[idx].itens);
 
                 // tenta obter peso do item selecionado de forma robusta
-                let pesoDoItem = Number(selectedItem.peso);
+                let pesoDoItem = Number(selItemData?.peso ?? selectedItem.peso);
                 if (!Number.isFinite(pesoDoItem)) {
                     try {
-                        const docRef = window.doc(window.firestoredb, 'itens', selectedItem.id || selectedItem.uid || selectedItem);
+                        const docRef = window.doc(window.firestoredb, 'itens', selItemId);
                         const docSnap = await window.getDoc(docRef);
                         if (docSnap.exists()) {
                             const d = docSnap.data();
@@ -1095,30 +1138,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
 
-                // --------- LER CARGA MÁXIMA (criar variável ANTES de usar) ----------
+                // LER CARGA MÁXIMA
                 let cargaMaxima = Number(characters[idx].carga ?? characters[idx].atributos?.carga);
-
                 if (!Number.isFinite(cargaMaxima) || cargaMaxima <= 0) {
-
                     const raw = Number(characters[idx]?.atributos?.bravura ?? charData?.atributos?.bravura ?? 0) || 0;
-
                     let bonus = 0;
                     const r = characters[idx].raca;
                     const sr = characters[idx].subraca;
-
                     if (r === 'Feéricos' && sr === 'Ágeis') bonus = 1;
                     if (r === 'Elfo') bonus = 1;
                     if (r === 'Meio Orc') bonus = 1;
-
                     cargaMaxima = 8 + (raw + bonus);
                 }
-
-                // normaliza para número inteiro ou mantem decimal se houver (mantemos Number)
                 cargaMaxima = Number(cargaMaxima);
 
-                console.debug('confirmEquip check -> pesoAtual:', pesoAtual, 'pesoDoItem:', pesoDoItem, 'cargaMaxima:', cargaMaxima, 'characters[idx].carga:', characters[idx]?.carga, 'characters[idx].atributos?.carga:', characters[idx]?.atributos?.carga);
-
-                // verifica se ultrapassa (permitido quando igual)
                 if ((pesoAtual + pesoDoItem) > cargaMaxima) {
                     alert(
                         `Não é possível equipar este item — ele aumentaria o peso de ${pesoAtual} → ${pesoAtual + pesoDoItem} ` +
@@ -1127,8 +1160,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     return; // não adiciona
                 }
 
-                // passa na checagem => adiciona item
-                characters[idx].itens.push({ uid: selectedItem.id });
+                // adiciona item (armazenando uid)
+                characters[idx].itens.push({ uid: selItemId });
 
                 // recalcula peso_atual já com o novo item
                 const novoPeso = await calcularPesoAtual(characters[idx].itens);
@@ -1137,18 +1170,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // salva no Firestore
                 await window.updateDoc(userRef, { personagens: characters });
 
+                // Após salvar com sucesso, ajustar DEF se necessário (item de proteção)
+                try {
+                    await modifyDefByItemUid(selItemId, 'add');
+                } catch (e) {
+                    console.warn('Avise: falha ao tentar ajustar DEF depois de equipar (não crítico):', e);
+                }
+
                 // Atualiza UI imediatamente
                 updatePesoUI();
-
-                // atualiza UI
                 await refreshSlotsFromCharData();
-
                 closeModal();
+
             } catch (err) {
                 console.error('Erro ao equipar item:', err);
                 alert('Erro ao equipar item. Veja console para detalhes.');
             } finally {
-                // reativa botão
                 if (confirmBtn) confirmBtn.disabled = false;
             }
         }
@@ -1321,11 +1358,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         removeBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
 
                         // ao clicar, removemos a instância pelo índice original (sourceIndex)
+                        // ao clicar, removemos a instância pelo índice original (sourceIndex)
                         removeBtn.addEventListener('click', async (ev) => {
                             ev.stopPropagation(); // evita abrir modal se clicar no item
-                            // itemWrap.sourceIndex é o índice no array personagens[idx].itens
+                            // passa o sourceIndex (índice no array personagens[idx].itens)
                             await removerItemEquipado(itemWrap.sourceIndex);
-                            // atualiza interface
+                            // refresh é chamado dentro de removerItemEquipado, mas aqui manter redundância segura:
                             await refreshSlotsFromCharData();
                         });
 
@@ -1337,6 +1375,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     body.appendChild(ul);
                 }
 
+                // Remove apenas a entrada na posição passada (não remove todas as que têm o mesmo uid)
                 // Remove apenas a entrada na posição passada (não remove todas as que têm o mesmo uid)
                 async function removerItemEquipado(itemIndexToRemove) {
                     try {
@@ -1355,30 +1394,41 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         const itens = Array.isArray(personagens[idx].itens) ? personagens[idx].itens.slice() : [];
 
-                        // se o índice for válido, removemos apenas essa posição
-                        if (Number.isFinite(itemIndexToRemove) && itemIndexToRemove >= 0 && itemIndexToRemove < itens.length) {
-                            const novoArray = itens.slice();
-                            novoArray.splice(itemIndexToRemove, 1); // remove somente esse elemento
-                            personagens[idx].itens = novoArray;
-
-                        } else {
-                            // fallback: se por algum motivo o índice estiver inválido, remove só a primeira ocorrência do uid
-                            console.warn('Índice inválido ao tentar remover item. Aplicando fallback (remover primeira ocorrência).', itemIndexToRemove);
-                            // tenta inferir uid a partir do array atual (caso você queira passar uid ao fallback)
-                            // aqui não temos o uid diretamente, então apenas mantemos o array como estava
+                        // valida índice
+                        if (!Number.isFinite(itemIndexToRemove) || itemIndexToRemove < 0 || itemIndexToRemove >= itens.length) {
+                            console.warn('Índice inválido ao tentar remover item.', itemIndexToRemove);
                             return;
                         }
+
+                        // pega uid do item que será removido (antes de splice)
+                        const removedItemEntry = itens[itemIndexToRemove];
+                        const removedItemUid = removedItemEntry?.uid;
+
+                        // remove somente esse elemento
+                        const novoArray = itens.slice();
+                        novoArray.splice(itemIndexToRemove, 1);
+                        personagens[idx].itens = novoArray;
 
                         // recalcular peso
                         const novoPeso = await calcularPesoAtual(personagens[idx].itens);
                         personagens[idx].peso_atual = novoPeso;
 
-                        // salvar
+                        // salva no Firestore
                         await window.updateDoc(userRef, { personagens });
 
+                        // se tivermos o uid do item removido, ajustar DEF subtraindo efeito (se for proteção)
+                        if (removedItemUid) {
+                            try {
+                                await modifyDefByItemUid(String(removedItemUid), 'remove');
+                            } catch (e) {
+                                console.warn('Falha ao ajustar DEF depois de remover item (não crítico):', e);
+                            }
+                        }
+
+                        // atualizar UI local
                         updatePesoUI();
-
-
+                        // atualiza slots na UI
+                        await refreshSlotsFromCharData();
                     } catch (err) {
                         console.error('Erro ao remover item', err);
                     }
@@ -1391,6 +1441,128 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             } catch (err) {
                 console.error('Erro em refreshSlotsFromCharData', err);
+            }
+        }
+
+        /* ===== Gerenciar DEF ao equipar / desequipar itens de tipo "proteção" =====
+   Uso:
+     // depois de adicionar o documento do item ao array personagens[].itens
+     await modifyDefByItemUid(itemUid, 'add');
+
+     // depois de remover (quando for remover do array personagens[].itens)
+     await modifyDefByItemUid(itemUid, 'remove');
+
+   Observação: o campo 'efeito' no documento em coleção 'itens' será convertido para Number().
+*/
+        async function modifyDefByItemUid(itemUid, operation = 'add') {
+            try {
+                if (!itemUid) {
+                    console.warn('modifyDefByItemUid: itemUid ausente.');
+                    return;
+                }
+                // garante operação válida
+                if (operation !== 'add' && operation !== 'remove') {
+                    console.warn('modifyDefByItemUid: operação inválida', operation);
+                    return;
+                }
+
+                // pega documento do item
+                const itemRef = window.doc(window.firestoredb, 'itens', String(itemUid));
+                const itemSnap = await window.getDoc(itemRef);
+                if (!itemSnap || !itemSnap.exists()) {
+                    console.warn('modifyDefByItemUid: documento de item não encontrado:', itemUid);
+                    return;
+                }
+                const itemData = itemSnap.data() || {};
+
+                // só prossegue se for tipo "proteção" (case-insensitive)
+                const tipo = String(itemData.tipo_item || '').trim().toLowerCase();
+                if (tipo !== 'proteção' && tipo !== 'protecao') { // aceita sem acento também
+                    // não é item de proteção -> nada a fazer
+                    return;
+                }
+
+                // obtém valor numérico do efeito (padrão 0)
+                const efeitoRaw = itemData.efeito;
+                // garantir conversão segura para número (se for string "3" ou number 3)
+                const efeito = Number(efeitoRaw);
+                if (Number.isNaN(efeito) || efeito === 0) {
+                    // nada para somar/subtrair
+                    return;
+                }
+
+                // usuário atual
+                const currentUser = window.firebaseauth?.currentUser;
+                if (!currentUser) {
+                    console.warn('modifyDefByItemUid: usuário não autenticado.');
+                    return;
+                }
+
+                // pega documento do usuário
+                const userRef = window.doc(window.firestoredb, 'usuarios', currentUser.uid);
+                const userSnap = await window.getDoc(userRef);
+                if (!userSnap || !userSnap.exists()) {
+                    console.warn('modifyDefByItemUid: documento de usuário não encontrado.');
+                    return;
+                }
+                const userData = userSnap.data() || {};
+
+                // copia array de personagens pra editar
+                const personagens = Array.isArray(userData.personagens) ? userData.personagens.slice() : [];
+                const pIndex = personagens.findIndex(p => p && p.uid === charUid);
+                if (pIndex < 0) {
+                    console.warn('modifyDefByItemUid: personagem não encontrado no documento do usuário (charUid):', charUid);
+                    return;
+                }
+
+                // pega DEF atual (garante number)
+                const currentDEFraw = personagens[pIndex].DEF;
+                const currentDEF = (currentDEFraw === undefined || currentDEFraw === null) ? 0 : Number(currentDEFraw);
+                const safeCurrentDEF = Number.isNaN(currentDEF) ? 0 : currentDEF;
+
+                // cálculo (digit-by-digit implícito no JS, mas garantimos coersão antes de operar)
+                // novo valor:
+                let newDEF;
+                if (operation === 'add') {
+                    // soma
+                    newDEF = safeCurrentDEF + efeito;
+                } else {
+                    // subtrai
+                    newDEF = safeCurrentDEF - efeito;
+                }
+
+                // evita DEF negativo (se quiser permitir, remova o clamp)
+                if (newDEF < 0) newDEF = 0;
+
+                // set no objeto local
+                personagens[pIndex].DEF = newDEF;
+
+                // grava alteração inteira do array personagens no Firestore
+                await window.updateDoc(userRef, { personagens });
+
+                // atualiza charData local (se existir)
+                try {
+                    if (typeof charData === 'object' && charData !== null) {
+                        charData.DEF = newDEF;
+                    }
+                } catch (e) {
+                    console.warn('modifyDefByItemUid: não foi possível atualizar charData local.', e);
+                }
+
+                // atualiza UI
+                if (typeof window.refreshDefenseCat === 'function') {
+                    window.refreshDefenseCat();
+                } else {
+                    // fallback: atualiza direto se existir elemento
+                    const el = document.getElementById('char-def-value');
+                    if (el) el.textContent = String(newDEF);
+                }
+
+                console.log(`modifyDefByItemUid: ${operation} efeito=${efeito} para item ${itemUid}. DEF: ${safeCurrentDEF} → ${newDEF}`);
+                return;
+
+            } catch (err) {
+                console.error('modifyDefByItemUid erro:', err);
             }
         }
 
@@ -1834,6 +2006,72 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
 
+            /* ===== ADD: Atualiza a defense-cat (mostra campo DEF do personagem) ===== */
+            async function refreshDefenseCat() {
+                try {
+                    const el = document.getElementById('char-def-value');
+                    if (!el) return;
+
+                    let defVal = null;
+
+                    // 1) tentar obter direto do objeto charData (se já existir no escopo)
+                    try {
+                        if (typeof charData === 'object' && charData !== null) {
+                            // seu esquema parece ter DEF direto no objeto do personagem
+                            if (charData.DEF !== undefined && charData.DEF !== null) {
+                                defVal = charData.DEF;
+                            }
+                            // Em alguns casos o campo pode estar aninhado; checamos variantes comuns
+                            else if (charData.DEF?.at !== undefined) {
+                                defVal = charData.DEF; // fallback
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Erro lendo charData para DEF', e);
+                    }
+
+                    // 2) se não encontrou em charData, buscar no documento do usuário e procurar na array personagens[]
+                    if (defVal === null) {
+                        try {
+                            const currentUser = window.firebaseauth?.currentUser;
+                            if (currentUser) {
+                                const userRef = window.doc(window.firestoredb, 'usuarios', currentUser.uid);
+                                const userSnap = await window.getDoc(userRef);
+                                if (userSnap.exists()) {
+                                    const userData = userSnap.data();
+                                    const personagens = Array.isArray(userData.personagens) ? userData.personagens : [];
+                                    const p = personagens.find(pp => pp && pp.uid === charUid);
+                                    if (p && (p.DEF !== undefined && p.DEF !== null)) defVal = p.DEF;
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('Erro buscando DEF no Firestore:', err);
+                        }
+                    }
+
+                    // 3) exibir valor (ou traço se indefinido)
+                    if (defVal !== null && defVal !== undefined && defVal !== '') {
+                        el.textContent = String(defVal);
+                    } else {
+                        el.textContent = '—';
+                    }
+                } catch (err) {
+                    console.error('refreshDefenseCat erro:', err);
+                }
+            }
+
+            // Expor a função globalmente para que outras partes do sistema possam chamar
+            window.refreshDefenseCat = refreshDefenseCat;
+
+            // Tenta rodar uma vez após carregar a UI (ajuste de tempo para quando charData for populado)
+            setTimeout(() => {
+                try { refreshDefenseCat(); } catch (e) { console.warn(e); }
+            }, 450);
+
+            // Se você tiver uma função global que atualiza toda a UI (ex: refreshSlotsFromCharData), 
+            // chame refreshDefenseCat() a partir dela também. Se não tiver, pode chamar manualmente
+            // window.refreshDefenseCat() após o charData ser carregado.
+
 
             // chama na inicialização (se existir a função global refreshSlotsFromCharData que você já usa, chamamos ela depois)
             setTimeout(() => refreshMagicSlotsFromCharData(), 400);
@@ -1847,9 +2085,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         })();
 
-
     })();
-
 
     /* ---------- +/- buttons (PV/MN/STA) ---------- */
     function wirePlusMinus(minusId, plusId, getCur, setCur, total) {

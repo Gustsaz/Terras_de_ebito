@@ -1278,3 +1278,64 @@ html.dragging {
     height: 32px;
     object-fit: contain;
 }
+
+/* ===== Defense Cat (DEF) ===== */
+.defense-cat {
+  margin-top: 12px;
+  width: 100%;
+  max-width: 360px; /* ajusta conforme layout */
+  background: linear-gradient(180deg, rgba(24,16,16,0.6), rgba(18,12,12,0.6));
+  border: 3px solid rgba(90,22,22,0.9);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.45);
+}
+
+/* Texto superior "DEF" */
+.defense-cat .defense-top {
+  font-weight: 900;
+  font-size: 0.95rem;
+  color: #efe6e2;
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+/* centro com a imagem do escudo alinhada horizontalmente */
+.defense-shield-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.defense-shield-img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.6));
+}
+
+/* valor da defesa (em baixo) */
+.defense-cat .defense-value {
+  font-weight: 900;
+  font-size: 1.15rem;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.03);
+  min-width: 44px;
+  text-align: center;
+}
+
+/* responsivo: ocupa full width em telas pequenas */
+@media (max-width: 920px) {
+  .defense-cat { max-width: 100%; }
+  .defense-shield-img { width: 60px; height: 60px; }
+}

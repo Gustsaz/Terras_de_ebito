@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Enviar Itens - Painel</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f1724;
+            --card: #111827;
+            --muted: #cbd5e1;
+            --accent: #7dd3fc;
+            --glass: rgba(255, 255, 255, 0.03);
+        }
+
+        body {
+            font-family: Inter, system-ui, Arial, sans-serif;
+            margin: 0;
+            background: linear-gradient(180deg, #071029 0%, #071a2e 100%);
+            color: var(--muted);
+            padding: 28px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 20px;
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 6px 18px rgba(2, 6, 23, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        h1 {
+            margin: 0 0 12px 0;
+            font-size: 20px;
+            color: #e6eef9;
+        }
+
+        form .row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        input[type=text],
+        input[type=number],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            background: var(--glass);
+            color: var(--muted);
+            box-sizing: border-box;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        textarea {
+            min-height: 88px;
+            resize: vertical;
+        }
+
+        .two {
+            display: flex;
+            gap: 12px;
+        }
+
+        .two>* {
+            flex: 1;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(90deg, var(--accent), #60a5fa);
+            color: #062033;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            box-shadow: 0 6px 18px rgba(29, 78, 216, 0.12);
+        }
+
+        .btn.ghost {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            box-shadow: none;
+        }
+
+        .small {
+            padding: 8px 10px;
+            font-size: 0.9rem;
+            border-radius: 8px;
+        }
+
+        .meta {
+            font-size: 0.9rem;
+            color: #9fb2c8;
+            margin-top: 10px;
+        }
+
+        .json-area {
+            width: 100%;
+            min-height: 160px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.15);
+            padding: 10px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+            color: #dff3ff;
+            border: 1px dashed rgba(255, 255, 255, 0.04);
+        }
+
+        .right-col .card {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log {
+            margin-top: 12px;
+            overflow: auto;
+            max-height: 360px;
+            padding: 8px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .log .ok {
+            color: #80f0a2;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .log .err {
+            color: #ff9aa2;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .hint {
+            font-size: 0.85rem;
+            color: #9fb2c8;
+            margin-bottom: 8px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .upload-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        footer {
+            margin-top: 18px;
+            font-size: 0.85rem;
+            color: #9fb2c8;
+            text-align: center;
+        }
+
+        @media (max-width:1000px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .right-col {
+                order: 2;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="card">
+            <h1><i class="fa-solid fa-upload"></i> Enviar / Criar Item</h1>
+            <p class="hint">Preencha o formulário abaixo e clique em <strong>Criar Item</strong>. Você também pode colar
+                um JSON ou enviar um arquivo .json contendo um objeto ou um array de objetos.</p>
+
+            <form id="item-form">
+                <div class="row">
+                    <div style="flex:1">
+                        <label for="nome">Nome</label>
+                        <input id="nome" type="text" placeholder="Ex: Binóculo" required />
+                    </div>
+                    <div style="width:160px">
+                        <label for="peso">Peso</label>
+                        <input id="peso" type="number" step="0.1" placeholder="1" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div style="flex:1">
+                        <label for="categoria">Categoria (campo categoria)</label>
+                        <select id="categoria">
+                            <option>Utilitário</option>
+                            <option>Armadura</option>
+                            <option>Comum</option>
+                            <option>Tomo</option>
+                            <option>Duas Mãos</option>
+                            <option>Cajado</option>
+                            <option>Técnica</option>
+                            <option>Leve</option>
+                            <option>Escudo</option>
+                        </select>
+                    </div>
+                    <div style="width:220px">
+                        <label for="tipo_item">Tipo Item (tipo_item)</label>
+                        <select id="tipo_item">
+                            <option>Utilitário</option>
+                            <option>Proteção</option>
+                            <option>Equipamento</option>
+                            <option>Arma</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div style="flex:1">
+                        <label for="tipo_dano">Tipo de Dano (tipo_dano)</label>
+                        <select id="tipo_dano">
+                            <option>Nenhum</option>
+                            <option>Contundente</option>
+                            <option>Magico</option>
+                            <option>Cortante</option>
+                            <option>Perfurante</option>
+                        </select>
+                    </div>
+                    <div style="width:160px">
+                        <label for="dano">Dano (dano)</label>
+                        <input id="dano" type="text" placeholder="Nenhum or 1d20+3" />
+                    </div>
+                    <div style="width:140px">
+                        <label for="critico">Crítico (critico)</label>
+                        <input id="critico" type="text" placeholder="Nenhum or 2x20" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div style="flex:1">
+                        <label for="efeito">Efeito (efeito)</label>
+                        <input id="efeito" type="text" placeholder="Permite enxergar à distância..." />
+                    </div>
+                    <div style="width:260px">
+                        <label for="habilidade">Habilidade (habilidade)</label>
+                        <input id="habilidade" type="text" placeholder="Nenhum ou Sangrento" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div style="flex:1">
+                        <label for="requisito">Requisito (requisito)</label>
+                        <input id="requisito" type="text" placeholder="Nenhum or tecnica>=3" />
+                    </div>
+                    <div style="width:200px">
+                        <label for="categoriaVisual">Campo extra (opcional)</label>
+                        <input id="categoriaVisual" type="text" placeholder="Qualquer campo extra" />
+                    </div>
+                </div>
+
+                <div>
+                    <label for="descricao">Descrição (descricao)</label>
+                    <textarea id="descricao" placeholder="Descrição detalhada..."></textarea>
+                </div>
+
+                <div style="margin-top:12px; display:flex; gap:8px;">
+                    <button id="btn-create" class="btn" type="button"><i class="fa-solid fa-plus"></i> Criar
+                        Item</button>
+                    <button id="btn-clear" class="btn ghost small" type="button">Limpar</button>
+                    <div style="flex:1"></div>
+                    <div class="meta">Cole o JSON no painel direito para criar em lote.</div>
+                </div>
+            </form>
+
+            <div class="upload-row" style="margin-top:14px;">
+                <input id="file-json" type="file" accept=".json,application/json" />
+                <button id="btn-from-file" class="btn small" type="button"><i class="fa-solid fa-file-import"></i>
+                    Processar arquivo</button>
+            </div>
+
+            <div class="meta">Nota: o campo <code>peso</code> será convertido para número. Campos ausentes usarão
+                valores padrão.</div>
+        </div>
+
+        <div class="right-col">
+            <div class="card">
+                <h1><i class="fa-solid fa-code"></i> JSON / Colar múltiplos</h1>
+                <p class="hint">Cole um objeto JSON ou um array de objetos aqui. Cada objeto gerará 1 documento na
+                    coleção <code>itens</code>.</p>
+
+                <textarea id="json-input" class="json-area"
+                    placeholder='Exemplo: [{"nome":"Faca","categoria":"Comum","peso":1},{"nome":"Escudo","categoria":"Escudo","peso":3}]'></textarea>
+
+                <div style="margin-top:10px; display:flex; gap:8px;">
+                    <button id="btn-parse-json" class="btn small" type="button"><i class="fa-solid fa-bolt"></i> Criar
+                        do JSON</button>
+                    <button id="btn-clear-json" class="btn ghost small" type="button">Limpar JSON</button>
+                </div>
+
+                <div class="log" id="log-area" aria-live="polite"></div>
+            </div>
+
+            <div style="height:18px"></div>
+
+            <div class="card">
+                <h1><i class="fa-solid fa-list-check"></i> Histórico / Resultado</h1>
+                <div id="results" style="margin-top:8px; font-size:0.95rem; color:#cfeffd"></div>
+            </div>
+        </div>
+    </div>
+
+    <footer>EnviarItens.html — cria documentos na coleção <strong>itens</strong>. Certifique-se que
+        <code>firebase.js</code> do seu projeto é carregado e inicializado.</footer>
+
+    <script type="module">
+        // Assumimos que você já carrega ./firebase.js que expõe APIs como window.firestoredb, window.firebaseauth, window.collection, window.addDoc, window.setDoc, window.doc.
+        import './firebase.js';
+
+        // Helpers:
+        function el(id) { return document.getElementById(id); }
+        function log(msg, type = 'ok') { const out = el('log-area'); const d = document.createElement('div'); d.className = type === 'ok' ? 'ok' : 'err'; d.textContent = msg; out.prepend(d); }
+        function showResult(text) { const r = el('results'); const p = document.createElement('div'); p.innerHTML = text; r.prepend(p); }
+
+        // fallback addDoc (compatível com bibliotecas que expõem addDoc ou não)
+        async function firestoreAdd(collectionPath, data) {
+            if (window.addDoc && typeof window.addDoc === 'function') {
+                const colRef = window.collection(window.firestoredb, collectionPath);
+                return window.addDoc(colRef, data);
+            } else {
+                // fallback: gerar id localmente e usar setDoc
+                const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2, 8);
+                const docRef = window.doc(window.firestoredb, collectionPath, id);
+                await window.setDoc(docRef, data);
+                return { id, path: `${collectionPath}/${id}` };
+            }
+        }
+
+        // Normaliza e limpa um objeto de item antes de criar
+        function normalizeItem(raw) {
+            const item = {};
+            // Strings com fallback
+            item.nome = raw.nome ? String(raw.nome) : 'Sem nome';
+            item.categoria = raw.categoria ? String(raw.categoria) : 'Comum';
+            item.critico = raw.critico ? String(raw.critico) : 'Nenhum';
+            item.dano = raw.dano ? String(raw.dano) : 'Nenhum';
+            item.descricao = raw.descricao ? String(raw.descricao) : '';
+            item.efeito = raw.efeito ? String(raw.efeito) : 'Nenhum';
+            item.habilidade = raw.habilidade ? String(raw.habilidade) : 'Nenhum';
+            item.requisito = raw.requisito ? String(raw.requisito) : 'Nenhum';
+            item.tipo_dano = raw.tipo_dano ? String(raw.tipo_dano) : 'Nenhum';
+            item.tipo_item = raw.tipo_item ? String(raw.tipo_item) : 'Equipamento';
+
+            // peso => number
+            const p = raw.peso ?? raw.weight ?? 0;
+            const peso = Number(p);
+            item.peso = Number.isFinite(peso) ? peso : 0;
+
+            // include any extra fields if present (keeps object flexible)
+            for (const k of Object.keys(raw)) {
+                if (!item.hasOwnProperty(k)) {
+                    item[k] = raw[k];
+                }
+            }
+
+            return item;
+        }
+
+        // Cria um item no Firestore e atualiza UI/LOG
+        async function createItem(itemObj) {
+            try {
+                if (!window.firestoredb) throw new Error('Firestore não inicializado (window.firestoredb indefinido).');
+                const res = await firestoreAdd('itens', itemObj);
+                const id = res.id || (res && res.path ? res.path.split('/').pop() : '(id?)');
+                log(`Item criado: ${itemObj.nome} → id: ${id}`, 'ok');
+                showResult(`<div style="padding:6px 0">✔ <strong>${escapeHtml(itemObj.nome)}</strong> (id: <code>${escapeHtml(String(id))}</code>)</div>`);
+                return { ok: true, id };
+            } catch (err) {
+                console.error('Erro criando item', err);
+                log(`Erro criando item "${itemObj.nome}": ${err.message || err}`, 'err');
+                return { ok: false, error: err };
+            }
+        }
+
+        function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+
+        // FORM handlers
+        el('btn-create').addEventListener('click', async () => {
+            const raw = {
+                nome: el('nome').value.trim(),
+                categoria: el('categoria').value.trim(),
+                tipo_item: el('tipo_item').value.trim(),
+                tipo_dano: el('tipo_dano').value.trim(),
+                dano: el('dano').value.trim() || 'Nenhum',
+                critico: el('critico').value.trim() || 'Nenhum',
+                efeito: el('efeito').value.trim() || 'Nenhum',
+                habilidade: el('habilidade').value.trim() || 'Nenhum',
+                descricao: el('descricao').value.trim() || '',
+                requisito: el('requisito').value.trim() || 'Nenhum',
+                peso: el('peso').value !== '' ? Number(el('peso').value) : 0
+            };
+            const normalized = normalizeItem(raw);
+
+            // opcional: checar autenticação (se seu projeto exigir)
+            if (window.firebaseauth && window.firebaseauth.currentUser === null) {
+                const ok = confirm('Você não está autenticado. Deseja continuar criando o item (será criado sem relação com usuário)?');
+                if (!ok) return;
+            }
+
+            el('btn-create').disabled = true;
+            await createItem(normalized);
+            el('btn-create').disabled = false;
+        });
+
+        el('btn-clear').addEventListener('click', () => {
+            el('nome').value = '';
+            el('peso').value = '';
+            el('descricao').value = '';
+            el('dano').value = '';
+            el('critico').value = '';
+            el('efeito').value = '';
+            el('habilidade').value = '';
+            el('requisito').value = '';
+        });
+
+        // JSON area handlers
+        el('btn-parse-json').addEventListener('click', async () => {
+            const raw = el('json-input').value.trim();
+            if (!raw) { alert('Cole um JSON válido no painel à direita.'); return; }
+
+            let parsed;
+            try {
+                parsed = JSON.parse(raw);
+            } catch (err) {
+                alert('JSON inválido: ' + err.message);
+                return;
+            }
+
+            await processParsedJSON(parsed);
+        });
+
+        el('btn-clear-json').addEventListener('click', () => { el('json-input').value = ''; });
+
+        // File upload
+        el('btn-from-file').addEventListener('click', () => {
+            const f = el('file-json').files && el('file-json').files[0];
+            if (!f) { alert('Selecione um arquivo .json primeiro.'); return; }
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                try {
+                    const text = ev.target.result;
+                    const parsed = JSON.parse(text);
+                    await processParsedJSON(parsed);
+                } catch (err) {
+                    alert('Falha ao processar o arquivo JSON: ' + err.message);
+                }
+            };
+            reader.readAsText(f, 'utf-8');
+        });
+
+        // aceita drop/colar? já tem textarea para colar, mas adiciono um curto handler para ctrl+v também
+        el('json-input').addEventListener('paste', (ev) => {
+            // nada especial — usuário cola normalmente
+        });
+
+        // Processa parsed: aceita object ou array
+        async function processParsedJSON(parsed) {
+            const items = [];
+            if (Array.isArray(parsed)) {
+                for (const p of parsed) {
+                    if (p && typeof p === 'object') items.push(p);
+                }
+            } else if (parsed && typeof parsed === 'object') {
+                // pode ser um objeto com uma propriedade 'itens' ou diretamente o objeto do item
+                if (Array.isArray(parsed.itens) && parsed.itens.length && parsed.itens.every(i => typeof i === 'object')) {
+                    parsed.itens.forEach(i => items.push(i));
+                } else {
+                    items.push(parsed);
+                }
+            } else {
+                alert('JSON não representa um objeto nem um array de objetos.');
+                return;
+            }
+
+            if (!items.length) { alert('Nenhum item detectado no JSON.'); return; }
+
+            // confirma antes de criar muitos itens
+            const confirmMsg = `Serão criados ${items.length} item(s). Deseja continuar?`;
+            if (!confirm(confirmMsg)) return;
+
+            // cria sequencialmente (para reportar erros mais claramente)
+            el('btn-parse-json').disabled = true;
+            for (const raw of items) {
+                const normalized = normalizeItem(raw);
+                await createItem(normalized);
+            }
+            el('btn-parse-json').disabled = false;
+            alert('Processamento concluído. Verifique o histórico à esquerda.');
+        }
+
+        // Se quiser, auto-popula o form com um exemplo ao abrir
+        (function seedExample() {
+            el('nome').value = 'Binóculo';
+            el('peso').value = '1';
+            el('categoria').value = 'Utilitário';
+            el('tipo_item').value = 'Utilitário';
+            el('tipo_dano').value = 'Nenhum';
+            el('dano').value = 'Nenhum';
+            el('critico').value = 'Nenhum';
+            el('efeito').value = 'Permite enxergar a longas distâncias e detectar movimentos distantes.';
+            el('descricao').value = 'Um binóculos comum.';
+            el('habilidade').value = 'Nenhum';
+            el('requisito').value = 'Nenhum';
+        })();
+
+        // quick check to warn if firebase not initialized
+        setTimeout(() => {
+            if (!window.firestoredb) {
+                log('Aviso: Firestore (window.firestoredb) não encontrado. Verifique se o firebase.js foi carregado e inicializado.', 'err');
+            } else {
+                log('Firestore detectado. Pronto para criar itens.', 'ok');
+            }
+        }, 300);
+    </script>
+</body>
+
+</html>
