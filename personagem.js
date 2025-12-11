@@ -333,6 +333,200 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // inicializa o display (na carga da página)
     updateRemainingUI();
+
+    // --------- INICIA LISTENER PARA ATUALIZAR "Pontos restantes" EM TEMPO REAL ---------
+    let __unsubAttrRemaining = null;
+
+    function startAttrRemainingListener() {
+        if (!window.firebaseauth?.currentUser) return;
+        const uid = window.firebaseauth.currentUser.uid;
+        if (!uid) return;
+
+        const userDocRef = window.doc(window.firestoredb, 'usuarios', uid);
+
+        // helper para aplicar os novos dados vindos do Firestore na UI/local state
+        // aplica dados remotos do personagem na UI sem re-salvar no Firestore
+        function applyRemoteCharData(newChar) {
+            if (!newChar) return;
+            // atualiza charData global
+            charData = newChar;
+
+            // 1) Atualiza attributes (raw) a partir do doc recebido
+            try {
+                // limpa objeto attributes e preenche com valores normalizados
+                Object.keys(attributes).forEach(k => delete attributes[k]);
+            } catch (e) { /* ignore */ }
+            const incomingAttrs = newChar.atributos || {};
+            Object.keys(incomingAttrs).forEach(origKey => {
+                try {
+                    const nk = normalize(origKey);
+                    attributes[nk] = Number(incomingAttrs[origKey] ?? 0);
+                } catch (e) {
+                    attributes[origKey] = Number(incomingAttrs[origKey] ?? 0);
+                }
+            });
+
+            // 2) Recalcula attrKeys (total = raw + bônus racial) usando applyRacialBonus quando disponível
+            try {
+                attrKeys.bravura = applyRacialBonus(Number(attributes.bravura ?? 0), 'bravura');
+                attrKeys.arcano = applyRacialBonus(Number(attributes.arcano ?? 0), 'arcano');
+                attrKeys.folego = applyRacialBonus(Number(attributes.folego ?? 0), 'folego');
+                attrKeys.essencia = applyRacialBonus(Number(attributes.essencia ?? 0), 'essencia');
+                attrKeys.tecnica = applyRacialBonus(Number(attributes.tecnica ?? 0), 'tecnica');
+                attrKeys.intelecto = applyRacialBonus(Number(attributes.intelecto ?? 0), 'intelecto');
+            } catch (e) {
+                // fallback sem bônus
+                attrKeys.bravura = Number(attributes.bravura ?? 0);
+                attrKeys.arcano = Number(attributes.arcano ?? 0);
+                attrKeys.folego = Number(attributes.folego ?? 0);
+                attrKeys.essencia = Number(attributes.essencia ?? 0);
+                attrKeys.tecnica = Number(attributes.tecnica ?? 0);
+                attrKeys.intelecto = Number(attributes.intelecto ?? 0);
+            }
+
+            // 3) Atualiza DOM dos atributos (attr-*)
+            try {
+                Object.keys(attrMapToDom).forEach(key => {
+                    const id = attrMapToDom[key];
+                    const raw = attributes[normalize(key)] ?? 0;
+                    const bonus = getBonus(normalize(key));
+                    const total = raw + bonus;
+                    const elm = el(id);
+                    if (elm) {
+                        elm.textContent = String(total);
+                        elm.title = bonus > 0 ? `${raw} + ${bonus}` : `${raw}`;
+                    }
+                });
+            } catch (e) { /* silencioso */ }
+
+            // 4) Atualiza PV/MN/STA totais e atuais (suporta formato {atual, total} ou apenas número)
+            function readFieldVal(obj, fallback) {
+                if (obj == null) return fallback;
+                if (typeof obj === 'number') return obj;
+                if (typeof obj === 'object' && typeof obj.total !== 'undefined') return obj.total;
+                return fallback;
+            }
+            function readFieldAtual(obj, fallback) {
+                if (obj == null) return fallback;
+                if (typeof obj === 'object' && typeof obj.atual !== 'undefined') return obj.atual;
+                if (typeof obj === 'number') return obj;
+                return fallback;
+            }
+
+            const newTotPV = Number(readFieldVal(newChar.PV, totPV));
+            const newTotMN = Number(readFieldVal(newChar.MN, totMN));
+            const newTotSTA = Number(readFieldVal(newChar.STA, totSTA));
+
+            // se o documento traz os atuais, respeita; senão garante que atuais não excedam totais
+            const newCurPV = Number(readFieldAtual(newChar.PV, Math.min(curPV, newTotPV)));
+            const newCurMN = Number(readFieldAtual(newChar.MN, Math.min(curMN, newTotMN)));
+            const newCurSTA = Number(readFieldAtual(newChar.STA, Math.min(curSTA, newTotSTA)));
+
+            // aplica nas variáveis locais
+            totPV = Math.max(0, Math.floor(newTotPV || 0));
+            totMN = Math.max(0, Math.floor(newTotMN || 0));
+            totSTA = Math.max(0, Math.floor(newTotSTA || 0));
+
+            curPV = clamp(Number(newCurPV || 0), 0, totPV);
+            curMN = clamp(Number(newCurMN || 0), 0, totMN);
+            curSTA = clamp(Number(newCurSTA || 0), 0, totSTA);
+
+            // 5) Atualiza LVL e EXP locais (sevier existir no doc)
+            expLevel = Math.max(1, Math.floor(Number(newChar.LVL ?? expLevel)));
+            currentEXP = Math.max(0, Math.floor(Number(newChar.EXP?.atual ?? currentEXP)));
+            normalizeExpState(); // garante que currentEXP/expLevel estejam coerentes com limites
+
+            // 6) Atualiza pontos_restantes local e no display (prioridade Firestore)
+            // charData já aponta para newChar, por isso updateRemainingUI() usará pontos_restantes vindo do Firestore
+            // mas atualizamos charData.pontos_restantes explicitamente para coerência
+            if (typeof newChar.pontos_restantes !== 'undefined') {
+                charData.pontos_restantes = Number(newChar.pontos_restantes ?? 0);
+            }
+
+            // 7) Atualiza as barras e textos na UI sem salvar (usar applyBar em vez de updateAllBars para evitar re-save)
+            try {
+                applyBar('pv-bar-fill', 'pv-bar-text', curPV, totPV, 'pv');
+                applyBar('mn-bar-fill', 'mn-bar-text', curMN, totMN, 'mn');
+                applyBar('sta-bar-fill', 'sta-bar-text', curSTA, totSTA, 'sta');
+
+                const expLimit = expLimitForLevel(expLevel);
+                applyBar('exp-bar-fill', 'exp-bar-text', currentEXP, expLimit, 'exp');
+
+                // atualiza textos estáticos
+                const lvlEl = document.getElementById('exp-level');
+                if (lvlEl) lvlEl.textContent = String(expLevel);
+
+                if (document.getElementById('stat-pv')) document.getElementById('stat-pv').textContent = String(totPV);
+                if (document.getElementById('stat-mn')) document.getElementById('stat-mn').textContent = String(totMN);
+                if (document.getElementById('stat-sta')) document.getElementById('stat-sta').textContent = String(totSTA);
+            } catch (e) {
+                console.warn('Erro atualizando barras localmente:', e);
+            }
+
+            // 8) Atualiza display de pontos restantes e outros elementos dependentes
+            try {
+                updateRemainingUI(); // já prioriza charData.pontos_restantes se existir
+            } catch (e) {
+                console.warn('updateRemainingUI erro:', e);
+            }
+
+            // 9) Mantém consistente charData locais (útil para outras funções que leem charData)
+            try {
+                charData.PV = (charData.PV && typeof charData.PV === 'object') ? charData.PV : { atual: curPV, total: totPV };
+                charData.MN = (charData.MN && typeof charData.MN === 'object') ? charData.MN : { atual: curMN, total: totMN };
+                charData.STA = (charData.STA && typeof charData.STA === 'object') ? charData.STA : { atual: curSTA, total: totSTA };
+                charData.LVL = expLevel;
+                charData.EXP = charData.EXP || {};
+                charData.EXP.atual = currentEXP;
+                // pontos_restantes já atualizado acima se veio do Firestore
+            } catch (e) { /* silencioso */ }
+        }
+
+
+        // se onSnapshot disponível (Firebase modular), usa ele
+        if (typeof window.onSnapshot === 'function') {
+            __unsubAttrRemaining = window.onSnapshot(userDocRef, (snap) => {
+                if (!snap || !snap.exists) return;
+                const data = snap.data();
+                const chars = Array.isArray(data.personagens) ? data.personagens : [];
+                const found = chars.find(c => c && c.uid === charUid);
+                if (found) applyRemoteCharData(found);
+            }, (err) => {
+                console.warn('onSnapshot erro (attr-remaining):', err);
+            });
+        } else {
+            // fallback: polling discreto a cada 5s
+            let lastFetched = null;
+            __unsubAttrRemaining = setInterval(async () => {
+                try {
+                    const doc = await window.getDoc(userDocRef);
+                    if (!doc || !doc.exists()) return;
+                    const data = doc.data();
+                    // evita re-aplicar se não mudou (controle simples via JSON stringify)
+                    const key = JSON.stringify(data.personagens || []);
+                    if (key === lastFetched) return;
+                    lastFetched = key;
+                    const chars = Array.isArray(data.personagens) ? data.personagens : [];
+                    const found = chars.find(c => c && c.uid === charUid);
+                    if (found) applyRemoteCharData(found);
+                } catch (e) {
+                    console.warn('Polling attr-remaining falhou:', e);
+                }
+            }, 5000);
+        }
+
+        // cleanup ao sair da página
+        window.addEventListener('beforeunload', () => {
+            try {
+                if (typeof __unsubAttrRemaining === 'function') __unsubAttrRemaining();
+                else if (typeof __unsubAttrRemaining === 'number') clearInterval(__unsubAttrRemaining);
+            } catch (e) { /* silencioso */ }
+        });
+    }
+
+    // inicia imediatamente (após a UI inicial já ter sido montada)
+    startAttrRemainingListener();
+
     // --- FIM: mostrar e salvar "Pontos restantes" ---
 
 
@@ -2885,6 +3079,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     })();
 
     /* ---------- edição do NÍVEL clicando no próprio número (id="exp-level") ---------- */
+    /* ---------- edição do NÍVEL clicando no próprio número (id="exp-level") ---------- */
     (function enableLevelClickEdit() {
         const lvlEl = document.getElementById('exp-level');
         if (!lvlEl) return;
@@ -2904,22 +3099,43 @@ document.addEventListener('DOMContentLoaded', async () => {
             input.focus();
             input.select();
 
-            function finish(commit) {
-                if (commit) {
-                    let num = Number(input.value);
-                    if (Number.isNaN(num)) num = expLevel;
-                    num = Math.floor(num);
-                    num = clamp(num, 1, 30); // restringe até 30
-                    expLevel = num;
-                    // ajustar currentEXP caso exceda o novo limite (deixa no máximo limit-1)
-                    const limit = expLimitForLevel(expLevel);
-                    if (currentEXP >= limit) currentEXP = Math.max(0, limit - 1);
+            async function finish(commit) {
+                if (!commit) {
+                    input.remove();
+                    lvlEl.style.display = '';
+                    return;
+                }
+
+                // parse e clamp do valor novo
+                let num = Number(input.value);
+                if (Number.isNaN(num)) num = expLevel;
+                num = Math.floor(num);
+                num = clamp(num, 1, 30); // restringe até 30
+
+                // nada a fazer se não mudou
+                if (num === expLevel) {
+                    input.remove();
+                    lvlEl.style.display = '';
+                    return;
+                }
+
+                // ajusta currentEXP caso exceda o novo limite (deixa no máximo limit-1)
+                const newLimit = expLimitForLevel(num);
+                if (currentEXP >= newLimit) currentEXP = Math.max(0, newLimit - 1);
+
+                try {
+                    // executa alteração em batch (faz update no Firestore e atualiza estado local/UI)
+                    await applyBatchLevelChange(num);
+                } catch (err) {
+                    console.error('Erro aplicando mudança de nível:', err);
+                    alert('Falha ao alterar nível. Veja console para detalhes.');
+                } finally {
+                    // salvar expLevel/currentEXP locais (saveBarsToFirestore é chamado dentro de applyBatchLevelChange)
                     saveCurrent('expLevel', expLevel);
                     saveCurrent('currentEXP', currentEXP);
-                    updateAllBars();
+                    input.remove();
+                    lvlEl.style.display = '';
                 }
-                input.remove();
-                lvlEl.style.display = '';
             }
 
             input.addEventListener('keydown', (ev) => {
@@ -2928,6 +3144,324 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
             input.addEventListener('blur', () => finish(true));
         });
+
+        /**
+         * Aplica uma mudança direta para `newLevel` (pode ser > ou < que expLevel).
+         * - Atualiza personagens[] no Firestore (faz busca/update robusto).
+         * - Cria/consome entradas em levelHistory para garantir reversão exata quando possível.
+         * - Atualiza variáveis locais (expLevel, totPV/totMN/totSTA, curPV/curMN/curSTA, pontos_restantes).
+         */
+        async function applyBatchLevelChange(newLevel) {
+            if (!window.firebaseauth?.currentUser) throw new Error('Usuário não autenticado');
+            const uid = window.firebaseauth.currentUser.uid;
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', uid);
+            const userDocSnap = await window.getDoc(userDocRef);
+            if (!userDocSnap.exists()) throw new Error('Documento de usuário não encontrado');
+            const data = userDocSnap.data();
+            const characters = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+            const idx = characters.findIndex(c => c && c.uid === charUid);
+            if (idx < 0) throw new Error('Personagem não encontrado');
+
+            const char = characters[idx];
+
+            // garante estruturas
+            char.PV = (char.PV == null) ? { atual: 0, total: 0 } : (typeof char.PV === 'number' ? { atual: char.PV, total: char.PV } : char.PV);
+            char.MN = (char.MN == null) ? { atual: 0, total: 0 } : (typeof char.MN === 'number' ? { atual: char.MN, total: char.MN } : char.MN);
+            char.STA = (char.STA == null) ? { atual: 0, total: 0 } : (typeof char.STA === 'number' ? { atual: char.STA, total: char.STA } : char.STA);
+            char.pontos_restantes = Number(char.pontos_restantes ?? 0);
+            char.levelHistory = Array.isArray(char.levelHistory) ? char.levelHistory : [];
+
+            // ------------------------- INÍCIO PATCH: usar ATTR TOTAL (attrKeys) -------------------------
+            // atributos e classe (robustos) — usar o TOTAL que você já calcula (attrKeys)
+            function getTotalAttrFromContext(key) {
+                // preferir attrKeys (já contém raw + bônus racial e é o que aparece no DOM)
+                try {
+                    if (typeof attrKeys !== 'undefined' && attrKeys && typeof attrKeys[key] !== 'undefined') {
+                        const n = Number(attrKeys[key]);
+                        if (!Number.isNaN(n)) return Math.floor(n);
+                    }
+                } catch (e) { /* ignore */ }
+
+                // fallback: ler do char.atributos (raw) e aplicar applyRacialBonus se existir
+                const raw = Number((char.atributos && typeof char.atributos[key] !== 'undefined') ? char.atributos[key] : 0) || 0;
+                if (typeof applyRacialBonus === 'function') {
+                    const tot = Number(applyRacialBonus(raw, key) || 0);
+                    return Math.floor(tot);
+                }
+                return Math.floor(raw);
+            }
+
+            // lê os totais (bruto+racial) para cada atributo usado nas fórmulas
+            const brav = getTotalAttrFromContext('bravura');
+            const arca = getTotalAttrFromContext('arcano');
+            const fole = getTotalAttrFromContext('folego');
+            const ess = getTotalAttrFromContext('essencia');
+
+            const className = String(char.classe ?? (typeof savedClass !== 'undefined' ? savedClass : ''));
+
+            // helper: calcula incremento por 1 nível dependendo da classe e atributos
+            function perLevelDelta(cls) {
+                let addPV = 0, addMN = 0, addSTA = 0;
+                if (cls === 'Arcanista') {
+                    addPV = 2 + brav;
+                    addMN = 5 + arca;
+                    addSTA = 2 + fole;
+                } else if (cls === 'Escudeiro') {
+                    addPV = 4 + brav;
+                    addMN = 1 + arca;
+                    addSTA = 1 + fole;
+                } else if (cls === 'Luminar') {
+                    addPV = 2 + brav;
+                    addMN = 4 + arca;
+                    addSTA = 4 + ess;
+                } else if (cls === 'Errante') {
+                    addPV = 3 + brav;
+                    addMN = 1 + arca;
+                    addSTA = 5 + fole;
+                } else { // fallback neutro
+                    addPV = 1 + brav;
+                    addMN = 1 + arca;
+                    addSTA = 1 + fole;
+                }
+                return {
+                    addPV: Math.floor(Number(addPV || 0)),
+                    addMN: Math.floor(Number(addMN || 0)),
+                    addSTA: Math.floor(Number(addSTA || 0)),
+                    pointsAdded: 1
+                };
+            }
+            // ------------------------- FIM PATCH -------------------------
+
+            function perLevelDelta(cls) {
+                let addPV = 0, addMN = 0, addSTA = 0;
+                if (cls === 'Arcanista') {
+                    addPV = 2 + brav;
+                    addMN = 5 + arca;
+                    addSTA = 2 + fole;
+                } else if (cls === 'Escudeiro') {
+                    addPV = 4 + brav;
+                    addMN = 1 + arca;
+                    addSTA = 1 + fole;
+                } else if (cls === 'Luminar') {
+                    addPV = 2 + brav;
+                    addMN = 4 + arca;
+                    addSTA = 4 + ess;
+                } else if (cls === 'Errante') {
+                    addPV = 3 + brav;
+                    addMN = 1 + arca;
+                    addSTA = 5 + fole;
+                } else { // fallback neutro
+                    addPV = 1 + brav;
+                    addMN = 1 + arca;
+                    addSTA = 1 + fole;
+                }
+                return { addPV: Number(addPV || 0), addMN: Number(addMN || 0), addSTA: Number(addSTA || 0), pointsAdded: 1 };
+            }
+
+            const oldLevel = Number(char.LVL ?? expLevel);
+            if (newLevel === oldLevel) {
+                // nada a fazer
+                expLevel = newLevel;
+                updateAllBars();
+                return;
+            }
+
+            if (newLevel > oldLevel) {
+                // subir níveis: acumula deltas e cria entradas em levelHistory (uma por nível)
+                const levelsToAdd = newLevel - oldLevel;
+                let totalAddPV = 0, totalAddMN = 0, totalAddSTA = 0, totalPoints = 0;
+                for (let i = 1; i <= levelsToAdd; i++) {
+                    const lvlReached = oldLevel + i;
+                    const d = perLevelDelta(className);
+                    totalAddPV += d.addPV;
+                    totalAddMN += d.addMN;
+                    totalAddSTA += d.addSTA;
+                    totalPoints += d.pointsAdded;
+
+                    // registra histórico (permite revert preciso)
+                    const histEntry = {
+                        lvl: lvlReached,
+                        addPV: d.addPV,
+                        addMN: d.addMN,
+                        addSTA: d.addSTA,
+                        pointsAdded: d.pointsAdded,
+                        profAdded: null,
+                        ts: Date.now()
+                    };
+                    char.levelHistory.push(histEntry);
+                }
+
+                char.PV.total = Number(char.PV.total ?? 0) + totalAddPV;
+                char.MN.total = Number(char.MN.total ?? 0) + totalAddMN;
+                char.STA.total = Number(char.STA.total ?? 0) + totalAddSTA;
+
+                char.pontos_restantes = Number(char.pontos_restantes ?? 0) + totalPoints;
+                char.LVL = newLevel;
+
+                // sincroniza no array e salva
+                characters[idx] = char;
+                await window.updateDoc(userDocRef, { personagens: characters });
+                // --- OTIMISTIC UI UPDATE (colar logo após await window.updateDoc(...)) ---
+                // atualiza charData local com a versão salva e força atualização visual imediata
+                try {
+                    // characters[idx] já contém o objeto atualizado que salvamos
+                    charData = characters[idx];
+
+                    // Atualiza pontos_restantes no display (prioridade ao valor salvo)
+                    try { updateRemainingUI(); } catch (e) { console.warn('updateRemainingUI erro (optimistic):', e); }
+
+                    // Atualiza totals/atuais locais e barras sem salvar de novo
+                    totPV = Number(charData.PV?.total ?? totPV);
+                    totMN = Number(charData.MN?.total ?? totMN);
+                    totSTA = Number(charData.STA?.total ?? totSTA);
+
+                    curPV = Math.min(curPV, totPV);
+                    curMN = Math.min(curMN, totMN);
+                    curSTA = Math.min(curSTA, totSTA);
+
+                    // atualiza DOM das barras (usa applyBar para NÃO causar novo save)
+                    try {
+                        applyBar('pv-bar-fill', 'pv-bar-text', curPV, totPV, 'pv');
+                        applyBar('mn-bar-fill', 'mn-bar-text', curMN, totMN, 'mn');
+                        applyBar('sta-bar-fill', 'sta-bar-text', curSTA, totSTA, 'sta');
+
+                        // atualiza nível/exp visíveis
+                        const lvlEl = document.getElementById('exp-level');
+                        if (lvlEl) lvlEl.textContent = String(charData.LVL ?? expLevel);
+                        const expLimit = expLimitForLevel(Number(charData.LVL ?? expLevel));
+                        applyBar('exp-bar-fill', 'exp-bar-text', currentEXP, expLimit, 'exp');
+
+                        // atualiza stat texts
+                        const pvText = document.getElementById('stat-pv');
+                        const mnText = document.getElementById('stat-mn');
+                        const staText = document.getElementById('stat-sta');
+                        if (pvText) pvText.textContent = String(totPV);
+                        if (mnText) mnText.textContent = String(totMN);
+                        if (staText) staText.textContent = String(totSTA);
+                    } catch (e) {
+                        console.warn('Erro aplicando barras (optimistic):', e);
+                    }
+                } catch (e) {
+                    console.warn('Erro no optimistic UI update:', e);
+                }
+
+                // atualiza variáveis locais (totals/curs/expLevel)
+                totPV = Number(char.PV.total ?? totPV);
+                totMN = Number(char.MN.total ?? totMN);
+                totSTA = Number(char.STA.total ?? totSTA);
+
+                // assegura atuais não maiores que os novos totais
+                curPV = Math.min(curPV, totPV);
+                curMN = Math.min(curMN, totMN);
+                curSTA = Math.min(curSTA, totSTA);
+
+                expLevel = newLevel;
+                // currentEXP já ajustado antes (em caller)
+                updateAllBars();
+                await saveBarsToFirestore();
+                return;
+            } else {
+                // diminuir níveis: tenta remover entradas do levelHistory; se faltar, usa estimativa
+                const levelsToRemove = oldLevel - newLevel;
+                let totalSubPV = 0, totalSubMN = 0, totalSubSTA = 0, totalPointsSub = 0;
+                for (let i = 0; i < levelsToRemove; i++) {
+                    if (char.levelHistory.length > 0) {
+                        const last = char.levelHistory.pop();
+                        totalSubPV += Number(last.addPV ?? 0);
+                        totalSubMN += Number(last.addMN ?? 0);
+                        totalSubSTA += Number(last.addSTA ?? 0);
+                        totalPointsSub += Number(last.pointsAdded ?? 1);
+
+                        // se tinha profAdded, remove do array de proeficiencias
+                        if (last.profAdded && Array.isArray(char.proeficiencias)) {
+                            const pidx = char.proeficiencias.indexOf(last.profAdded);
+                            if (pidx >= 0) char.proeficiencias.splice(pidx, 1);
+                        }
+                    } else {
+                        // fallback estimado (quando não existe histórico suficiente)
+                        const d = perLevelDelta(className);
+                        totalSubPV += d.addPV;
+                        totalSubMN += d.addMN;
+                        totalSubSTA += d.addSTA;
+                        totalPointsSub += d.pointsAdded;
+                    }
+                }
+
+                char.PV.total = Math.max(0, Number(char.PV.total ?? 0) - totalSubPV);
+                char.MN.total = Math.max(0, Number(char.MN.total ?? 0) - totalSubMN);
+                char.STA.total = Math.max(0, Number(char.STA.total ?? 0) - totalSubSTA);
+
+                // ajustar atuais para não ultrapassarem novos totais
+                char.PV.atual = Math.min(Number(char.PV.atual ?? 0), char.PV.total);
+                char.MN.atual = Math.min(Number(char.MN.atual ?? 0), char.MN.total);
+                char.STA.atual = Math.min(Number(char.STA.atual ?? 0), char.STA.total);
+
+                char.pontos_restantes = Math.max(0, Number(char.pontos_restantes ?? 0) - totalPointsSub);
+                char.LVL = Math.max(1, newLevel);
+
+                // salva alterações
+                characters[idx] = char;
+                await window.updateDoc(userDocRef, { personagens: characters });
+                // --- OTIMISTIC UI UPDATE (colar logo após await window.updateDoc(...)) ---
+                // atualiza charData local com a versão salva e força atualização visual imediata
+                try {
+                    // characters[idx] já contém o objeto atualizado que salvamos
+                    charData = characters[idx];
+
+                    // Atualiza pontos_restantes no display (prioridade ao valor salvo)
+                    try { updateRemainingUI(); } catch (e) { console.warn('updateRemainingUI erro (optimistic):', e); }
+
+                    // Atualiza totals/atuais locais e barras sem salvar de novo
+                    totPV = Number(charData.PV?.total ?? totPV);
+                    totMN = Number(charData.MN?.total ?? totMN);
+                    totSTA = Number(charData.STA?.total ?? totSTA);
+
+                    curPV = Math.min(curPV, totPV);
+                    curMN = Math.min(curMN, totMN);
+                    curSTA = Math.min(curSTA, totSTA);
+
+                    // atualiza DOM das barras (usa applyBar para NÃO causar novo save)
+                    try {
+                        applyBar('pv-bar-fill', 'pv-bar-text', curPV, totPV, 'pv');
+                        applyBar('mn-bar-fill', 'mn-bar-text', curMN, totMN, 'mn');
+                        applyBar('sta-bar-fill', 'sta-bar-text', curSTA, totSTA, 'sta');
+
+                        // atualiza nível/exp visíveis
+                        const lvlEl = document.getElementById('exp-level');
+                        if (lvlEl) lvlEl.textContent = String(charData.LVL ?? expLevel);
+                        const expLimit = expLimitForLevel(Number(charData.LVL ?? expLevel));
+                        applyBar('exp-bar-fill', 'exp-bar-text', currentEXP, expLimit, 'exp');
+
+                        // atualiza stat texts
+                        const pvText = document.getElementById('stat-pv');
+                        const mnText = document.getElementById('stat-mn');
+                        const staText = document.getElementById('stat-sta');
+                        if (pvText) pvText.textContent = String(totPV);
+                        if (mnText) mnText.textContent = String(totMN);
+                        if (staText) staText.textContent = String(totSTA);
+                    } catch (e) {
+                        console.warn('Erro aplicando barras (optimistic):', e);
+                    }
+                } catch (e) {
+                    console.warn('Erro no optimistic UI update:', e);
+                }
+
+                // atualiza variáveis locais (totals/curs/expLevel)
+                totPV = Number(char.PV.total ?? totPV);
+                totMN = Number(char.MN.total ?? totMN);
+                totSTA = Number(char.STA.total ?? totSTA);
+
+                curPV = Math.min(curPV, totPV);
+                curMN = Math.min(curMN, totMN);
+                curSTA = Math.min(curSTA, totSTA);
+
+                expLevel = char.LVL;
+                // deixar currentEXP como estava (ou 0) — caller já ajustou para limit-1 se necessário
+                updateAllBars();
+                await saveBarsToFirestore();
+                return;
+            }
+        }
     })();
 
     // expose function for external updates (keeps backward compatibility)
