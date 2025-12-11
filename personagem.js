@@ -122,36 +122,96 @@ document.addEventListener('DOMContentLoaded', async () => {
     attrKeys.intelecto = applyRacialBonus(attrKeys.intelecto, 'intelecto');
 
 
-    // Calcula estatísticas de batalha por classe
-    let pv = 0, mn = 0, sta = 0, profs = '—';
+    // Calcula estatísticas de batalha por classe e define array de proeficiencias
+    let pv = 0, mn = 0, sta = 0;
+    let proeficiencias = []; // array de strings
     if (savedClass === 'Arcanista') {
         pv = 8 + (attrKeys.bravura || 0);
         mn = 10 + (attrKeys.arcano || 0);
         sta = 6 + (attrKeys.folego || 0);
-        profs = 'Cajados, Armaduras Leves, Armas Leves';
+        proeficiencias = ['Cajados', 'Armaduras Leves', 'Armas Leves'];
     } else if (savedClass === 'Escudeiro') {
         pv = 18 + (attrKeys.bravura || 0);
         mn = 2 + (attrKeys.arcano || 0);
         sta = 8 + (attrKeys.folego || 0);
-        profs = 'Armaduras Médias, Armas de duas mãos, Escudos Médios';
+        proeficiencias = ['Armaduras Médias', 'Armas de Duas Mãos', 'Escudos Médios'];
     } else if (savedClass === 'Errante') {
         pv = 10 + (attrKeys.bravura || 0);
         mn = 5 + (attrKeys.arcano || 0);
         sta = 12 + (attrKeys.folego || 0);
-        profs = 'Armas Técnicas, Armaduras Leves, Escudos Leves';
+        proeficiencias = ['Armas Técnicas', 'Armaduras leves'];
     } else if (savedClass === 'Luminar') {
         pv = 9 + (attrKeys.bravura || 0);
         mn = 10 + (attrKeys.arcano || 0);
         sta = 4 + (attrKeys.essencia || 0);
-        profs = 'Tomos, Armaduras Leves, Armas Leves';
+        proeficiencias = ['Tomos', 'Armaduras leves', 'Armas Leves'];
     }
 
+    // string legível (fallback caso precise mostrar como texto)
+    const profs = (Array.isArray(proeficiencias) && proeficiencias.length) ? proeficiencias.join(', ') : '—';
+
+
     // Initialize atuals if missing
-    if (!charData.PV) charData.PV = { total: pv, atual: pv };
-    if (!charData.MN) charData.MN = { total: mn, atual: mn };
-    if (!charData.STA) charData.STA = { total: sta, atual: sta };
-    if (!charData.EXP) charData.EXP = { atual: 0 };
-    if (!('LVL' in charData)) charData.LVL = 1;
+    // ---- Garantir e persistir proeficiencias + remover localStorage antigo ----
+    // limpa eventuais entradas antigas no localStorage que contenham "profic"
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key) continue;
+            if (key.toLowerCase().includes('profic')) {
+                localStorage.removeItem(key);
+                // ajusta índice pois removemos um item
+                i = -1; // reinicia varredura segura (pequeno número de chaves)
+            }
+        }
+    } catch (e) {
+        // ambientes que bloqueiam localStorage podem lançar - ignoramos
+        console.warn('Não foi possível limpar localStorage (profic):', e);
+    }
+
+    // se charData não tiver proeficiencias, salva a lista padrão calculada acima
+    if (!Array.isArray(charData.proeficiencias) || charData.proeficiencias.length === 0) {
+        try {
+            // salva no documento do usuário (função helper definida mais abaixo)
+            await saveCharacterField('proeficiencias', proeficiencias);
+            // atualiza a cópia local charData
+            charData.proeficiencias = Array.from(proeficiencias);
+        } catch (e) {
+            console.warn('Falha ao salvar proeficiencias iniciais:', e);
+        }
+    } else {
+        // se existir, usa as proeficiencias já salvas (prioridade ao que está no Firestore)
+        proeficiencias = Array.isArray(charData.proeficiencias) ? charData.proeficiencias.slice() : proeficiencias;
+    }
+
+    // Exibe as proeficiencias: se existir um elemento <ul id="proficiencias-list">, preenche como <li>,
+    // senão escreve no fallback #char-proficiencias
+    const profListEl = document.getElementById('proficiencias-list');
+    const profTextEl = document.getElementById('char-proficiencias');
+
+    if (profListEl) {
+        // limpa e insere itens
+        profListEl.innerHTML = '';
+        if (Array.isArray(proeficiencias) && proeficiencias.length) {
+            proeficiencias.forEach(p => {
+                const li = document.createElement('li');
+                li.textContent = p;
+                profListEl.appendChild(li);
+            });
+        } else {
+            const li = document.createElement('li');
+            li.textContent = '—';
+            profListEl.appendChild(li);
+        }
+        // remove fallback texto caso exista
+        if (profTextEl) profTextEl.style.display = 'none';
+    } else if (profTextEl) {
+        // fallback textual (mantive seu ID existente)
+        profTextEl.textContent = (Array.isArray(proeficiencias) && proeficiencias.length) ? proeficiencias.join(', ') : '—';
+        profTextEl.style.display = '';
+    }
+    // ---- fim proeficiencias ----
+
 
     // Preencher os elementos já presentes no HTML
     const el = id => document.getElementById(id);
@@ -204,6 +264,77 @@ document.addEventListener('DOMContentLoaded', async () => {
             el(id).title = bonus > 0 ? `${raw} + ${bonus}` : `${raw}`;
         }
     });
+
+    // --- INÍCIO: mostrar e salvar "Pontos restantes" ao lado do <h3> de .attr-section ---
+    const attrSectionH3 = document.querySelector('.attr-section h3');
+    let remainingSpan = null;
+
+    function ensureRemainingElement() {
+        if (!attrSectionH3) return;
+        if (!remainingSpan) {
+            remainingSpan = document.createElement('span');
+            remainingSpan.id = 'attr-remaining';
+            // estilo simples (pode ajustar no CSS depois)
+            remainingSpan.style.float = 'right';
+            remainingSpan.style.fontSize = '0.95rem';
+            remainingSpan.style.opacity = '0.95';
+            remainingSpan.style.marginLeft = '8px';
+            remainingSpan.style.color = '#dcdcdc';
+            attrSectionH3.appendChild(remainingSpan);
+        }
+    }
+
+    // calcula allowedCap/sum/remaining com base no objeto `attributes`
+    // garante que funcione com chaves acentuadas/normalizadas e usa APENAS os valores brutos (sem bônus racial)
+    function computeAllowedAndRemainingFromAttributes(attrObj) {
+        const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego'];
+
+        // cria um mapa normalizedKey -> rawValue a partir do objeto que pode ter chaves acentuadas
+        const normalizedMap = {};
+        Object.keys(attrObj || {}).forEach(origKey => {
+            try {
+                const nk = normalize(origKey);
+                normalizedMap[nk] = Number(attrObj[origKey] ?? 0);
+            } catch (e) {
+                // fallback: guarda com a própria key como string
+                normalizedMap[String(origKey)] = Number(attrObj[origKey] ?? 0);
+            }
+        });
+
+        // agora soma usando as keys normalizadas esperadas
+        const anyMinusOne = ATTR_KEYS_LIST.some(k => Number(normalizedMap[k] ?? 0) === -1);
+        const allowedCap = anyMinusOne ? 8 : 7;
+
+        let sumRaw = 0;
+        for (const k of ATTR_KEYS_LIST) sumRaw += Number(normalizedMap[k] ?? 0);
+
+        const remaining = allowedCap - sumRaw;
+        return { allowedCap, sumRaw, remaining };
+    }
+
+    function updateRemainingUI() {
+        ensureRemainingElement();
+
+        // 1) Se o Firestore já forneceu pontos_restantes, mostra esse valor (prioridade)
+        const firebasePR = (typeof charData !== 'undefined' && charData && typeof charData.pontos_restantes !== 'undefined')
+            ? Number(charData.pontos_restantes)
+            : null;
+
+        if (firebasePR !== null && !Number.isNaN(firebasePR)) {
+            remainingSpan.textContent = `Pontos restantes: ${firebasePR}`;
+            return;
+        }
+
+        // 2) fallback: calcula baseado nos atributos (o comportamento que você tinha antes)
+        const { remaining } = computeAllowedAndRemainingFromAttributes(attributes);
+        const display = Math.max(0, Number.isFinite(remaining) ? remaining : 0);
+        remainingSpan.textContent = `Pontos restantes: ${display}`;
+    }
+
+    // inicializa o display (na carga da página)
+    updateRemainingUI();
+    // --- FIM: mostrar e salvar "Pontos restantes" ---
+
 
     // tornar atributos clicáveis para edição (com restrição de soma, alert 1x e revert)
     document.querySelectorAll('.attr-value').forEach(attrEl => {
@@ -259,6 +390,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (bonusSpan) bonusSpan.remove();
                 if (label) label.remove();
                 attrEl.style.display = '';
+                try { updateRemainingUI(); } catch (e) {/* silencioso */ }
             };
 
             const finish = async (commit) => {
@@ -393,10 +525,39 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     if (charData.atributos) charData.atributos.carga = novaCarga;
                                 }
 
+                                (() => {
+                                    const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego'];
+                                    const savedAttrs = characters[index].atributos || {};
+
+                                    // cria mapa normalizedKey -> rawValue a partir do objeto salvo (pode ter acento)
+                                    const normalizedMapSaved = {};
+                                    Object.keys(savedAttrs).forEach(origKey => {
+                                        try {
+                                            const nk = normalize(origKey);
+                                            normalizedMapSaved[nk] = Number(savedAttrs[origKey] ?? 0);
+                                        } catch (e) {
+                                            normalizedMapSaved[String(origKey)] = Number(savedAttrs[origKey] ?? 0);
+                                        }
+                                    });
+
+                                    const anyMinusOneSaved = ATTR_KEYS_LIST.some(k => Number(normalizedMapSaved[k] ?? 0) === -1);
+                                    const allowedCapSaved = anyMinusOneSaved ? 8 : 7;
+
+                                    let sumRawSaved = 0;
+                                    for (const k of ATTR_KEYS_LIST) sumRawSaved += Number(normalizedMapSaved[k] ?? 0);
+
+                                    const remainingSaved = Math.max(0, allowedCapSaved - sumRawSaved);
+
+                                    // salva como number no objeto do personagem
+                                    characters[index].pontos_restantes = Number(remainingSaved);
+                                    // também mantém charData local em sincronia, se aplicável
+                                    if (charData) charData.pontos_restantes = Number(remainingSaved);
+                                })();
 
                                 // SALVA no campo CORRETO 'personagens'
                                 await window.updateDoc(userDocRef, { personagens: characters });
                                 console.log('Atributos salvos em personagens[' + index + ']', characters[index].atributos);
+                                try { updateRemainingUI(); } catch (e) {/* ignorar */ }
                             } else {
                                 console.warn('Índice do personagem não encontrado ao salvar atributos');
                             }
@@ -445,7 +606,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el('char-aparencia')) el('char-aparencia').textContent = appearance;
     if (el('char-historia-desc')) el('char-historia-desc').value = story;
     if (el('char-aparencia-desc')) el('char-aparencia-desc').value = appearance;
-
 
 
     /* ---------- Auto-save dos textareas (Firestore) + criação do note-panel ---------- */
@@ -499,10 +659,208 @@ document.addEventListener('DOMContentLoaded', async () => {
             // grava no Firestore
             await window.updateDoc(userDocRef, { personagens: characters });
             // atualiza charData local para manter sincronizado
-            if (charData) charData[fieldName] = value;
+            if (charData) {
+                charData[fieldName] = value;
+                // se atualizamos pontos no Firestore, atualiza a UI imediatamente
+                try { if (typeof updateRemainingUI === 'function') updateRemainingUI(); } catch (e) { /* silencioso */ }
+            }
             console.log(`Campo '${fieldName}' salvo para personagem[${idx}]`);
         } catch (err) {
             console.error('Erro ao salvar campo do personagem:', fieldName, err);
+        }
+    }
+
+    // ---------- Funções de Level Up e modal de proficiências ----------
+
+    /**
+     * Mostra um modal simples para escolher uma proficiência entre as options
+     * (removendo as que o personagem já possui). Chama onChoose(profic) quando
+     * o jogador selecionar.
+     */
+    function showProficiencyModal(options, existing = [], onChoose = () => { }) {
+        // evita múltiplos modais abertos
+        if (document.getElementById('profic-modal-overlay')) return;
+
+        const available = options.filter(o => !existing.includes(o));
+        if (!available.length) {
+            alert('Não há proficiências novas disponíveis.');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.id = 'profic-modal-overlay';
+        overlay.style = `
+        position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+        background:rgba(0,0,0,0.6);z-index:9999;
+    `;
+
+        const box = document.createElement('div');
+        box.style = `
+        width:520px;max-width:92%;background:#161414;border:4px solid rgba(92,34,34,0.95);
+        padding:18px;border-radius:12px;color:#efe6e2;font-family:inherit;
+    `;
+        box.innerHTML = `<h3 style="margin-top:0">Escolha uma proficiência</h3>
+                     <p>Selecione uma proficiência para adicionar à sua ficha:</p>`;
+        const list = document.createElement('div');
+        list.style = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;';
+
+        available.forEach(opt => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = opt;
+            b.style = `
+            padding:8px 10px;border-radius:8px;border:2px solid rgba(92,34,34,0.9);
+            background:transparent;color:inherit;cursor:pointer;font-weight:600;
+        `;
+            b.onclick = () => {
+                onChoose(opt);
+                document.body.removeChild(overlay);
+            };
+            list.appendChild(b);
+        });
+
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.textContent = 'Fechar';
+        cancel.style = 'margin-top:12px;padding:8px 10px;border-radius:8px;cursor:pointer;';
+        cancel.onclick = () => { document.body.removeChild(overlay); };
+
+        box.appendChild(list);
+        box.appendChild(cancel);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+    }
+
+    /**
+     * Aplica efeitos de subir níveis: incrementa pontos_restantes, aumenta PV/MN/STA.total
+     * conforme a classe e atributos atuais (attrKeys). Para cada nível ganho executa as ações.
+     *
+     * @param {number} oldLevel
+     * @param {number} newLevel
+     */
+    async function handleLevelUps(oldLevel, newLevel) {
+        try {
+            if (!window.firebaseauth?.currentUser) return;
+
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', window.firebaseauth.currentUser.uid);
+            const userDocSnap = await window.getDoc(userDocRef);
+            if (!userDocSnap.exists()) return;
+
+            const data = userDocSnap.data();
+            const characters = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+            const idx = characters.findIndex(c => c && c.uid === charUid);
+            if (idx < 0) return;
+
+            // loop nível-a-nível (para tratar triggers por nível se necessário)
+            for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) {
+                // 1) pontos_restantes +1
+                const prevPR = Number(characters[idx].pontos_restantes ?? 0);
+                characters[idx].pontos_restantes = prevPR + 1;
+                // mantém charData em sincronia
+                if (charData) charData.pontos_restantes = characters[idx].pontos_restantes;
+
+                // 2) incrementos em PV / MN / STA.total de acordo com a classe
+                // usa attrKeys (já calculado no carregamento — contem bônus racial)
+                const brav = Number(attrKeys.bravura ?? 0);
+                const arca = Number(attrKeys.arcano ?? 0);
+                const fole = Number(attrKeys.folego ?? 0);
+                const ess = Number(attrKeys.essencia ?? 0);
+
+                let addPV = 0, addMN = 0, addSTA = 0;
+                if (savedClass === 'Arcanista') {
+                    addPV = 2 + brav;
+                    addMN = 5 + arca;
+                    addSTA = 2 + fole;
+                } else if (savedClass === 'Escudeiro') {
+                    addPV = 4 + brav;
+                    addMN = 1 + arca;
+                    addSTA = 1 + fole;
+                } else if (savedClass === 'Luminar') {
+                    addPV = 2 + brav;
+                    addMN = 4 + arca;
+                    addSTA = 4 + ess;
+                } else if (savedClass === 'Errante') {
+                    addPV = 3 + brav;
+                    addMN = 1 + arca;
+                    addSTA = 5 + fole;
+                }
+
+                // garante que campos existam e sejam números
+                characters[idx].PV = characters[idx].PV || { atual: 0, total: 0 };
+                characters[idx].MN = characters[idx].MN || { atual: 0, total: 0 };
+                characters[idx].STA = characters[idx].STA || { atual: 0, total: 0 };
+
+                characters[idx].PV.total = Number(characters[idx].PV.total ?? 0) + Number(addPV);
+                characters[idx].MN.total = Number(characters[idx].MN.total ?? 0) + Number(addMN);
+                characters[idx].STA.total = Number(characters[idx].STA.total ?? 0) + Number(addSTA);
+
+                // mantém charData local coerente
+                if (charData) {
+                    charData.PV = charData.PV || { atual: curPV, total: totPV };
+                    charData.MN = charData.MN || { atual: curMN, total: totMN };
+                    charData.STA = charData.STA || { atual: curSTA, total: totSTA };
+                    charData.PV.total = characters[idx].PV.total;
+                    charData.MN.total = characters[idx].MN.total;
+                    charData.STA.total = characters[idx].STA.total;
+                }
+
+                // ajustar atuais se estiverem maiores que o novo total
+                if (Number(characters[idx].PV.atual) > characters[idx].PV.total) characters[idx].PV.atual = characters[idx].PV.total;
+                if (Number(characters[idx].MN.atual) > characters[idx].MN.total) characters[idx].MN.atual = characters[idx].MN.total;
+                if (Number(characters[idx].STA.atual) > characters[idx].STA.total) characters[idx].STA.atual = characters[idx].STA.total;
+
+                // 3) se nível for múltiplo de 5, abrir modal de proficiências (não adiciona automaticamente)
+                if (lvl % 5 === 0) {
+                    // opções conforme sua lista (coloquei todas agrupadas)
+                    const allOptions = [
+                        'Armas Leves', 'Armas Comuns', 'Armas de Duas Mãos', 'Armas Técnicas',
+                        'Escudos Leves', 'Escudos Médios', 'Escudos Pesados',
+                        'Armaduras Leves', 'Armaduras Médias', 'Armaduras Pesadas',
+                        'Cajados', 'Tomos'
+                    ];
+
+                    const existing = Array.isArray(characters[idx].proeficiencias) ? characters[idx].proeficiencias.slice() : (Array.isArray(charData?.proeficiencias) ? charData.proeficiencias.slice() : []);
+                    // exibe modal e ao escolher salva
+                    await new Promise(resolve => {
+                        showProficiencyModal(allOptions, existing, async (pick) => {
+                            // adiciona apenas se ainda não tiver
+                            const arr = Array.isArray(characters[idx].proeficiencias) ? characters[idx].proeficiencias : [];
+                            if (!arr.includes(pick)) {
+                                arr.push(pick);
+                                characters[idx].proeficiencias = arr;
+                                if (charData) charData.proeficiencias = arr.slice();
+                                // atualiza já no Firestore
+                                try {
+                                    await window.updateDoc(userDocRef, { personagens: characters });
+                                } catch (e) { console.warn('Falha ao salvar proficiência', e); }
+                            }
+                            resolve();
+                        });
+                    });
+                }
+
+                // fim do loop por nível
+            } // fim for levels
+
+            // grava alterações finais (PV/MN/STA totals + pontos_restantes + possiveis proeficiencias)
+            await window.updateDoc(userDocRef, { personagens: characters });
+
+            // atualizar UI local (totais e barras)
+            // atualiza variáveis locais que a UI usa
+            totPV = Number(charData?.PV?.total ?? characters[idx].PV.total ?? totPV);
+            totMN = Number(charData?.MN?.total ?? characters[idx].MN.total ?? totMN);
+            totSTA = Number(charData?.STA?.total ?? characters[idx].STA.total ?? totSTA);
+
+            // ajustar curPV/curMN/curSTA para não exceder os novos totais
+            curPV = Math.min(curPV, totPV);
+            curMN = Math.min(curMN, totMN);
+            curSTA = Math.min(curSTA, totSTA);
+
+            updateAllBars();
+            // também salva barras (saveBarsToFirestore fará update do LVL/EXP etc)
+            await saveBarsToFirestore();
+        } catch (err) {
+            console.error('handleLevelUps error', err);
         }
     }
 
@@ -789,13 +1147,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- estado inicial das barras (declarado ANTES do bloco EXP para evitar ReferenceError) ---
     // usa valores da Firestore ou defaults (pv/mn/sta/exp já foram definidos acima)
-    let curPV = Math.max(0, Math.floor(charData.PV?.atual ?? pv));
-    let curMN = Math.max(0, Math.floor(charData.MN?.atual ?? mn));
-    let curSTA = Math.max(0, Math.floor(charData.STA?.atual ?? sta));
+    // inicializa atuais usando o que estiver salvo no Firestore (ou fallback para os valores base)
+    let curPV = Math.max(0, Math.floor(charData?.PV?.atual ?? charData?.PV ?? pv));
+    let curMN = Math.max(0, Math.floor(charData?.MN?.atual ?? charData?.MN ?? mn));
+    let curSTA = Math.max(0, Math.floor(charData?.STA?.atual ?? charData?.STA ?? sta));
 
-    let totPV = Math.max(0, Math.floor(Number(pv) || 0));
-    let totMN = Math.max(0, Math.floor(Number(mn) || 0));
-    let totSTA = Math.max(0, Math.floor(Number(sta) || 0));
+    // helper pequeno para ler total salvo (suporta {total: N} ou número antigo)
+    function readTotal(fieldObj, fallback) {
+        try {
+            const v = fieldObj;
+            if (v == null) return fallback;
+            if (typeof v === 'number') return v;
+            if (typeof v === 'object' && typeof v.total === 'number') return v.total;
+            return fallback;
+        } catch (e) {
+            return fallback;
+        }
+    }
+
+    // usar o total salvo no Firestore se existir, caso contrário usa o valor base calculado (pv/mn/sta)
+    let totPV = Math.max(0, Math.floor(Number(readTotal(charData?.PV, pv)) || 0));
+    let totMN = Math.max(0, Math.floor(Number(readTotal(charData?.MN, mn)) || 0));
+    let totSTA = Math.max(0, Math.floor(Number(readTotal(charData?.STA, sta)) || 0));
 
 
     /* ---------------- EXP + integração nas barras ---------------- */
@@ -2200,21 +2573,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     attachDragToBar('sta', totSTA, () => curSTA, (v) => { curSTA = v; }, 'currentSTA', 'sta-bar-fill', 'sta-bar-text');
 
     /* ---------- EXP: botões/inline/drag (mantém sua lógica, usando clamp) ---------- */
-    function gainExp(delta) {
+    // ---------- gainExp (substituída para suportar handleLevelUps) ----------
+    async function gainExp(delta) {
         if (!Number.isFinite(delta)) return;
         delta = Math.floor(delta);
         if (delta === 0) return;
+
         if (delta > 0) {
             currentEXP += delta;
             let limit = expLimitForLevel(expLevel);
-            while (currentEXP >= limit) { currentEXP -= limit; expLevel++; limit = expLimitForLevel(expLevel); }
+            // detecta e aplica level-ups um-a-um (chama handleLevelUps)
+            while (currentEXP >= limit) {
+                currentEXP -= limit;
+                const previousLevel = expLevel;
+                expLevel++;
+                // chama nossa rotina que aplica as mudanças ao subir níveis
+                try {
+                    // não bloquear a UI: chamamos e aguardamos para garantir consistência no Firestore
+                    // (caso queira async fire-and-forget, remova o await)
+                    // handleLevelUps incrementa pontos_restantes e ajusta PV/MN/STA.totals
+                    // e também mostra modal para múltiplos de 5
+                    // eslint-disable-next-line no-await-in-loop
+                    await handleLevelUps(previousLevel, expLevel);
+                } catch (e) {
+                    console.warn('Erro em handleLevelUps:', e);
+                }
+                limit = expLimitForLevel(expLevel);
+            }
         } else {
             currentEXP = Math.max(0, currentEXP + delta);
         }
         saveCurrent('currentEXP', currentEXP);
         saveCurrent('expLevel', expLevel);
         updateAllBars();
+        updateRemainingUI();
     }
+
     const expMinus = document.getElementById('exp-minus');
     const expPlus = document.getElementById('exp-plus');
     if (expMinus) expMinus.addEventListener('click', (e) => { e.stopPropagation(); gainExp(-1); });

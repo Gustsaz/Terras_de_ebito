@@ -163,6 +163,15 @@
                         <div class="abilities-section">
                             <h3>Proficiências</h3>
                             <div class="proficiencias-list" id="char-proficiencias">—</div>
+                            <!-- ===== ADD: Defense Cat (abaixo de proficiências) ===== -->
+                            <div class="defense-cat" aria-label="Defesa do personagem" role="group" aria-live="polite">
+                                <div class="defense-top">DEF</div>
+                                <div class="defense-shield-wrap">
+                                    <img src="./imgs/Escudo.png" alt="Escudo" class="defense-shield-img" />
+                                </div>
+                                <div class="defense-value" id="char-def-value">—</div>
+                            </div>
+
                         </div>
                     </div>
 
@@ -195,7 +204,6 @@
                 </div><!-- /.tab-description -->
 
 
-                <!-- ======= Painel BATALHA (placeholder) ======= -->
                 <!-- ======= Painel BATALHA (com slots e modal) ======= -->
                 <div class="tab-content tab-battle" data-tab="battle" style="display:none;">
                     <h2>Batalha</h2>
@@ -221,8 +229,24 @@
                             <div class="slot-title">Utilitários</div>
                             <div class="slot-body">Vazio</div>
                         </div>
-                    </div>
 
+
+                    </div> <!-- fim de .battle-equip -->
+
+                    <!-- ===== container separado para feitiços & milagres (fica abaixo de .battle-equip) ===== -->
+                    <div class="feitico-equip" aria-label="Feitiços e Milagres equipados">
+                        <div id="char-feiticos" class="char-equipment-slot" data-slot-type="feiticos" tabindex="0"
+                            role="button" aria-pressed="false">
+                            <div class="slot-title">Feitiços</div>
+                            <div class="slot-body">Vazio</div>
+                        </div>
+
+                        <div id="char-milagres" class="char-equipment-slot" data-slot-type="milagres" tabindex="0"
+                            role="button" aria-pressed="false">
+                            <div class="slot-title">Milagres</div>
+                            <div class="slot-body">Vazio</div>
+                        </div>
+                    </div>
 
                     <!-- Modal de itens (invisível por padrão) -->
                     <div id="items-modal" class="items-modal" aria-hidden="true">
@@ -266,6 +290,32 @@
         </div>
     </div>
 
+    <!-- ===== ADD: Modal para Feitiços / Milagres ===== -->
+    <div id="magic-modal-backdrop" class="magic-modal-backdrop" aria-hidden="true"></div>
+    <div id="magic-modal" class="magic-modal" aria-hidden="true" role="dialog" aria-modal="true"
+        aria-label="Seleção de Feitiço ou Milagre">
+        <button id="magic-modal-close" class="magic-modal-close" aria-label="Fechar">✕</button>
+
+        <div class="magic-modal-body">
+            <aside class="magic-list">
+                <h3 id="magic-list-title">Carregando...</h3>
+                <div id="magic-list" class="magic-list-items"></div>
+            </aside>
+
+            <section class="magic-detail">
+                <div id="magic-detail-empty" class="magic-detail-empty">Selecione um item à esquerda para ver detalhes.
+                </div>
+                <div id="magic-detail-content" class="magic-detail-content" style="display:none;">
+                    <h2 id="magic-detail-name"></h2>
+                    <div id="magic-detail-fields" class="magic-detail-fields"></div>
+                    <div class="magic-detail-actions">
+                        <button id="magic-confirm-btn" class="btn-confirm">Confirmar</button>
+                        <button id="magic-cancel-btn" class="btn-cancel">Cancelar</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
 
     <script src="personagem.js"></script>
 </body>

@@ -73,7 +73,7 @@ body {
 .left-card {
     width: 900px;
     min-height: 680px;
-    background: linear-gradient(180deg, rgba(92, 34, 34, 0.95), rgba(53, 17, 17, 0.85));
+    background: #1E1E1E;
     border: 6px solid rgba(92, 34, 34, 1);
     border-radius: 28px;
     padding: 28px;
@@ -743,13 +743,12 @@ html.dragging {
     padding: 10px 22px;
     border-radius: 12px 12px 6px 6px;
     font-weight: 700;
-    background: linear-gradient(180deg, rgba(60, 18, 18, 0.95), rgba(40, 12, 12, 0.9));
+    background: #1E1E1E;
     color: #efe6e2;
     border: 6px solid rgba(92, 34, 34, 1);
     /* mesma borda do left-card */
     border-bottom: 0;
     /* colar com a borda do card */
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
     cursor: pointer;
     transform: translateY(0);
     transition: transform 140ms ease, background 140ms;
@@ -1043,4 +1042,300 @@ html.dragging {
     color: white;
     font-size: 20px;
     cursor: pointer;
+}
+
+/* ===== MAGIC SLOTS (feitiços / milagres) ===== */
+.char-equipment-slot {
+    background: rgba(0, 0, 0, 0.18);
+    border: 3px solid rgba(90, 22, 22, 0.9);
+    border-radius: 10px;
+    padding: 10px;
+    width: calc(50% - 8px);
+    min-height: 64px;
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.battle-equip {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* slot title/body */
+.char-equipment-slot .slot-title {
+    font-weight: 700;
+    color: #efe6e2;
+    font-size: 0.95rem;
+}
+
+.char-equipment-slot .slot-body {
+    color: #ddd;
+    opacity: 0.9;
+    font-size: 0.95rem;
+}
+
+/* ===== MAGIC MODAL ===== */
+.magic-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 2000;
+    display: none;
+}
+
+.magic-modal {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 880px;
+    max-width: 96%;
+    background: linear-gradient(180deg, #111, #221414);
+    border: 4px solid rgba(92, 34, 34, 0.98);
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+    z-index: 3000;
+    display: none;
+    padding: 14px;
+}
+
+.magic-modal.open,
+.magic-modal[aria-hidden="false"] {
+    display: block;
+}
+
+.magic-modal-backdrop.open,
+.magic-modal-backdrop[aria-hidden="false"] {
+    display: block;
+}
+
+/* close button */
+.magic-modal-close {
+    position: absolute;
+    right: 12px;
+    top: 8px;
+    background: none;
+    border: none;
+    color: #efe6e2;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+/* body layout */
+.magic-modal-body {
+    display: flex;
+    gap: 12px;
+}
+
+.magic-list {
+    width: 42%;
+    max-height: 520px;
+    overflow: auto;
+    padding: 8px;
+    border-right: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.magic-list h3 {
+    margin: 0 0 8px 0;
+    color: #efe6e2;
+    font-size: 1rem;
+}
+
+.magic-list-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* each entry */
+.magic-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+}
+
+.magic-item .mi-left {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.magic-item .mi-name {
+    font-weight: 700;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+
+.magic-item .mi-meta {
+    font-size: 0.85rem;
+    color: #efe6e2;
+    opacity: 0.85;
+    margin-left: 8px;
+}
+
+/* highlight selected */
+.magic-item.selected {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+    transform: translateY(-2px);
+}
+
+/* detail panel */
+.magic-detail {
+    width: 58%;
+    padding: 8px;
+    max-height: 520px;
+    overflow: auto;
+}
+
+.magic-detail h2 {
+    margin: 0 0 8px 0;
+    color: #efe6e2;
+}
+
+.magic-detail-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: #efe6e2;
+}
+
+.magic-detail .detail-row {
+    background: rgba(255, 255, 255, 0.02);
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* actions */
+.magic-detail-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.btn-confirm {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: none;
+    background: #5c2222;
+    color: #fff;
+    cursor: pointer;
+}
+
+.btn-cancel {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: transparent;
+    color: #efe6e2;
+    cursor: pointer;
+}
+
+/* Container para feitiços/milagres (baixo do battle-equip) */
+.feitico-equip {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    width: 100%;
+    align-items: flex-start;
+}
+
+/* garante que os slots fiquem com largura adequada em linha (ou quebrem em mobile) */
+.feitico-equip .char-equipment-slot {
+    flex: 1;
+    min-height: 84px;
+    padding: 10px;
+}
+
+/* Lista vertical (reaproveita seu .equipped-list / .equipped-item) */
+.feitico-equip .slot-body .equipped-list {
+    margin: 6px 0 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.feitico-equip .slot-body .equipped-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+/* pequeno ajuste para imagem do tomo à direita dentro da listagem */
+.feitico-equip .slot-body .equipped-item img {
+    width: 44px;
+    height: 32px;
+    object-fit: contain;
+}
+
+/* ===== Defense Cat (DEF) ===== */
+.defense-cat {
+  margin-top: 12px;
+  width: 100%;
+  max-width: 360px; /* ajusta conforme layout */
+  background: linear-gradient(180deg, rgba(24,16,16,0.6), rgba(18,12,12,0.6));
+  border: 3px solid rgba(90,22,22,0.9);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.45);
+}
+
+/* Texto superior "DEF" */
+.defense-cat .defense-top {
+  font-weight: 900;
+  font-size: 0.95rem;
+  color: #efe6e2;
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+/* centro com a imagem do escudo alinhada horizontalmente */
+.defense-shield-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.defense-shield-img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.6));
+}
+
+/* valor da defesa (em baixo) */
+.defense-cat .defense-value {
+  font-weight: 900;
+  font-size: 1.15rem;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.03);
+  min-width: 44px;
+  text-align: center;
+}
+
+/* responsivo: ocupa full width em telas pequenas */
+@media (max-width: 920px) {
+  .defense-cat { max-width: 100%; }
+  .defense-shield-img { width: 60px; height: 60px; }
 }
