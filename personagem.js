@@ -38,10 +38,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // Set sidebar to home icon
+    // Set sidebar to home icon and user photo
     const sidebar = document.querySelector('.sidebar');
     if (sidebar) {
         sidebar.innerHTML = '<a href="index.html" class="sidebar-home"><i class="fas fa-home"></i></a>';
+
+        const user = window.firebaseauth?.currentUser;
+        if (user && user.photoURL) {
+            const img = document.createElement('img');
+            img.src = user.photoURL;
+            img.className = 'sidebar-profile';
+            img.title = user.displayName || user.email || 'User';
+            sidebar.appendChild(img);
+            // Add click event for logout
+            img.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const existingSair = document.querySelector('.sidebar-sair');
+                if (existingSair) {
+                    existingSair.remove();
+                } else {
+                    const sairBtn = document.createElement('button');
+                    sairBtn.className = 'sidebar-sair';
+                    sairBtn.textContent = 'Sair';
+                    sairBtn.style.position = 'absolute';
+                    sairBtn.style.bottom = '70px'; // above the img
+                    sairBtn.style.left = '50%';
+                    sairBtn.style.transform = 'translateX(-50%)';
+                    sairBtn.style.background = 'rgba(0,0,0,0.8)';
+                    sairBtn.style.color = '#efe6e2';
+                    sairBtn.style.border = 'none';
+                    sairBtn.style.padding = '5px 10px';
+                    sairBtn.style.borderRadius = '5px';
+                    sairBtn.style.cursor = 'pointer';
+                    sairBtn.style.zIndex = '1000';
+                    sairBtn.addEventListener('click', async () => {
+                        try {
+                            await window.firebaseauth.signOut();
+                            sairBtn.remove();
+                            window.location.href = 'index.html'; // redirect to home
+                        } catch (error) {
+                            console.error('Error signing out:', error);
+                        }
+                    });
+                    // hide on click outside
+                    document.addEventListener('click', (evt) => {
+                        if (!sairBtn.contains(evt.target) && evt.target !== img) {
+                            sairBtn.remove();
+                        }
+                    });
+                    sidebar.appendChild(sairBtn);
+                }
+            });
+        }
     }
 
     console.log('DOMContentLoaded in personagem.js');
@@ -222,19 +270,66 @@ document.addEventListener('DOMContentLoaded', async () => {
         else el('char-race').textContent = (savedRace === 'Feéricos' && savedSubrace) ? `Feérico (${savedSubrace})` : savedRace;
     }
 
-    // imagem do personagem (prioriza img[] personalizado; fallback para imagem da classe)
-    if (el('char-img')) {
-        let imgSrc;
-        if (charData.img && Array.isArray(charData.img) && charData.img.length > 0) {
-            imgSrc = charData.img[0];
-        } else if (savedClass) {
-            imgSrc = `./imgs/${savedClass.toLowerCase()}.png`;
-        } else {
-            imgSrc = './imgs/placeholder.png';
+        // imagem do personagem (prioriza img[] personalizado; fallback para imagem da classe)
+        if (el('char-img')) {
+            let imgSrc;
+            const hasCustomImg = charData.img && Array.isArray(charData.img) && charData.img.length > 0;
+            if (hasCustomImg) {
+                imgSrc = charData.img[0];
+            } else if (savedClass) {
+                imgSrc = `./imgs/${savedClass.toLowerCase()}.png`;
+            } else {
+                imgSrc = './imgs/placeholder.png';
+            }
+            el('char-img').src = imgSrc;
+            el('char-img').onerror = () => { el('char-img').src = './imgs/placeholder.png'; };
+
+            // adicionar botão de deletar imagem (se houver imagem customizada)
+            const charPortraitDiv = el('char-img').parentElement;
+            if (charPortraitDiv && !charPortraitDiv.querySelector('.delete-img-btn')) {
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-img-btn';
+                deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                deleteBtn.title = 'Remover imagem customizada';
+                deleteBtn.style.position = 'absolute';
+                deleteBtn.style.top = '5px';
+                deleteBtn.style.right = '5px';
+                deleteBtn.style.background = 'rgba(0,0,0,0.7)';
+                deleteBtn.style.color = '#fff';
+                deleteBtn.style.border = 'none';
+                deleteBtn.style.borderRadius = '50%';
+                deleteBtn.style.width = '30px';
+                deleteBtn.style.height = '30px';
+                deleteBtn.style.cursor = 'pointer';
+                deleteBtn.style.display = hasCustomImg ? '' : 'none'; // mostrar se tiver imagem custom
+
+                deleteBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation(); // não acionar o upload
+                    try {
+                        charData.img = [];
+                        await saveCharacterField('img', []);
+                        // atualizar src para classe
+                        let fallbackSrc = './imgs/placeholder.png';
+                        if (savedClass) {
+                            fallbackSrc = `./imgs/${savedClass.toLowerCase()}.png`;
+                        }
+                        el('char-img').src = fallbackSrc;
+                        deleteBtn.style.display = 'none'; // esconder botão
+                    } catch (err) {
+                        console.error('Erro ao remover imagem:', err);
+                    }
+                });
+
+                charPortraitDiv.style.position = 'relative'; // garantir relativo para absolute child
+                charPortraitDiv.appendChild(deleteBtn);
+            } else if (charPortraitDiv) {
+                // se já existe o botão, ajustar visibilidade
+                const existingBtn = charPortraitDiv.querySelector('.delete-img-btn');
+                if (existingBtn) {
+                    existingBtn.style.display = hasCustomImg ? '' : 'none';
+                }
+            }
         }
-        el('char-img').src = imgSrc;
-        el('char-img').onerror = () => { el('char-img').src = './imgs/placeholder.png'; };
-    }
 
     // exibir valores dos atributos
     const attrMapToDom = {

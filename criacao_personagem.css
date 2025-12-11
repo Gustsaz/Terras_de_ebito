@@ -751,6 +751,7 @@ section {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -873,7 +874,7 @@ section {
   color: #efeae6;
   background-color: #5C2222;
   width: 100%;
-  
+
 }
 
 .nome-label {
@@ -1176,50 +1177,50 @@ section {
 }
 
 .sidebar {
-    width: 50px;
-    height: 100vh;
-    background-color: #222222;
-    border-right: 5px solid #5C2222;
-    position: absolute;
-    left: 0;
-    top: 0;
-    transition: width 0.3s ease;
-    z-index: 70;
+  width: 50px;
+  height: 100vh;
+  background-color: #222222;
+  border-right: 5px solid #5C2222;
+  position: absolute;
+  left: 0;
+  top: 0;
+  transition: width 0.3s ease;
+  z-index: 70;
 }
 
 .sidebar:hover {
-    width: 120px;
+  width: 120px;
 }
 
 .sidebar-home {
-    position: absolute;
-    top: 50%;
-    left: 20px;
-    transform: translateY(-50%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    color: #efe6e2;
-    font-size: 28px;
-    text-decoration: none;
-    cursor: pointer;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  color: #efe6e2;
+  font-size: 28px;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .sidebar:hover .sidebar-home {
-    opacity: 1;
+  opacity: 1;
 }
 
 .sidebar-google {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    background: transparent;
-    border: none;
-    color: #efe6e2;
-    font-size: 20px;
-    cursor: pointer;
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: transparent;
+  border: none;
+  color: #efe6e2;
+  font-size: 20px;
+  cursor: pointer;
 }
 
 .sidebar:hover .sidebar-google {
@@ -1232,18 +1233,12 @@ section {
   left: 50%;
   transform: translateX(-50%);
   opacity: 0;
-  transition: all 0.3s ease;
-  width: 50px;
-  height: 50px;
+  transition: opacity 0.3s ease;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  border: 3px solid #5C2222;
-  object-fit: cover;
-  cursor: pointer;
 }
 
 .sidebar:hover .sidebar-profile {
   opacity: 1;
-  width: 80px;
-  height: 80px;
-  border: 4px solid #5C2222;
 }

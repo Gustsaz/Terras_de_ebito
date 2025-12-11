@@ -1339,3 +1339,19 @@ html.dragging {
   .defense-cat { max-width: 100%; }
   .defense-shield-img { width: 60px; height: 60px; }
 }
+
+.sidebar-profile {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.sidebar:hover .sidebar-profile {
+  opacity: 1;
+}

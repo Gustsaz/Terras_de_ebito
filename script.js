@@ -11,6 +11,49 @@ document.addEventListener("DOMContentLoaded", () => {
                 </a>
                 <img src="${user.photoURL}" class="sidebar-profile" alt="Profile" />
             `;
+            // Add profile click event
+            setTimeout(() => {
+                const profileImg = document.querySelector('.sidebar-profile');
+                if (profileImg) {
+                    profileImg.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const existingSair = document.querySelector('.sidebar-sair');
+                        if (existingSair) {
+                            existingSair.remove();
+                        } else {
+                            const sairBtn = document.createElement('button');
+                            sairBtn.className = 'sidebar-sair';
+                            sairBtn.textContent = 'Sair';
+                            sairBtn.style.position = 'absolute';
+                            sairBtn.style.bottom = '70px'; // above the img
+                            sairBtn.style.left = '50%';
+                            sairBtn.style.transform = 'translateX(-50%)';
+                            sairBtn.style.background = 'rgba(0,0,0,0.8)';
+                            sairBtn.style.color = '#efe6e2';
+                            sairBtn.style.border = 'none';
+                            sairBtn.style.padding = '5px 10px';
+                            sairBtn.style.borderRadius = '5px';
+                            sairBtn.style.cursor = 'pointer';
+                            sairBtn.style.zIndex = '1000';
+                            sairBtn.addEventListener('click', async () => {
+                                try {
+                                    await window.firebaseauth.signOut();
+                                    sairBtn.remove();
+                                } catch (error) {
+                                    console.error('Error signing out:', error);
+                                }
+                            });
+                            // hide on click outside
+                            document.addEventListener('click', (evt) => {
+                                if (!sairBtn.contains(evt.target) && evt.target !== profileImg) {
+                                    sairBtn.remove();
+                                }
+                            });
+                            sidebar.appendChild(sairBtn);
+                        }
+                    });
+                }
+            }, 100); // ensure DOM updated
         } else {
             sidebar.innerHTML = `
                 <a href="index.html" class="sidebar-home">
@@ -121,7 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
             slot.className = 'slot empty';
             slot.innerHTML = '<i class="fas fa-plus"></i>';
             slot.onclick = () => {
-                window.location.href = 'criacao_personagem.html';
+                alert('Você precisa estar logado para criar um personagem.');
             };
         });
     };
