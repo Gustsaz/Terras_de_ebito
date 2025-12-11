@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const savedRace = charData.raca || null;
     const savedSubrace = charData.subraca || null;
     const savedClass = charData.classe || null;
-    const charName = charData.nome || 'Herói Sem Nome';
+    let charName = charData.nome || 'Herói Sem Nome';
     const story = charData.historia || '—';
     const appearance = charData.aparencia || '—';
 
@@ -222,16 +222,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         else el('char-race').textContent = (savedRace === 'Feéricos' && savedSubrace) ? `Feérico (${savedSubrace})` : savedRace;
     }
 
-    // imagem do personagem (tenta usar imagem pelo nome da classe em lowercase)
+    // imagem do personagem (prioriza img[] personalizado; fallback para imagem da classe)
     if (el('char-img')) {
-        if (savedClass) {
-            const candidate = `./imgs/${savedClass.toLowerCase()}.png`;
-            // tenta carregar (sem fetch) - definimos src e se falhar, cai ao onerror
-            el('char-img').src = candidate;
-            el('char-img').onerror = () => { el('char-img').src = './imgs/placeholder.png'; };
+        let imgSrc;
+        if (charData.img && Array.isArray(charData.img) && charData.img.length > 0) {
+            imgSrc = charData.img[0];
+        } else if (savedClass) {
+            imgSrc = `./imgs/${savedClass.toLowerCase()}.png`;
         } else {
-            el('char-img').src = './imgs/placeholder.png';
+            imgSrc = './imgs/placeholder.png';
         }
+        el('char-img').src = imgSrc;
+        el('char-img').onerror = () => { el('char-img').src = './imgs/placeholder.png'; };
     }
 
     // exibir valores dos atributos
@@ -782,6 +784,134 @@ document.addEventListener('DOMContentLoaded', async () => {
             input.addEventListener('blur', () => finish(true));
         });
     });
+
+    // tornar nome clicável para edição
+    const charNameEl = document.getElementById('char-name');
+    if (charNameEl) {
+        charNameEl.style.cursor = 'pointer';
+        charNameEl.addEventListener('click', async (e) => {
+            e.stopPropagation();
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'char-name-input';
+            input.value = charName;
+            input.style.fontSize = charNameEl.style.fontSize;
+            input.style.fontWeight = charNameEl.style.fontWeight;
+            input.style.color = charNameEl.style.color;
+
+            charNameEl.style.display = 'none';
+            charNameEl.parentElement.appendChild(input);
+            input.focus();
+            input.select();
+
+            async function finish(commit) {
+                if (commit) {
+                    const newName = input.value.trim();
+                    if (newName && newName !== charName) {
+                        charName = newName;
+                        charData.nome = newName;
+                        charNameEl.textContent = newName;
+
+                        try {
+                            await saveCharacterField('nome', newName);
+                        } catch (error) {
+                            console.error('Error saving character name:', error);
+                        }
+                    }
+                }
+                input.remove();
+                charNameEl.style.display = '';
+            }
+
+            input.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') finish(true);
+                else if (ev.key === 'Escape') finish(false);
+            });
+            input.addEventListener('blur', () => finish(true));
+        });
+    }
+
+    // tornar imagem clicável para upload
+    const charImgEl = document.getElementById('char-img');
+    if (charImgEl) {
+        charImgEl.style.cursor = 'pointer';
+        charImgEl.title = 'Clique para mudar a imagem';
+        charImgEl.addEventListener('click', async (e) => {
+            e.stopPropagation();
+
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = 'image/*';
+            fileInput.style.display = 'none';
+            document.body.appendChild(fileInput);
+            fileInput.click();
+
+            fileInput.addEventListener('change', async (ev) => {
+                const file = ev.target.files[0];
+                if (!file) {
+                    document.body.removeChild(fileInput);
+                    return;
+                }
+
+                // ler arquivo como base64
+                const reader = new FileReader();
+                reader.onload = async (evt) => {
+                    const base64 = evt.target.result.split(',')[1]; // tirar 'data:image/...;base64,'
+
+                    try {
+                        // upload para imgbb
+                        const apiKey = '36597d22e15804939e4f93e0dc35445d'; // Substitua pela sua chave imgbb
+                        const formData = new URLSearchParams();
+                        formData.set('key', apiKey);
+                        formData.set('image', base64);
+                        formData.set('expiration', '0'); // nunca expira
+
+                        const response = await fetch('https://api.imgbb.com/1/upload', {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            }
+                        });
+
+                        const data = await response.json();
+                        if (!data.success) {
+                            alert('Erro ao fazer upload da imagem.');
+                            console.error(data);
+                            return;
+                        }
+
+                        const imgUrl = data.data.url; // URL direta da imagem
+                        console.log('Imagem uploadada:', imgUrl);
+
+                        // salvar no campo 'img' (array)
+                        let imgs = Array.isArray(charData.img) ? [...charData.img] : [];
+                        imgs.unshift(imgUrl); // colocar no inicio como primeira imagem
+                        charData.img = imgs;
+
+                        // atualizar src
+                        charImgEl.src = imgUrl;
+
+                        // salvar no Firestore
+                        await saveCharacterField('img', imgs);
+
+                    } catch (error) {
+                        alert('Erro ao fazer upload da imagem.');
+                        console.error(error);
+                    } finally {
+                        document.body.removeChild(fileInput);
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+
+            // remover input após um tempo para não deixar lixo
+            setTimeout(() => {
+                if (document.body.contains(fileInput)) document.body.removeChild(fileInput);
+            }, 30000); // 30s timeout
+        });
+    }
 
 
     // estatísticas de batalha

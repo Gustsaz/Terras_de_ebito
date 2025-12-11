@@ -64,11 +64,14 @@ document.addEventListener("DOMContentLoaded", () => {
             slot.className = 'slot';
             if (characters[index]) {
                 slot.classList.add('filled');
+                const charImg = (characters[index].img && Array.isArray(characters[index].img) && characters[index].img.length > 0)
+                    ? characters[index].img[0]
+                    : `./imgs/${characters[index].classe.toLowerCase()}.png`;
                 slot.innerHTML = `
                     <button class="delete-btn" data-char-id="${characters[index].uid}"><i class="fas fa-trash"></i></button>
                     <button class="edit-btn" data-char-id="${characters[index].uid}"><i class="fa-solid fa-pen"></i></button>
                     <div class="img-area">
-                        <img src="./imgs/${characters[index].classe.toLowerCase()}.png" alt="Classe ${characters[index].classe}">
+                        <img src="${charImg}" alt="Character ${characters[index].nome}">
                     </div>
                     <div class="char-info">
                         <div class="char-name">${characters[index].nome}</div>
