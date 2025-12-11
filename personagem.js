@@ -350,6 +350,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!newChar) return;
             // atualiza charData global
             charData = newChar;
+            // após charData = newChar; (ou perto do final de applyRemoteCharData)
+            try { renderProficiencies(newChar); } catch (e) { console.warn('renderProficiencies erro', e); }
+
 
             // 1) Atualiza attributes (raw) a partir do doc recebido
             try {
@@ -481,7 +484,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // pontos_restantes já atualizado acima se veio do Firestore
             } catch (e) { /* silencioso */ }
         }
-
 
         // se onSnapshot disponível (Firebase modular), usa ele
         if (typeof window.onSnapshot === 'function') {
@@ -794,7 +796,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el('stat-carga')) el('stat-carga').textContent = (8 + (attrKeys.bravura || 0));
 
     // proficiencias (elemento no HTML)
-    if (el('char-proficiencias')) el('char-proficiencias').textContent = profs;
+    renderProficiencies(charData || {});
 
     if (el('char-historia')) el('char-historia').textContent = story;
     if (el('char-aparencia')) el('char-aparencia').textContent = appearance;
@@ -898,6 +900,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const list = document.createElement('div');
         list.style = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;';
 
+        // protege contra double-clicks
+        let resolved = false;
+        function safeResolve(value) {
+            if (resolved) return;
+            resolved = true;
+            try { onChoose(value); } catch (e) { console.warn('onChoose error', e); }
+            if (overlay.parentElement) overlay.parentElement.removeChild(overlay);
+        }
+
         available.forEach(opt => {
             const b = document.createElement('button');
             b.type = 'button';
@@ -906,10 +917,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             padding:8px 10px;border-radius:8px;border:2px solid rgba(92,34,34,0.9);
             background:transparent;color:inherit;cursor:pointer;font-weight:600;
         `;
-            b.onclick = () => {
-                onChoose(opt);
-                document.body.removeChild(overlay);
-            };
+            b.onclick = () => safeResolve(opt);
             list.appendChild(b);
         });
 
@@ -917,13 +925,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         cancel.type = 'button';
         cancel.textContent = 'Fechar';
         cancel.style = 'margin-top:12px;padding:8px 10px;border-radius:8px;cursor:pointer;';
-        cancel.onclick = () => { document.body.removeChild(overlay); };
+        cancel.onclick = () => safeResolve(null); // IMPORTANT: resolve com null para evitar Promise pendente
 
         box.appendChild(list);
         box.appendChild(cancel);
         overlay.appendChild(box);
         document.body.appendChild(overlay);
     }
+
 
     /**
      * Aplica efeitos de subir níveis: incrementa pontos_restantes, aumenta PV/MN/STA.total
@@ -946,14 +955,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (idx < 0) return;
 
             // loop nível-a-nível (para tratar triggers por nível se necessário)
+            // loop nível-a-nível (para tratar triggers por nível se necessário)
             for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) {
                 // 1) pontos_restantes +1
                 const prevPR = Number(characters[idx].pontos_restantes ?? 0);
                 characters[idx].pontos_restantes = prevPR + 1;
-                // mantém charData em sincronia
                 if (charData) charData.pontos_restantes = characters[idx].pontos_restantes;
 
-                // 2) incrementos em PV / MN / STA.total de acordo com a classe
+                // 2) incrementos em PV / MN / STA.total de acordo com a classe (usa attrKeys já calculado)
                 const brav = Number(attrKeys.bravura ?? 0);
                 const arca = Number(attrKeys.arcano ?? 0);
                 const fole = Number(attrKeys.folego ?? 0);
@@ -978,48 +987,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                     addSTA = 5 + fole;
                 }
 
-                // ----- GRAVA UMA ENTRADA DE HISTÓRICO PARA PERMITIR REVERT -----
+                // registra histórico
                 characters[idx].levelHistory = Array.isArray(characters[idx].levelHistory) ? characters[idx].levelHistory : [];
                 const histEntry = {
-                    lvl: lvl,                     // nível que foi alcançado neste passo do loop
+                    lvl: lvl,
                     addPV: Number(addPV) || 0,
                     addMN: Number(addMN) || 0,
                     addSTA: Number(addSTA) || 0,
                     pointsAdded: 1,
-                    profAdded: null,              // será preenchido se o modal de proficiência for usado
+                    profAdded: null,
                     ts: Date.now()
                 };
-                // anexa ao array (será persistido quando você dar update no documento)
                 characters[idx].levelHistory.push(histEntry);
 
-                // garante que campos existam e sejam números
+                // garante campos e aplica incrementos
                 characters[idx].PV = characters[idx].PV || { atual: 0, total: 0 };
                 characters[idx].MN = characters[idx].MN || { atual: 0, total: 0 };
                 characters[idx].STA = characters[idx].STA || { atual: 0, total: 0 };
 
-                // aplica os incrementos
                 characters[idx].PV.total = Number(characters[idx].PV.total ?? 0) + Number(addPV);
                 characters[idx].MN.total = Number(characters[idx].MN.total ?? 0) + Number(addMN);
                 characters[idx].STA.total = Number(characters[idx].STA.total ?? 0) + Number(addSTA);
 
-                // mantém charData local coerente
-                if (charData) {
-                    charData.PV = charData.PV || { atual: curPV, total: totPV };
-                    charData.MN = charData.MN || { atual: curMN, total: totMN };
-                    charData.STA = charData.STA || { atual: curSTA, total: totSTA };
-                    charData.PV.total = characters[idx].PV.total;
-                    charData.MN.total = characters[idx].MN.total;
-                    charData.STA.total = characters[idx].STA.total;
-                }
-
-                // ajustar atuais se estiverem maiores que o novo total
+                // ajusta atuais se necessário
                 if (Number(characters[idx].PV.atual) > characters[idx].PV.total) characters[idx].PV.atual = characters[idx].PV.total;
                 if (Number(characters[idx].MN.atual) > characters[idx].MN.total) characters[idx].MN.atual = characters[idx].MN.total;
                 if (Number(characters[idx].STA.atual) > characters[idx].STA.total) characters[idx].STA.atual = characters[idx].STA.total;
 
-                // 3) se nível for múltiplo de 5, abrir modal de proficiências (não adiciona automaticamente)
+                // 3) se nível for múltiplo de 5, abrir modal de proficiências e aguardar escolha (cancel retorna null)
                 if (lvl % 5 === 0) {
-                    // opções conforme sua lista (coloquei todas agrupadas)
                     const allOptions = [
                         'Armas Leves', 'Armas Comuns', 'Armas de Duas Mãos', 'Armas Técnicas',
                         'Escudos Leves', 'Escudos Médios', 'Escudos Pesados',
@@ -1027,47 +1023,89 @@ document.addEventListener('DOMContentLoaded', async () => {
                         'Cajados', 'Tomos'
                     ];
 
-                    const existing = Array.isArray(characters[idx].proeficiencias) ? characters[idx].proeficiencias.slice() : (Array.isArray(charData?.proeficiencias) ? charData.proeficiencias.slice() : []);
-                    // exibe modal e ao escolher salva
+                    const existing = Array.isArray(characters[idx].proeficiencias)
+                        ? characters[idx].proeficiencias.slice()
+                        : (Array.isArray(charData?.proeficiencias) ? charData.proeficiencias.slice() : []);
+
+                    // espera o usuário escolher OU cancelar (null)
                     await new Promise(resolve => {
                         showProficiencyModal(allOptions, existing, async (pick) => {
-                            // adiciona apenas se ainda não tiver
-                            const arr = Array.isArray(characters[idx].proeficiencias) ? characters[idx].proeficiencias : [];
-                            // ... dentro do callback (onde você já faz arr.push(pick))
-                            if (!arr.includes(pick)) {
-                                arr.push(pick);
-                                characters[idx].proeficiencias = arr;
-                                if (charData) charData.proeficiencias = arr.slice();
-                                histEntry.profAdded = pick; // <- registra qual prof foi escolhida neste level up
-                                try {
-                                    await window.updateDoc(userDocRef, { personagens: characters });
-                                } catch (e) { console.warn('Falha ao salvar proficiência', e); }
+                            try {
+                                if (pick) {
+                                    const arr = Array.isArray(characters[idx].proeficiencias) ? characters[idx].proeficiencias : [];
+                                    if (!arr.includes(pick)) {
+                                        arr.push(pick);
+                                        characters[idx].proeficiencias = arr;
+                                        if (charData) charData.proeficiencias = arr.slice();
+                                        histEntry.profAdded = pick;
+                                        // salva a mudança de proficiência imediatamente (otimistic + persist)
+                                        try {
+                                            await window.updateDoc(userDocRef, { personagens: characters });
+                                            // atualiza UI local (otimistic)
+                                            charData = characters[idx];
+                                            try { renderProficiencies(charData); } catch (e) { console.warn('renderProficiencies erro (post-level):', e); }
+
+                                        } catch (e) {
+                                            console.warn('Falha ao salvar proficiência', e);
+                                        }
+                                    }
+                                }
+                            } catch (e) {
+                                console.warn('Erro no callback de proficiência', e);
+                            } finally {
+                                resolve();
                             }
-                            resolve();
                         });
                     });
                 }
 
-                // fim do loop por nível
+                // fim do loop
             } // fim for levels
 
-            // grava alterações finais (PV/MN/STA totals + pontos_restantes + possiveis proeficiencias)
+            // Atualiza LVL no objeto e persiste TUDO (garante que LVL subiu)
+            characters[idx].LVL = Number(newLevel);
+            if (charData) charData.LVL = Number(newLevel);
+
+            // grava alterações finais (PV/MN/STA totals + pontos_restantes + proeficiencias)
             await window.updateDoc(userDocRef, { personagens: characters });
 
-            // atualizar UI local (totais e barras)
-            // atualiza variáveis locais que a UI usa
-            totPV = Number(charData?.PV?.total ?? characters[idx].PV.total ?? totPV);
-            totMN = Number(charData?.MN?.total ?? characters[idx].MN.total ?? totMN);
-            totSTA = Number(charData?.STA?.total ?? characters[idx].STA.total ?? totSTA);
+            // --- OTIMISTIC UI UPDATE: aplica imediatamente sem esperar onSnapshot ---
+            try {
+                charData = characters[idx];
+                try { renderProficiencies(charData); } catch (e) { console.warn('renderProficiencies erro (post-level):', e); }
 
-            // ajustar curPV/curMN/curSTA para não exceder os novos totais
-            curPV = Math.min(curPV, totPV);
-            curMN = Math.min(curMN, totMN);
-            curSTA = Math.min(curSTA, totSTA);
+                // atualizar variáveis locais usadas pela UI
+                totPV = Number(charData.PV?.total ?? totPV);
+                totMN = Number(charData.MN?.total ?? totMN);
+                totSTA = Number(charData.STA?.total ?? totSTA);
 
-            updateAllBars();
-            // também salva barras (saveBarsToFirestore fará update do LVL/EXP etc)
+                curPV = Math.min(curPV, totPV);
+                curMN = Math.min(curMN, totMN);
+                curSTA = Math.min(curSTA, totSTA);
+
+                // atualiza as barras/textos (sem regravar)
+                applyBar('pv-bar-fill', 'pv-bar-text', curPV, totPV, 'pv');
+                applyBar('mn-bar-fill', 'mn-bar-text', curMN, totMN, 'mn');
+                applyBar('sta-bar-fill', 'sta-bar-text', curSTA, totSTA, 'sta');
+
+                const expLimit = expLimitForLevel(Number(charData.LVL ?? expLevel));
+                applyBar('exp-bar-fill', 'exp-bar-text', currentEXP, expLimit, 'exp');
+
+                const lvlEl = document.getElementById('exp-level');
+                if (lvlEl) lvlEl.textContent = String(charData.LVL ?? expLevel);
+
+                if (document.getElementById('stat-pv')) document.getElementById('stat-pv').textContent = String(totPV);
+                if (document.getElementById('stat-mn')) document.getElementById('stat-mn').textContent = String(totMN);
+                if (document.getElementById('stat-sta')) document.getElementById('stat-sta').textContent = String(totSTA);
+
+                try { updateRemainingUI(); } catch (e) { console.warn('updateRemainingUI erro (post-level):', e); }
+            } catch (e) {
+                console.warn('Erro no optimistic UI update pós-level:', e);
+            }
+
+            // também salva barras (LVL/EXP e atuais) usando sua rotina existente
             await saveBarsToFirestore();
+
         } catch (err) {
             console.error('handleLevelUps error', err);
         }
@@ -1220,8 +1258,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const userRef = window.doc(window.firestoredb, "usuarios", user.uid);
 
-            // 🔥 AQUI É O **CORRETO**
-            window.firebaseOnSnapshot(userRef, async (snap) => {
+            window.onSnapshot(userRef, async (snap) => {
+
 
                 if (!snap.exists()) return;
 
@@ -1373,6 +1411,44 @@ document.addEventListener('DOMContentLoaded', async () => {
             return fallback;
         }
     }
+
+    // renderiza proficiências do personagem (robusto a nomes com/sem typo)
+    function renderProficiencies(char) {
+        if (!char) return;
+        // procura o elemento onde as profs devem aparecer (suporta ambos IDs)
+        const possibleIds = ['proficiencias-list', 'char-proficiencias'];
+        let container = null;
+        for (const id of possibleIds) {
+            const e = document.getElementById(id);
+            if (e) { container = e; break; }
+        }
+        if (!container) return;
+
+        // lê ambas as variantes do campo no documento (compatibilidade)
+        const arr = Array.isArray(char.proeficiencias) ? char.proeficiencias
+            : Array.isArray(char.proficiencias) ? char.proficiencias
+                : [];
+
+        // atualiza DOM de forma clara
+        if (!arr || arr.length === 0) {
+            container.innerHTML = '<em>Sem proficiências</em>';
+            return;
+        }
+
+        // cria lista simples com <ul> para melhor formatação
+        const ul = document.createElement('ul');
+        ul.className = 'profs-list';
+        arr.forEach(p => {
+            const li = document.createElement('li');
+            li.textContent = String(p);
+            ul.appendChild(li);
+        });
+
+        // substitui conteúdo atual
+        container.innerHTML = '';
+        container.appendChild(ul);
+    }
+
 
     // usar o total salvo no Firestore se existir, caso contrário usa o valor base calculado (pv/mn/sta)
     let totPV = Math.max(0, Math.floor(Number(readTotal(charData?.PV, pv)) || 0));
@@ -2718,12 +2794,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     enableInlineEdit(document.getElementById('sta-bar-text'), () => curSTA, (v) => { curSTA = v; }, totSTA, 'currentSTA');
 
     /* ---------- drag/click para PV/MN/STA ---------- */
-    function attachDragToBar(statName, total, getCur, setCur, storageKey, fillId, textId) {
+    function attachDragToBar(statName, getCur, setCur, storageKey, fillId, textId) {
         const bar = document.querySelector(`.stat-bar[data-stat="${statName}"]`);
         if (!bar) return;
         const fill = document.getElementById(fillId);
         let dragging = false;
         let pointerIdActive = null;
+
+        function getTotal() {
+            switch(statName) {
+                case 'pv': return totPV;
+                case 'mn': return totMN;
+                case 'sta': return totSTA;
+                default: return 0;
+            }
+        }
 
         function computeValueFromClientX(clientX) {
             const rect = bar.getBoundingClientRect();
@@ -2733,6 +2818,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const usableLeft = rect.left + padLeft;
             const usableWidth = Math.max(2, rect.width - padLeft - padRight);
             const rel = clamp((clientX - usableLeft) / usableWidth, 0, 1);
+            const total = getTotal();
             return Math.round(rel * total);
         }
 
@@ -2777,9 +2863,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             setCur(newVal); saveCurrent(storageKey, newVal); updateAllBars();
         });
     }
-    attachDragToBar('pv', totPV, () => curPV, (v) => { curPV = v; }, 'currentPV', 'pv-bar-fill', 'pv-bar-text');
-    attachDragToBar('mn', totMN, () => curMN, (v) => { curMN = v; }, 'currentMN', 'mn-bar-fill', 'mn-bar-text');
-    attachDragToBar('sta', totSTA, () => curSTA, (v) => { curSTA = v; }, 'currentSTA', 'sta-bar-fill', 'sta-bar-text');
+    attachDragToBar('pv', () => curPV, (v) => { curPV = v; }, 'currentPV', 'pv-bar-fill', 'pv-bar-text');
+    attachDragToBar('mn', () => curMN, (v) => { curMN = v; }, 'currentMN', 'mn-bar-fill', 'mn-bar-text');
+    attachDragToBar('sta', () => curSTA, (v) => { curSTA = v; }, 'currentSTA', 'sta-bar-fill', 'sta-bar-text');
 
     /* ---------- EXP: botões/inline/drag (mantém sua lógica, usando clamp) ---------- */
     // ---------- gainExp (substituída para suportar handleLevelUps) ----------
