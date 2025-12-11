@@ -3054,13 +3054,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             pointerIdActive = ev.pointerId;
             try { bar.setPointerCapture(pointerIdActive); } catch (e) { }
             bar.classList.add('dragging'); document.documentElement.classList.add('dragging');
-            const newVal = computeValueFromClientX(ev.clientX);
+            const newVal = clamp(computeValueFromClientX(ev.clientX), 0, getTotal());
             setCur(newVal); saveCurrent(storageKey, newVal); updateAllBars();
         }
         function moveDrag(ev) {
             if (!dragging || ev.pointerId !== pointerIdActive) return;
             ev.preventDefault();
-            const newVal = computeValueFromClientX(ev.clientX);
+            const newVal = clamp(computeValueFromClientX(ev.clientX), 0, getTotal());
             setCur(newVal); saveCurrent(storageKey, newVal); updateAllBars();
         }
         function endDrag(ev) {
@@ -3070,7 +3070,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             pointerIdActive = null;
             bar.classList.remove('dragging'); document.documentElement.classList.remove('dragging');
             if (ev && typeof ev.clientX === 'number') {
-                const newVal = computeValueFromClientX(ev.clientX);
+                const newVal = clamp(computeValueFromClientX(ev.clientX), 0, getTotal());
                 setCur(newVal); saveCurrent(storageKey, newVal); updateAllBars();
             }
         }
@@ -3084,7 +3084,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         bar.addEventListener('click', (ev) => {
             if (ev.target.closest('.stat-btn') || ev.target.classList.contains('bar-input')) return;
-            const newVal = computeValueFromClientX(ev.clientX);
+            const newVal = clamp(computeValueFromClientX(ev.clientX), 0, getTotal());
             setCur(newVal); saveCurrent(storageKey, newVal); updateAllBars();
         });
     }

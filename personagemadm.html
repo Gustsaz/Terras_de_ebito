@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ficha do Personagem - Terras de Ébito</title>
+    <title>Ficha do Personagem (Visualização) - Terras de Ébito</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="personagem.css">
     <link rel="icon" href="./imgs/logo.svg" type="image/svg+xml" sizes="32x32">
@@ -13,15 +13,16 @@
 </head>
 
 <div class="sidebar">
-    <a href="index.html" class="sidebar-home">
+    <a href="adm.html" class="sidebar-home">
         <i class="fas fa-home"></i>
+        <span style="font-size: 0.8em;">Voltar</span>
     </a>
 </div>
 
 
 <body class="character-sheet">
 
-    <h1 class="title">Ficha do Personagem</h1>
+    <h1 class="title">Ficha do Personagem (Visualização)</h1>
 
     <section class="character-main">
         <!-- LEFT CARD (com as "orelinhas" / tabs) -->
@@ -44,7 +45,7 @@
                         </div>
                         <div class="char-basic">
                             <div class="char-name">
-                                <h2>Nome: <span id="char-name">Herói Sem Nome</span></h2>
+                                <h2 id="char-name">Nome: Herói Sem Nome</h2>
                                 <p>Classe: <span id="char-class">—</span></p>
                                 <p class="subraca" id="char-race">—</p>
                             </div>
@@ -54,12 +55,8 @@
                                 <div class="stat-row pv-row">
                                     <div class="stat-bar" role="progressbar" aria-label="Pontos de Vida"
                                         aria-valuemin="0" aria-valuemax="100" data-stat="pv">
-                                        <button class="stat-btn stat-btn-left" id="pv-minus"
-                                            aria-label="Diminuir PV">−</button>
                                         <div class="bar-fill" id="pv-bar-fill" aria-hidden="true"></div>
-                                        <div class="bar-text" id="pv-bar-text" title="Clique para editar">0/0</div>
-                                        <button class="stat-btn stat-btn-right" id="pv-plus"
-                                            aria-label="Aumentar PV">+</button>
+                                        <div class="bar-text" id="pv-bar-text" title="PV">0/0</div>
                                     </div>
                                 </div>
 
@@ -67,24 +64,16 @@
                                     <div class="stat-block">
                                         <div class="stat-bar" role="progressbar" aria-label="Mana" aria-valuemin="0"
                                             aria-valuemax="100" data-stat="mn">
-                                            <button class="stat-btn stat-btn-left" id="mn-minus"
-                                                aria-label="Diminuir MN">−</button>
                                             <div class="bar-fill" id="mn-bar-fill" aria-hidden="true"></div>
-                                            <div class="bar-text" id="mn-bar-text" title="Clique para editar">0/0</div>
-                                            <button class="stat-btn stat-btn-right" id="mn-plus"
-                                                aria-label="Aumentar MN">+</button>
+                                            <div class="bar-text" id="mn-bar-text" title="MN">0/0</div>
                                         </div>
                                     </div>
 
                                     <div class="stat-block">
                                         <div class="stat-bar" role="progressbar" aria-label="Stamina" aria-valuemin="0"
                                             aria-valuemax="100" data-stat="sta">
-                                            <button class="stat-btn stat-btn-left" id="sta-minus"
-                                                aria-label="Diminuir STA">−</button>
                                             <div class="bar-fill" id="sta-bar-fill" aria-hidden="true"></div>
-                                            <div class="bar-text" id="sta-bar-text" title="Clique para editar">0/0</div>
-                                            <button class="stat-btn stat-btn-right" id="sta-plus"
-                                                aria-label="Aumentar STA">+</button>
+                                            <div class="bar-text" id="sta-bar-text" title="STA">0/0</div>
                                         </div>
                                     </div>
                                 </div>
@@ -100,12 +89,8 @@
                                 <div class="stat-row exp-row">
                                     <div class="stat-bar" role="progressbar" aria-label="Experiência" aria-valuemin="0"
                                         aria-valuemax="100" data-stat="exp">
-                                        <button class="stat-btn stat-btn-left" id="exp-minus"
-                                            aria-label="Diminuir EXP">−</button>
                                         <div class="bar-fill" id="exp-bar-fill" aria-hidden="true"></div>
-                                        <div class="bar-text" id="exp-bar-text" title="Clique para editar">0/0</div>
-                                        <button class="stat-btn stat-btn-right" id="exp-plus"
-                                            aria-label="Aumentar EXP">+</button>
+                                        <div class="bar-text" id="exp-bar-text" title="EXP">0/0</div>
                                     </div>
                                 </div>
                             </div>
@@ -127,7 +112,7 @@
                                     <span class="attr-name">Intelecto</span>
                                 </div>
                                 <div class="attr-item">
-                                    <img src="./imgs/Essencia Branca.png" alt="essencia">
+                                    <img src="./imgs/Essencia Branco.png" alt="essencia">
                                     <span class="attr-value" id="attr-essencia">0</span>
                                     <span class="attr-name">Essência</span>
                                 </div>
@@ -187,20 +172,17 @@
                     <!-- Descrição: backstory (cópia), appearance (cópia), personality (novo) -->
                     <div class="character-backstory">
                         <h2>História</h2>
-                        <textarea class="story-panel" id="char-historia-desc"
-                            placeholder="Conte a história do seu personagem...">—</textarea>
+                        <p id="char-historia-desc">—</p>
                     </div>
 
                     <div class="character-appearance">
                         <h2>Aparência</h2>
-                        <textarea class="appearance-panel" id="char-aparencia-desc"
-                            placeholder="Descreva a aparência do seu personagem...">—</textarea>
+                        <p id="char-aparencia-desc">—</p>
                     </div>
 
                     <div class="character-personality">
                         <h2>Personalidade</h2>
-                        <textarea class="personality-panel" id="char-personality-desc"
-                            placeholder="Descreva a personalidade do seu personagem...">—</textarea>
+                        <p id="char-personality-desc">—</p>
                     </div>
 
                 </div><!-- /.tab-description -->
@@ -212,22 +194,19 @@
 
 
                     <div class="battle-equip">
-                        <div id="char-armas" class="char-equipment-slot" data-slot-type="armas" tabindex="0"
-                            role="button" aria-pressed="false">
+                        <div id="char-armas" class="char-equipment-slot" data-slot-type="armas">
                             <div class="slot-title">Armas / Equipamentos</div>
                             <div class="slot-body">Vazio</div>
                         </div>
 
 
-                        <div id="char-protecao" class="char-equipment-slot" data-slot-type="protecao" tabindex="0"
-                            role="button" aria-pressed="false">
+                        <div id="char-protecao" class="char-equipment-slot" data-slot-type="protecao">
                             <div class="slot-title">Proteção</div>
                             <div class="slot-body">Vazio</div>
                         </div>
 
 
-                        <div id="char-utilitarios" class="char-equipment-slot" data-slot-type="utilitarios" tabindex="0"
-                            role="button" aria-pressed="false">
+                        <div id="char-utilitarios" class="char-equipment-slot" data-slot-type="utilitarios">
                             <div class="slot-title">Utilitários</div>
                             <div class="slot-body">Vazio</div>
                         </div>
@@ -237,45 +216,17 @@
 
                     <!-- ===== container separado para feitiços & milagres (fica abaixo de .battle-equip) ===== -->
                     <div class="feitico-equip" aria-label="Feitiços e Milagres equipados">
-                        <div id="char-feiticos" class="char-equipment-slot" data-slot-type="feiticos" tabindex="0"
-                            role="button" aria-pressed="false">
+                        <div id="char-feiticos" class="char-equipment-slot" data-slot-type="feiticos">
                             <div class="slot-title">Feitiços</div>
                             <div class="slot-body">Vazio</div>
                         </div>
 
-                        <div id="char-milagres" class="char-equipment-slot" data-slot-type="milagres" tabindex="0"
-                            role="button" aria-pressed="false">
+                        <div id="char-milagres" class="char-equipment-slot" data-slot-type="milagres">
                             <div class="slot-title">Milagres</div>
                             <div class="slot-body">Vazio</div>
                         </div>
                     </div>
 
-                    <!-- Modal de itens (invisível por padrão) -->
-                    <div id="items-modal" class="items-modal" aria-hidden="true">
-                        <div class="items-modal-backdrop"></div>
-                        <div class="items-modal-panel" role="dialog" aria-modal="true"
-                            aria-labelledby="items-modal-title">
-                            <header class="items-modal-header">
-                                <h3 id="items-modal-title">Escolher Item</h3>
-                                <button id="items-modal-close" class="modal-close" aria-label="Fechar">✕</button>
-                            </header>
-                            <div class="items-modal-body">
-                                <aside class="items-list" id="items-list" role="list"></aside>
-                                <section class="item-detail" id="item-detail">
-                                    <div class="item-detail-empty">Selecione um item à esquerda para ver a descrição.
-                                    </div>
-                                    <div class="item-detail-content" style="display:none;">
-                                        <h4 id="detail-name"></h4>
-                                        <div id="detail-fields"></div>
-                                        <div class="item-detail-actions">
-                                            <button id="confirm-equip" class="btn-confirm">Confirmar</button>
-                                            <button id="cancel-equip" class="btn-cancel">Cancelar</button>
-                                        </div>
-                                    </div>
-                                </section>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
             </div><!-- /.left-card-body -->
@@ -283,43 +234,7 @@
 
     </section>
 
-    <!-- Modal de DETALHE do inventário (lado direito) -->
-    <div id="inventory-item-modal" class="inventory-modal" aria-hidden="true">
-        <div class="modal-content">
-            <button id="inv-item-close" class="close-btn">X</button>
-            <h2 class="item-detail-title"></h2>
-            <div class="item-detail-fields"></div>
-        </div>
-    </div>
-
-    <!-- ===== ADD: Modal para Feitiços / Milagres ===== -->
-    <div id="magic-modal-backdrop" class="magic-modal-backdrop" aria-hidden="true"></div>
-    <div id="magic-modal" class="magic-modal" aria-hidden="true" role="dialog" aria-modal="true"
-        aria-label="Seleção de Feitiço ou Milagre">
-        <button id="magic-modal-close" class="magic-modal-close" aria-label="Fechar">✕</button>
-
-        <div class="magic-modal-body">
-            <aside class="magic-list">
-                <h3 id="magic-list-title">Carregando...</h3>
-                <div id="magic-list" class="magic-list-items"></div>
-            </aside>
-
-            <section class="magic-detail">
-                <div id="magic-detail-empty" class="magic-detail-empty">Selecione um item à esquerda para ver detalhes.
-                </div>
-                <div id="magic-detail-content" class="magic-detail-content" style="display:none;">
-                    <h2 id="magic-detail-name"></h2>
-                    <div id="magic-detail-fields" class="magic-detail-fields"></div>
-                    <div class="magic-detail-actions">
-                        <button id="magic-confirm-btn" class="btn-confirm">Confirmar</button>
-                        <button id="magic-cancel-btn" class="btn-cancel">Cancelar</button>
-                    </div>
-                </div>
-            </section>
-        </div>
-    </div>
-
-    <script src="personagem.js"></script>
+    <script src="personagemadm.js"></script>
 </body>
 
 </html>

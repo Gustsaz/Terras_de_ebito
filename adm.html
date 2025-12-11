@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Terras de Ébito</title>
+    <link rel="stylesheet" href="adm.css">
+    <link rel="icon" href="./imgs/logo.svg" type="image/svg+xml" sizes="32x32">
+    <link rel="apple-touch-icon" href="./imgs/logo.svg">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script type="module" src="firebase.js"></script>
+</head>
+
+<body>
+    <div class="admin-container">
+        <header class="admin-header">
+            <h1>Painel Administrativo</h1>
+            <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> Voltar</a>
+        </header>
+
+        <div class="admin-content">
+            <div class="users-section">
+                <h2>Usuários Cadastrados</h2>
+                <div id="users-list" class="users-list">
+                    <!-- Users will be populated here -->
+                </div>
+            </div>
+
+            <div class="characters-section" id="characters-section" style="display: none;">
+                <h2>Personagens de <span id="user-name"></span></h2>
+                <div id="characters-list" class="characters-list">
+                    <!-- Characters will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="adm.js"></script>
+</body>
+
+</html>

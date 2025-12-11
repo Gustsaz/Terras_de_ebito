@@ -662,7 +662,7 @@ document.addEventListener("DOMContentLoaded", () => {
               characters = userDocSnap.data().personagens || [];
             }
             characters.push(charData);
-            await window.setDoc(userDocRef, { personagens: characters }, { merge: true });
+            await window.setDoc(userDocRef, { personagens: characters, name: user.displayName, email: user.email }, { merge: true });
           } catch (e) {
             console.warn('Failed to save to Firebase DB', e);
           }

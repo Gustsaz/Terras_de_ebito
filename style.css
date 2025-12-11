@@ -95,6 +95,30 @@ body {
     opacity: 1;
 }
 
+.sidebar-admin {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    width: 32px;
+    height: 32px;
+    background: rgba(92, 34, 34, 0.9);
+    border: 1px solid rgba(197, 128, 93, 0.5);
+    border-radius: 8px;
+    color: #efe6e2;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar:hover .sidebar-admin {
+  opacity: 1;
+}
+
 .sidebar-google {
     position: absolute;
     bottom: 20px;

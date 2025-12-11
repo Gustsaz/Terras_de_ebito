@@ -9,6 +9,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 <a href="index.html" class="sidebar-home">
                     <i class="fas fa-home"></i>
                 </a>
+                <button id="admin-login" class="sidebar-admin">
+                    <i class="fas fa-user-shield"></i>
+                </button>
                 <img src="${user.photoURL}" class="sidebar-profile" alt="Profile" />
             `;
             // Add profile click event
@@ -53,6 +56,17 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
                     });
                 }
+
+                // Add admin-login event
+                const adminLoginBtn = document.getElementById('admin-login');
+                if (adminLoginBtn) {
+                    adminLoginBtn.addEventListener('click', () => {
+                        const adminModal = document.getElementById('admin-modal');
+                        const adminPassword = document.getElementById('admin-password');
+                        adminPassword.value = '';
+                        adminModal.style.display = 'flex';
+                    });
+                }
             }, 100); // ensure DOM updated
         } else {
             sidebar.innerHTML = `
@@ -87,7 +101,14 @@ document.addEventListener("DOMContentLoaded", () => {
             let characters = [];
             if (userDocSnap.exists()) {
                 const data = userDocSnap.data();
-            characters = data.personagens || [];
+                characters = data.personagens || [];
+                // Update with name and email from auth if missing
+                if (!data.name || !data.email) {
+                    await window.setDoc(userDocRef, { name: user.displayName, email: user.email }, { merge: true });
+                }
+            } else {
+                // Create initial doc with name and email from auth
+                await window.setDoc(userDocRef, { name: user.displayName, email: user.email, personagens: [] });
             }
             displayCharacters(characters);
         } catch (error) {
@@ -212,5 +233,24 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
         deleteModal.style.display = 'none';
+    });
+
+    // Admin modal events
+    const adminModal = document.getElementById('admin-modal');
+    const adminConfirm = document.getElementById('admin-confirm');
+    const adminCancel = document.getElementById('admin-cancel');
+    const adminPassword = document.getElementById('admin-password');
+
+    adminCancel.addEventListener('click', () => {
+        adminModal.style.display = 'none';
+    });
+
+    adminConfirm.addEventListener('click', () => {
+        const password = adminPassword.value;
+        if (password === 'ebitoMarkao234@') {
+            window.location.href = 'adm.html';
+        } else {
+            alert('Senha incorreta.');
+        }
     });
 });

@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Terras de Ébito - RPG Dark Fantasy</title>
+    <link rel="icon" href="./imgs/logo.svg" type="image/svg+xml" sizes="32x32">
+    <link rel="apple-touch-icon" href="./imgs/logo.svg">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script type="module" src="firebase.js"></script>
@@ -16,6 +18,9 @@
             <a href="index.html" class="sidebar-home">
                 <i class="fas fa-home"></i>
             </a>
+            <button id="admin-login" class="sidebar-admin">
+                <i class="fas fa-user-shield"></i>
+            </button>
             <button id="google-login" class="sidebar-google">
                 <i class="fab fa-google"></i>
             </button>
@@ -42,6 +47,17 @@
             <div class="modal-buttons">
                 <button id="cancel-delete">Não</button>
                 <button id="confirm-delete">Sim</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <p>Senha de Administrador:</p>
+            <input type="password" id="admin-password" placeholder="Digitar senha" />
+            <div class="modal-buttons">
+                <button id="admin-confirm">Confirmar</button>
+                <button id="admin-cancel">Cancelar</button>
             </div>
         </div>
     </div>
