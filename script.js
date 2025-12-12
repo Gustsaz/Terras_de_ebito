@@ -1,98 +1,148 @@
 document.addEventListener("DOMContentLoaded", () => {
     // Google login functionality - removed since in sidebar
 
+    // garantir estado inicial mobile para evitar flash de 4 cards
+    const slotsContainer = document.querySelector('.slots');
+    if (window.innerWidth <= 768 && slotsContainer) {
+        slotsContainer.classList.add('mobile-init');
+    }
+
     // Update sidebar function
     const updateSidebar = (user) => {
         const sidebar = document.querySelector('.sidebar');
-        if (user && user.photoURL) {
-            sidebar.innerHTML = `
-                <a href="index.html" class="sidebar-home">
-                    <i class="fas fa-home"></i>
-                </a>
-                <button id="admin-login" class="sidebar-admin">
-                    <i class="fas fa-user-shield"></i>
-                </button>
-                <img src="${user.photoURL}" class="sidebar-profile" alt="Profile" />
-            `;
-            // Add profile click event
-            setTimeout(() => {
-                const profileImg = document.querySelector('.sidebar-profile');
-                if (profileImg) {
-                    profileImg.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const existingSair = document.querySelector('.sidebar-sair');
-                        if (existingSair) {
-                            existingSair.remove();
-                        } else {
-                            const sairBtn = document.createElement('button');
-                            sairBtn.className = 'sidebar-sair';
-                            sairBtn.textContent = 'Sair';
-                            sairBtn.style.position = 'absolute';
-                            sairBtn.style.bottom = '70px'; // above the img
-                            sairBtn.style.left = '50%';
-                            sairBtn.style.transform = 'translateX(-50%)';
-                            sairBtn.style.background = 'rgba(0,0,0,0.8)';
-                            sairBtn.style.color = '#efe6e2';
-                            sairBtn.style.border = 'none';
-                            sairBtn.style.padding = '5px 10px';
-                            sairBtn.style.borderRadius = '5px';
-                            sairBtn.style.cursor = 'pointer';
-                            sairBtn.style.zIndex = '1000';
-                            sairBtn.addEventListener('click', async () => {
-                                try {
-                                    await window.firebaseauth.signOut();
-                                    sairBtn.remove();
-                                } catch (error) {
-                                    console.error('Error signing out:', error);
-                                }
-                            });
-                            // hide on click outside
-                            document.addEventListener('click', (evt) => {
-                                if (!sairBtn.contains(evt.target) && evt.target !== profileImg) {
-                                    sairBtn.remove();
-                                }
-                            });
-                            sidebar.appendChild(sairBtn);
-                        }
-                    });
-                }
 
-                // Add admin-login event
-                const adminLoginBtn = document.getElementById('admin-login');
-                if (adminLoginBtn) {
-                    adminLoginBtn.addEventListener('click', () => {
-                        const adminModal = document.getElementById('admin-modal');
-                        const adminPassword = document.getElementById('admin-password');
-                        adminPassword.value = '';
-                        adminModal.style.display = 'flex';
-                    });
-                }
-            }, 100); // ensure DOM updated
+        // Monta HTML base (toggle + container flutuante + home)
+        sidebar.innerHTML = `
+        <button class="sidebar-toggle" aria-label="menu"><i class="fas fa-bars"></i></button>
+        <div class="sidebar-floating"></div>
+        <a href="index.html" class="sidebar-home">
+            <i class="fas fa-home"></i>
+        </a>
+    `;
+
+        // Desktop: adiciona perfil/admin ou botão google
+        if (user && user.photoURL) {
+            sidebar.innerHTML += `
+            <button id="admin-login" class="sidebar-admin">
+                <i class="fas fa-user-shield"></i>
+            </button>
+            <img src="${user.photoURL}" class="sidebar-profile" alt="Profile" />
+        `;
         } else {
-            sidebar.innerHTML = `
-                <a href="index.html" class="sidebar-home">
-                    <i class="fas fa-home"></i>
-                </a>
-                <button id="google-login" class="sidebar-google">
-                    <i class="fab fa-google"></i>
-                </button>
-            `;
-            // Add login event
-            document.getElementById('google-login').addEventListener('click', async () => {
+            sidebar.innerHTML += `
+            <button id="google-login" class="sidebar-google">
+                <i class="fab fa-google"></i>
+            </button>
+        `;
+        }
+
+        // Preencher floating menu (mobile) com classes próprias para não conflitar
+        const floating = sidebar.querySelector('.sidebar-floating');
+        floating.innerHTML = '';
+        floating.innerHTML += `<a href="index.html" class="floating-home"><i class="fas fa-home"></i></a>`;
+        if (user && user.photoURL) {
+            floating.innerHTML += `<button class="floating-admin"><i class="fas fa-user-shield"></i></button>`;
+            floating.innerHTML += `<img src="${user.photoURL}" class="floating-profile" alt="Profile" />`;
+        } else {
+            floating.innerHTML += `<button class="floating-google"><i class="fab fa-google"></i></button>`;
+        }
+
+        /* ---------- BIND EVENTS ---------- */
+
+        // Toggle (menu mobile)
+        const sidebarToggle = sidebar.querySelector('.sidebar-toggle');
+        const floatingMenu = sidebar.querySelector('.sidebar-floating');
+        if (sidebarToggle) {
+            sidebarToggle.onclick = () => floatingMenu.classList.toggle('active');
+        }
+
+        // Google login — desktop
+        const desktopGoogle = sidebar.querySelector('#google-login');
+        if (desktopGoogle) {
+            desktopGoogle.onclick = async () => {
                 const provider = new window.GoogleAuthProvider();
                 try {
                     await window.signInWithPopup(window.firebaseauth, provider);
                 } catch (error) {
                     console.error('Error during sign in:', error);
                 }
-            });
+            };
         }
-    }
+
+        // Google login — floating (mobile)
+        const floatGoogle = floating.querySelector('.floating-google');
+        if (floatGoogle) {
+            floatGoogle.onclick = async () => {
+                const provider = new window.GoogleAuthProvider();
+                try {
+                    await window.signInWithPopup(window.firebaseauth, provider);
+                } catch (error) {
+                    console.error('Error during sign in:', error);
+                }
+            };
+        }
+
+        // Admin login — desktop e floating
+        const adminDesktop = sidebar.querySelector('#admin-login');
+        const adminFloating = floating.querySelector('.floating-admin');
+        [adminDesktop, adminFloating].forEach(btn => {
+            if (btn) {
+                btn.onclick = () => {
+                    const adminModal = document.getElementById('admin-modal');
+                    const adminPassword = document.getElementById('admin-password');
+                    adminPassword.value = '';
+                    adminModal.style.display = 'flex';
+                    // fechar floating ao abrir (opcional)
+                    if (floatingMenu) floatingMenu.classList.remove('active');
+                };
+            }
+        });
+
+        // Profile image — desktop e floating (mostra botão sair)
+        const profileDesktop = sidebar.querySelector('.sidebar-profile');
+        const profileFloating = floating.querySelector('.floating-profile');
+        const profileImg = profileDesktop || profileFloating;
+        if (profileImg) {
+            profileImg.onclick = (e) => {
+                e.stopPropagation();
+                const existing = document.querySelector('.sidebar-sair');
+                if (existing) { existing.remove(); return; }
+
+                const sairBtn = document.createElement('button');
+                sairBtn.className = 'sidebar-sair';
+                sairBtn.textContent = 'Sair';
+                sairBtn.onclick = async () => {
+                    try {
+                        await window.firebaseauth.signOut();
+                        sairBtn.remove();
+                    } catch (error) {
+                        console.error('Error signing out:', error);
+                    }
+                };
+
+                // remove ao clicar fora
+                const onDocClick = (evt) => {
+                    if (!sairBtn.contains(evt.target) && evt.target !== profileImg) {
+                        sairBtn.remove();
+                        document.removeEventListener('click', onDocClick);
+                    }
+                };
+                document.addEventListener('click', onDocClick);
+
+                sidebar.appendChild(sairBtn);
+                // fechar floating ao abrir (mobile)
+                if (floatingMenu) floatingMenu.classList.remove('active');
+            };
+        }
+    };
+
+
 
     // Function to load characters from Firebase DB or localStorage
     const loadUserCharacters = async (user) => {
         if (!user) {
             showEmptySlots();
+            updateVisibleSlot();
             return;
         }
         try {
@@ -118,7 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-            // Function to display characters in slots
+    // Function to display characters in slots
     const displayCharacters = (characters) => {
         const slots = document.querySelectorAll('.slot');
         slots.forEach((slot, index) => {
@@ -176,6 +226,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 };
             }
         });
+        updateVisibleSlot();
+
     };
 
     // Function to show empty slots
@@ -253,4 +305,48 @@ document.addEventListener("DOMContentLoaded", () => {
             alert('Senha incorreta.');
         }
     });
+    let currentIndex = 0;
+
+    function updateVisibleSlot() {
+        if (window.innerWidth > 768) {
+            // Desktop → mostrar todos
+            document.querySelectorAll('.slot').forEach(s => s.style.display = "flex");
+            return;
+        }
+
+        // Mobile → apenas 1 slot
+        document.querySelectorAll('.slot').forEach((s, i) => {
+            s.style.display = i === currentIndex ? "flex" : "none";
+        });
+        // depois que o JS configurou os displays, podemos remover a marca inicial
+        const sc = document.querySelector('.slots');
+        if (sc && sc.classList.contains('mobile-init')) {
+            sc.classList.remove('mobile-init');
+        }
+
+    }
+
+    // arrow handlers (seguro: só adiciona se existir)
+    const rightArrow = document.querySelector('.right-arrow');
+    const leftArrow = document.querySelector('.left-arrow');
+
+    if (rightArrow) {
+        rightArrow.addEventListener('click', () => {
+            const slots = document.querySelectorAll('.slot');
+            if (currentIndex < slots.length - 1) currentIndex++;
+            updateVisibleSlot();
+        });
+    }
+
+    if (leftArrow) {
+        leftArrow.addEventListener('click', () => {
+            if (currentIndex > 0) currentIndex--;
+            updateVisibleSlot();
+        });
+    }
+
+    // atualizar ao redimensionar (desktop <-> mobile)
+    window.addEventListener('resize', updateVisibleSlot);
+
+
 });

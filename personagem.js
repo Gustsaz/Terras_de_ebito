@@ -270,66 +270,66 @@ document.addEventListener('DOMContentLoaded', async () => {
         else el('char-race').textContent = (savedRace === 'Feéricos' && savedSubrace) ? `Feérico (${savedSubrace})` : savedRace;
     }
 
-        // imagem do personagem (prioriza img[] personalizado; fallback para imagem da classe)
-        if (el('char-img')) {
-            let imgSrc;
-            const hasCustomImg = charData.img && Array.isArray(charData.img) && charData.img.length > 0;
-            if (hasCustomImg) {
-                imgSrc = charData.img[0];
-            } else if (savedClass) {
-                imgSrc = `./imgs/${savedClass.toLowerCase()}.png`;
-            } else {
-                imgSrc = './imgs/placeholder.png';
-            }
-            el('char-img').src = imgSrc;
-            el('char-img').onerror = () => { el('char-img').src = './imgs/placeholder.png'; };
+    // imagem do personagem (prioriza img[] personalizado; fallback para imagem da classe)
+    if (el('char-img')) {
+        let imgSrc;
+        const hasCustomImg = charData.img && Array.isArray(charData.img) && charData.img.length > 0;
+        if (hasCustomImg) {
+            imgSrc = charData.img[0];
+        } else if (savedClass) {
+            imgSrc = `./imgs/${savedClass.toLowerCase()}.png`;
+        } else {
+            imgSrc = './imgs/placeholder.png';
+        }
+        el('char-img').src = imgSrc;
+        el('char-img').onerror = () => { el('char-img').src = './imgs/placeholder.png'; };
 
-            // adicionar botão de deletar imagem (se houver imagem customizada)
-            const charPortraitDiv = el('char-img').parentElement;
-            if (charPortraitDiv && !charPortraitDiv.querySelector('.delete-img-btn')) {
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'delete-img-btn';
-                deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
-                deleteBtn.title = 'Remover imagem customizada';
-                deleteBtn.style.position = 'absolute';
-                deleteBtn.style.top = '5px';
-                deleteBtn.style.right = '5px';
-                deleteBtn.style.background = 'rgba(0,0,0,0.7)';
-                deleteBtn.style.color = '#fff';
-                deleteBtn.style.border = 'none';
-                deleteBtn.style.borderRadius = '50%';
-                deleteBtn.style.width = '30px';
-                deleteBtn.style.height = '30px';
-                deleteBtn.style.cursor = 'pointer';
-                deleteBtn.style.display = hasCustomImg ? '' : 'none'; // mostrar se tiver imagem custom
+        // adicionar botão de deletar imagem (se houver imagem customizada)
+        const charPortraitDiv = el('char-img').parentElement;
+        if (charPortraitDiv && !charPortraitDiv.querySelector('.delete-img-btn')) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-img-btn';
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteBtn.title = 'Remover imagem customizada';
+            deleteBtn.style.position = 'absolute';
+            deleteBtn.style.top = '5px';
+            deleteBtn.style.right = '5px';
+            deleteBtn.style.background = 'rgba(0,0,0,0.7)';
+            deleteBtn.style.color = '#fff';
+            deleteBtn.style.border = 'none';
+            deleteBtn.style.borderRadius = '50%';
+            deleteBtn.style.width = '30px';
+            deleteBtn.style.height = '30px';
+            deleteBtn.style.cursor = 'pointer';
+            deleteBtn.style.display = hasCustomImg ? '' : 'none'; // mostrar se tiver imagem custom
 
-                deleteBtn.addEventListener('click', async (e) => {
-                    e.stopPropagation(); // não acionar o upload
-                    try {
-                        charData.img = [];
-                        await saveCharacterField('img', []);
-                        // atualizar src para classe
-                        let fallbackSrc = './imgs/placeholder.png';
-                        if (savedClass) {
-                            fallbackSrc = `./imgs/${savedClass.toLowerCase()}.png`;
-                        }
-                        el('char-img').src = fallbackSrc;
-                        deleteBtn.style.display = 'none'; // esconder botão
-                    } catch (err) {
-                        console.error('Erro ao remover imagem:', err);
+            deleteBtn.addEventListener('click', async (e) => {
+                e.stopPropagation(); // não acionar o upload
+                try {
+                    charData.img = [];
+                    await saveCharacterField('img', []);
+                    // atualizar src para classe
+                    let fallbackSrc = './imgs/placeholder.png';
+                    if (savedClass) {
+                        fallbackSrc = `./imgs/${savedClass.toLowerCase()}.png`;
                     }
-                });
-
-                charPortraitDiv.style.position = 'relative'; // garantir relativo para absolute child
-                charPortraitDiv.appendChild(deleteBtn);
-            } else if (charPortraitDiv) {
-                // se já existe o botão, ajustar visibilidade
-                const existingBtn = charPortraitDiv.querySelector('.delete-img-btn');
-                if (existingBtn) {
-                    existingBtn.style.display = hasCustomImg ? '' : 'none';
+                    el('char-img').src = fallbackSrc;
+                    deleteBtn.style.display = 'none'; // esconder botão
+                } catch (err) {
+                    console.error('Erro ao remover imagem:', err);
                 }
+            });
+
+            charPortraitDiv.style.position = 'relative'; // garantir relativo para absolute child
+            charPortraitDiv.appendChild(deleteBtn);
+        } else if (charPortraitDiv) {
+            // se já existe o botão, ajustar visibilidade
+            const existingBtn = charPortraitDiv.querySelector('.delete-img-btn');
+            if (existingBtn) {
+                existingBtn.style.display = hasCustomImg ? '' : 'none';
             }
         }
+    }
 
     // exibir valores dos atributos
     const attrMapToDom = {
@@ -1477,63 +1477,126 @@ document.addEventListener('DOMContentLoaded', async () => {
         createEmptySlots();
 
         /* ----------- REALTIME FIRESTORE LISTENER ----------- */
+        /* ----------- REALTIME FIRESTORE LISTENER ----------- */
         function enableRealtimeInventory() {
-            const user = window.firebaseauth.currentUser;
+            const user = window.firebaseauth?.currentUser;
             if (!user) return;
 
             const userRef = window.doc(window.firestoredb, "usuarios", user.uid);
 
-            window.onSnapshot(userRef, async (snap) => {
+            // Verifica se onSnapshot está disponível
+            if (typeof window.onSnapshot === 'function') {
+                // Usa realtime listener
+                window.onSnapshot(userRef, async (snap) => {
+                    if (!snap.exists()) return;
 
+                    const data = snap.data();
+                    const personagens = data.personagens || [];
+                    const myChar = personagens.find(p => p.uid === charUid);
+                    if (!myChar) return;
 
-                if (!snap.exists()) return;
+                    const equipped = Array.isArray(myChar.itens) ? myChar.itens : [];
 
-                const data = snap.data();
-                const personagens = data.personagens || [];
-                const myChar = personagens.find(p => p.uid === charUid);
-                if (!myChar) return;
+                    // reseta a UI
+                    inventoryFromFirebase = [];
+                    createEmptySlots();
 
-                const equipped = Array.isArray(myChar.itens) ? myChar.itens : [];
+                    const slots = grid.querySelectorAll(".inv-slot");
+                    let index = 0;
 
-                // reseta a UI
-                inventoryFromFirebase = [];
-                createEmptySlots();
+                    for (const entry of equipped) {
+                        if (!entry?.uid) continue;
+                        if (index >= slotsCount) break;
 
-                const slots = grid.querySelectorAll(".inv-slot");
-                let index = 0;
+                        try {
+                            const itemRef = window.doc(window.firestoredb, "itens", entry.uid);
+                            const itemSnap = await window.getDoc(itemRef);
+                            if (!itemSnap.exists()) continue;
 
-                for (const entry of equipped) {
+                            const item = itemSnap.data();
+                            inventoryFromFirebase.push(item);
 
-                    if (!entry?.uid) continue;
-                    if (index >= slotsCount) break;
+                            const s = slots[index];
 
+                            const div = document.createElement("div");
+                            div.className = "inv-name";
+                            div.textContent = item.nome || "(Sem nome)";
+
+                            s.appendChild(div);
+                            s.onclick = () => openItemDetailModal(itemSnap.id, item);
+
+                            index++;
+                        } catch (err) {
+                            console.warn("Erro lendo item:", err);
+                        }
+                    }
+
+                    if (typeof updatePesoUI === "function") updatePesoUI();
+                }, (error) => {
+                    console.warn('onSnapshot error:', error);
+                });
+            } else {
+                // Fallback: polling manual a cada 3 segundos
+                console.log('onSnapshot not available, using polling fallback');
+
+                async function pollInventory() {
                     try {
-                        const itemRef = window.doc(window.firestoredb, "itens", entry.uid);
-                        const itemSnap = await window.getDoc(itemRef);
-                        if (!itemSnap.exists()) continue;
+                        const snap = await window.getDoc(userRef);
+                        if (!snap.exists()) return;
 
-                        const item = itemSnap.data();
-                        inventoryFromFirebase.push(item);
+                        const data = snap.data();
+                        const personagens = data.personagens || [];
+                        const myChar = personagens.find(p => p.uid === charUid);
+                        if (!myChar) return;
 
-                        const s = slots[index];
+                        const equipped = Array.isArray(myChar.itens) ? myChar.itens : [];
 
-                        const div = document.createElement("div");
-                        div.className = "inv-name";
-                        div.textContent = item.nome || "(Sem nome)";
+                        // reseta a UI
+                        inventoryFromFirebase = [];
+                        createEmptySlots();
 
-                        s.appendChild(div);
+                        const slots = grid.querySelectorAll(".inv-slot");
+                        let index = 0;
 
-                        s.onclick = () => openItemDetailModal(itemSnap.id, item);
+                        for (const entry of equipped) {
+                            if (!entry?.uid) continue;
+                            if (index >= slotsCount) break;
 
-                        index++;
+                            try {
+                                const itemRef = window.doc(window.firestoredb, "itens", entry.uid);
+                                const itemSnap = await window.getDoc(itemRef);
+                                if (!itemSnap.exists()) continue;
 
-                    } catch (err) {
-                        console.warn("Erro lendo item:", err);
+                                const item = itemSnap.data();
+                                inventoryFromFirebase.push(item);
+
+                                const s = slots[index];
+
+                                const div = document.createElement("div");
+                                div.className = "inv-name";
+                                div.textContent = item.nome || "(Sem nome)";
+
+                                s.appendChild(div);
+                                s.onclick = () => openItemDetailModal(itemSnap.id, item);
+
+                                index++;
+                            } catch (err) {
+                                console.warn("Erro lendo item:", err);
+                            }
+                        }
+
+                        if (typeof updatePesoUI === "function") updatePesoUI();
+                    } catch (error) {
+                        console.warn('Poll inventory error:', error);
                     }
                 }
 
-                if (typeof updatePesoUI === "function") updatePesoUI();
-            });
+                // Carrega inicialmente
+                pollInventory();
+
+                // Atualiza a cada 3 segundos
+                setInterval(pollInventory, 3000);
+            }
         }
 
         // ativa listener realtime
@@ -3027,7 +3090,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         let pointerIdActive = null;
 
         function getTotal() {
-            switch(statName) {
+            switch (statName) {
                 case 'pv': return totPV;
                 case 'mn': return totMN;
                 case 'sta': return totSTA;
@@ -4000,4 +4063,191 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Nota: mantemos a altura travada do left-card para evitar "pulse" de layout.
     // Se você quiser recalcular o tamanho quando mudar algo globalmente, pode chamar:
     // leftCard.style.height = leftCard.getBoundingClientRect().height + 'px';
+    /* ========== MOBILE NAVIGATION ========== */
+    /* ========== MOBILE NAVIGATION (corrigido para inventário criado depois) ========== */
+    (function setupMobileNavigation() {
+        function isMobile() { return window.innerWidth <= 920; }
+        if (!isMobile()) return;
+
+        const charBtn = document.getElementById('mobile-char-btn');
+        const invBtn = document.getElementById('mobile-inv-btn');
+        const homeBtn = document.getElementById('mobile-home-btn');
+        const profileBtn = document.getElementById('mobile-profile-btn');
+        // --- mostrar foto do usuário dentro do mobile-profile-btn, se disponível ---
+        function updateMobileProfileImage() {
+            try {
+                if (!profileBtn) return;
+
+                // limpa conteúdo atual
+                profileBtn.innerHTML = '';
+
+                const user = window.firebaseauth?.currentUser || null;
+
+                if (user && user.photoURL) {
+                    const img = document.createElement('img');
+                    img.src = user.photoURL;
+                    img.alt = user.displayName || user.email || 'Perfil';
+                    img.title = user.displayName || user.email || 'Perfil';
+
+                    // caso a imagem falhe
+                    img.onerror = function () {
+                        profileBtn.innerHTML = '<i class="fas fa-user"></i>';
+                    };
+
+                    profileBtn.appendChild(img);
+                } else {
+                    // fallback
+                    profileBtn.innerHTML = '<i class="fas fa-user"></i>';
+                }
+            } catch (err) {
+                console.warn('updateMobileProfileImage error:', err);
+            }
+        }
+
+        // chama agora
+        updateMobileProfileImage();
+
+        // atualiza quando o estado de auth mudar
+        try {
+            if (window.firebaseauth && typeof window.firebaseauth.onAuthStateChanged === "function") {
+                window.firebaseauth.onAuthStateChanged(() => updateMobileProfileImage());
+            } else if (typeof window.onAuthStateChanged === "function") {
+                window.onAuthStateChanged(window.firebaseauth, () => updateMobileProfileImage());
+            }
+        } catch (e) {
+            console.warn("Não foi possível registrar auth listener no mobile-profile-btn:", e);
+        }
+
+        const closeBtn = document.getElementById('mobile-close-btn');
+        const overlay = document.getElementById('mobile-overlay');
+
+        // left-card pode existir já no DOM; usamos uma função para buscá-lo dinamicamente
+        const getLeftCard = () => document.querySelector('.left-card');
+
+        if (!charBtn || !invBtn || !closeBtn || !overlay) {
+            console.warn('Mobile navigation elements not found');
+            return;
+        }
+
+        let currentView = null; // 'char' | 'inv' | null
+
+        function closeAllViews() {
+            const leftCard = getLeftCard();
+            const inventoryWrap = document.getElementById('inventory-wrap');
+            if (leftCard) leftCard.classList.remove('mobile-active');
+            if (inventoryWrap) inventoryWrap.classList.remove('mobile-active');
+            overlay.classList.remove('visible');
+            closeBtn.classList.remove('visible');
+            charBtn.classList.remove('active');
+            invBtn.classList.remove('active');
+            currentView = null;
+            document.body.style.overflow = '';
+        }
+
+        function openCharView() {
+            closeAllViews();
+            const leftCard = getLeftCard();
+            if (leftCard) leftCard.classList.add('mobile-active');
+            overlay.classList.add('visible');
+            closeBtn.classList.add('visible');
+            charBtn.classList.add('active');
+            currentView = 'char';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function openInvView() {
+            // Fecha primeiro para garantir estado limpo; em seguida tenta ativar inventory-wrap
+            closeAllViews();
+
+            // função recursiva / retry caso o inventory-wrap ainda não exista (gerado async)
+            const tryActivate = () => {
+                const inventoryWrap = document.getElementById('inventory-wrap');
+                if (inventoryWrap) {
+                    inventoryWrap.classList.add('mobile-active');
+                    overlay.classList.add('visible');
+                    closeBtn.classList.add('visible');
+                    invBtn.classList.add('active');
+                    currentView = 'inv';
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    // tenta novamente após um curto delay — a criação do inventário geralmente é rápida
+                    setTimeout(tryActivate, 120);
+                }
+            };
+
+            tryActivate();
+        }
+
+        // Event listeners — sempre (re)abre a view correspondente (clicar no ativo a recarrega)
+        charBtn.addEventListener('click', (e) => { e.stopPropagation(); openCharView(); });
+        invBtn.addEventListener('click', (e) => { e.stopPropagation(); openInvView(); });
+
+        // home/profile/close/overlay listeners
+        if (homeBtn) homeBtn.addEventListener('click', (e) => { e.stopPropagation(); window.location.href = 'index.html'; });
+        if (profileBtn) profileBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const confirmExit = window.confirm('Deseja sair da conta?');
+            if (confirmExit) {
+                try { await window.firebaseauth.signOut(); window.location.href = 'index.html'; }
+                catch (err) { console.error('Erro ao sair:', err); alert('Erro ao sair.'); }
+            }
+        });
+
+        if (closeBtn) closeBtn.addEventListener('click', closeAllViews);
+        if (overlay) overlay.addEventListener('click', closeAllViews);
+
+        // Fechar com ESC
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && currentView) closeAllViews(); });
+
+        // fallback: se o botão de inventário não tiver icon (FontAwesome ausente), insere um ícone comum
+        try {
+            if (invBtn && !invBtn.querySelector('i') && !invBtn.querySelector('img')) {
+                invBtn.innerHTML = '<i class="fas fa-box"></i>';
+            }
+        } catch (e) { /* silencioso se DOM for modificado */ }
+
+        // Inicializa com a ficha aberta (mobile)
+        openCharView();
+
+        // Reage ao redimensionamento para fechar quando virar desktop
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                const nowMobile = window.innerWidth <= 920;
+                if (!nowMobile && currentView) closeAllViews();
+            }, 160);
+        });
+    })();
+
+
+    /* ========== DEBUG MOBILE ========== */
+    (function debugMobile() {
+        console.log('=== DEBUG MOBILE ===');
+        console.log('Window width:', window.innerWidth);
+        console.log('Is mobile?', window.innerWidth <= 920);
+
+        setTimeout(() => {
+            const charBtn = document.getElementById('mobile-char-btn');
+            const invBtn = document.getElementById('mobile-inv-btn');
+            const leftCard = document.querySelector('.left-card');
+            const inventoryWrap = document.getElementById('inventory-wrap');
+
+            console.log('Elements found:');
+            console.log('- mobile-char-btn:', !!charBtn);
+            console.log('- mobile-inv-btn:', !!invBtn);
+            console.log('- left-card:', !!leftCard);
+            console.log('- inventory-wrap:', !!inventoryWrap);
+
+            if (leftCard) {
+                console.log('left-card display:', getComputedStyle(leftCard).display);
+                console.log('left-card has mobile-active?', leftCard.classList.contains('mobile-active'));
+            }
+
+            if (inventoryWrap) {
+                console.log('inventory-wrap display:', getComputedStyle(inventoryWrap).display);
+                console.log('inventory-wrap has mobile-active?', inventoryWrap.classList.contains('mobile-active'));
+            }
+        }, 1000);
+    })();
 })();

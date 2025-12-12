@@ -116,7 +116,7 @@ body {
 }
 
 .sidebar:hover .sidebar-admin {
-  opacity: 1;
+    opacity: 1;
 }
 
 .sidebar-google {
@@ -134,24 +134,60 @@ body {
 }
 
 .sidebar:hover .sidebar-google {
-  opacity: 1;
+    opacity: 1;
 }
 
 .sidebar-profile {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
 }
 
 .sidebar:hover .sidebar-profile {
-  opacity: 1;
+    opacity: 1;
 }
+
+/* keep toggle and floating hidden on desktop */
+.sidebar-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 26px;
+    cursor: pointer;
+}
+
+.sidebar-floating {
+    display: none;
+    /* só será ativado em mobile com .active */
+}
+
+/* logout small button */
+.sidebar-sair {
+    position: absolute;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: #efe6e2;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 1000;
+}
+
+.floating-home,
+.floating-admin {
+    color: white;
+}
+
 
 .content {
     margin-left: 70px;
@@ -461,4 +497,126 @@ body {
 
 .filled {
     position: relative;
+}
+
+/* --- MOBILE --- */
+@media (max-width: 768px) {
+
+    .sidebar {
+        width: 60px;
+        height: 60px;
+        border-right: none;
+        border-bottom: 4px solid #5C2222;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .sidebar-toggle {
+        display: block;
+        background: none;
+        border: none;
+        font-size: 26px;
+        color: #fff;
+    }
+
+    /* Ícones flutuantes */
+    .sidebar-floating {
+        position: absolute;
+        top: 70px;
+        left: 10px;
+        display: none;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .sidebar-floating.active {
+        display: flex;
+    }
+
+    .sidebar-floating a,
+    .sidebar-floating button,
+    .sidebar-floating img {
+        width: 55px;
+        height: 55px;
+        border-radius: 50%;
+        background: #5C2222;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 22px;
+        border: 2px solid #000;
+    }
+
+    /* Oculta sidebar normal */
+    .sidebar-home,
+    .sidebar-admin,
+    .sidebar-google,
+    .sidebar-profile {
+        display: none !important;
+    }
+
+    /* SLOT ÚNICO */
+    .slots {
+        width: 100%;
+        justify-content: center;
+        align-items: center;
+    }
+
+
+    .slot {
+        width: 85vw;
+        height: 70vh;
+    }
+
+    /* SETAS */
+    .slot-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 35px;
+        background: none;
+        color: white;
+        border: none;
+        z-index: 200;
+    }
+
+    .left-arrow {
+        left: 10px;
+    }
+
+    .right-arrow {
+        right: 10px;
+    }
+
+    .content {
+        margin-left: 0;
+        width: 100%;
+        align-items: center;
+    }
+
+}
+
+.slot-arrow {
+    display: none;
+    /* escondido no desktop */
+}
+
+@media (max-width: 768px) {
+    .slot-arrow {
+        display: block;
+        /* agora aparece só no mobile */
+    }
+
+    /* estado inicial no mobile: só 1 slot visível até o JS assumir o controle.
+   Usamos .mobile-init para que o JS possa então sobrescrever via inline styles. */
+    .slots.mobile-init .slot {
+        display: none;
+    }
+
+    .slots.mobile-init .slot:first-child {
+        display: flex;
+    }
+
+
 }
