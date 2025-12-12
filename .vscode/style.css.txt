@@ -1,0 +1,642 @@
+@font-face {
+    font-family: 'MedievalSharp';
+    src: url('MedievalSharp.ttf') format('truetype');
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: black;
+    color: white;
+    font-family: 'MedievalSharp', serif;
+    overflow: hidden;
+}
+
+.screen {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#loading-screen {
+    justify-content: center;
+}
+
+#main-screen {
+    justify-content: flex-start;
+    padding-top: 30px;
+}
+
+.hidden {
+    display: none;
+}
+
+.title-container {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.title {
+    font-size: 4rem;
+    position: relative;
+    display: inline-block;
+    background-color: black;
+    padding: 0 15px;
+    z-index: 2;
+}
+
+.title::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    border-top: 1px solid white;
+    z-index: -1;
+}
+
+.subtitle {
+    color: #5C2222;
+    font-size: 1.6rem;
+    margin-top: -10px;
+}
+
+.sidebar {
+    width: 50px;
+    height: 100vh;
+    background-color: #222222;
+    border-right: 5px solid #5C2222;
+    position: absolute;
+    left: 0;
+    top: 0;
+    transition: width 0.3s ease;
+}
+
+.sidebar:hover {
+    width: 120px;
+}
+
+.sidebar-home {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    color: #efe6e2;
+    font-size: 28px;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.sidebar:hover .sidebar-home {
+    opacity: 1;
+}
+
+.sidebar-admin {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    width: 32px;
+    height: 32px;
+    background: rgba(92, 34, 34, 0.9);
+    border: 1px solid rgba(197, 128, 93, 0.5);
+    border-radius: 8px;
+    color: #efe6e2;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar:hover .sidebar-admin {
+    opacity: 1;
+}
+
+.sidebar-google {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    background: transparent;
+    border: none;
+    color: #efe6e2;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.sidebar:hover .sidebar-google {
+    opacity: 1;
+}
+
+.sidebar-profile {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+}
+
+.sidebar:hover .sidebar-profile {
+    opacity: 1;
+}
+
+
+.sidebar-sair {
+    position: absolute;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: #efe6e2;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 1000;
+}
+
+.floating-home,
+.floating-admin {
+    color: white;
+}
+
+
+.content {
+    margin-left: 70px;
+    width: calc(100% - 70px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.slots {
+    display: flex;
+    gap: 40px;
+    margin-top: 60px;
+}
+
+@keyframes cardEnter {
+    0% {
+        transform: translateY(200px) rotate(5deg);
+        opacity: 0;
+    }
+
+    60% {
+        transform: translateY(-10px) rotate(-2deg);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+    }
+}
+
+.slot {
+    width: 260px;
+    height: 380px;
+    background-color: #1E1E1E;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+    animation: cardEnter 0.9s ease forwards;
+    opacity: 0;
+}
+
+.slot:nth-child(1) {
+    animation-delay: 0.2s;
+}
+
+.slot:nth-child(2) {
+    animation-delay: 0.4s;
+}
+
+.slot:nth-child(3) {
+    animation-delay: 0.6s;
+}
+
+.slot:nth-child(4) {
+    animation-delay: 0.8s;
+}
+
+.slot:hover {
+    transform: translateY(-15px) scale(1.03);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.6);
+}
+
+.slot.filled {
+    border: 3px solid #5C2222;
+    background-color: #5C2222;
+}
+
+.slot.filled {
+    cursor: pointer;
+}
+
+.slot.filled .edit-btn {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background-color: #5C2222;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #1E1E1E;
+    box-shadow: 0 0 0 3px #5C2222;
+}
+
+.edit-btn i {
+    color: white;
+    font-size: 0.9rem;
+}
+
+.slot.empty {
+    background-color: #1E1E1E;
+    color: #656464;
+    font-size: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.slot.empty:hover {
+    color: #5C2222;
+}
+
+.img-area {
+    background-color: #1E1E1E;
+    width: 95%;
+    height: 65%;
+    margin: 40px auto 0;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.img-area img {
+    width: 200px;
+    height: auto;
+    object-fit: contain;
+}
+
+.char-info {
+    background-color: #5C2222;
+    padding: 15px 20px;
+    text-align: left;
+}
+
+.char-name {
+    font-size: 1.6rem;
+    color: white;
+}
+
+.char-class {
+    font-size: 1rem;
+    margin-top: 5px;
+    color: #e0e0e0;
+}
+
+.classe {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.classe .content {
+    margin-left: 70px;
+    width: calc(100% - 70px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.classe .title-container {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.classe .title {
+    font-size: 4rem;
+    position: relative;
+    display: inline-block;
+    background-color: black;
+    padding: 0 15px;
+    color: white;
+}
+
+.classe .title::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    border-top: 1px solid white;
+    z-index: -1;
+}
+
+.classe .slots {
+    display: flex;
+    gap: 40px;
+    margin-top: 60px;
+}
+
+.classe .slot {
+    width: 260px;
+    height: 380px;
+    background-color: #1E1E1E;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+    border: 3px solid #5C2222;
+    background-color: #5C2222;
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+    animation: cardEnter 0.9s ease forwards;
+    opacity: 0;
+}
+
+.classe .slot:hover {
+    transform: translateY(-15px) scale(1.03);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.6);
+}
+
+.classe .img-area {
+    background-color: #1E1E1E;
+    width: 95%;
+    height: 65%;
+    margin: 40px auto 0;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.classe .img-area img {
+    width: 200px;
+    height: auto;
+    object-fit: contain;
+}
+
+.classe .char-info {
+    background-color: #5C2222;
+    padding: 15px 20px;
+    text-align: left;
+}
+
+.classe .char-name {
+    font-size: 1.6rem;
+    color: white;
+}
+
+/* Delete modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: #2a2a2a;
+    color: white;
+    padding: 20px;
+    border-radius: 5px;
+    text-align: center;
+    width: 300px;
+}
+
+.modal-buttons {
+    margin-top: 20px;
+}
+
+.modal-buttons button {
+    margin: 0 10px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'MedievalSharp', serif;
+}
+
+#cancel-delete {
+    background: #555;
+    color: white;
+}
+
+#confirm-delete {
+    background: #d9534f;
+    color: white;
+}
+
+/* Delete button */
+.delete-btn {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    background: rgba(217, 83, 79, 0.8);
+    color: white;
+    border: none;
+    border-radius: 3px;
+    font-size: 14px;
+    padding: 5px;
+    cursor: pointer;
+    z-index: 10;
+    transition: transform 0.2s, font-size 0.2s;
+}
+
+.delete-btn:hover {
+    transform: scale(1.2);
+    font-size: 18px;
+}
+
+.filled {
+    position: relative;
+}
+
+/* --- MOBILE --- */
+@media (max-width: 768px) {
+
+    .sidebar {
+        display: none !important;
+    }
+
+    /* SLOT ÚNICO */
+    .slots {
+        width: 100%;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .slot {
+        width: 85vw;
+        height: 70vh;
+    }
+
+    /* SETAS */
+    .slot-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 35px;
+        background: none;
+        color: white;
+        border: none;
+        z-index: 200;
+    }
+
+    .left-arrow {
+        left: 10px;
+    }
+
+    .right-arrow {
+        right: 10px;
+    }
+
+    .content {
+        margin-left: 0;
+        width: 100%;
+        align-items: center;
+    }
+
+    /* Botões flutuantes - estilo RPG (4 botões agora) */
+    .mobile-nav-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1100;
+    }
+
+    .mobile-nav-btn {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(145deg, #2a1616, #1a0f0f);
+        border: 4px solid rgba(92, 34, 34, 0.95);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7),
+            inset 0 2px 8px rgba(255, 255, 255, 0.05);
+        color: #efe6e2;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .mobile-nav-btn::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1), transparent);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .mobile-nav-btn:hover::before,
+    .mobile-nav-btn.active::before {
+        opacity: 1;
+    }
+
+    .mobile-nav-btn:active {
+        transform: scale(0.92);
+    }
+
+    .mobile-nav-btn.active {
+        background: linear-gradient(145deg, #5c2222, #3d1616);
+        border-color: #8b3434;
+        box-shadow: 0 12px 32px rgba(92, 34, 34, 0.6),
+            inset 0 2px 12px rgba(255, 100, 100, 0.15);
+        transform: scale(1.08);
+    }
+
+    .mobile-nav-btn i {
+        position: relative;
+        z-index: 1;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    }
+
+    /* Botão de perfil - imagem circular */
+    .mobile-nav-btn img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+}
+
+.slot-arrow {
+    display: none;
+    /* escondido no desktop */
+}
+
+@media (max-width: 768px) {
+    .slot-arrow {
+        display: block;
+        /* agora aparece só no mobile */
+    }
+
+    /* estado inicial no mobile: só 1 slot visível até o JS assumir o controle.
+   Usamos .mobile-init para que o JS possa então sobrescrever via inline styles. */
+    .slots.mobile-init .slot {
+        display: none;
+    }
+
+    .slots.mobile-init .slot:first-child {
+        display: flex;
+    }
+
+    .title {
+        font-size: 2rem;
+    }
+
+    .slots {
+        width: 100%;
+        justify-content: center;
+        align-items: center;
+    }
+
+}
+
+
+.mobile-nav-buttons {
+    display: none;
+    /* oculto no desktop */
+}

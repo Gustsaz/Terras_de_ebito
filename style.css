@@ -153,22 +153,7 @@ body {
     opacity: 1;
 }
 
-/* keep toggle and floating hidden on desktop */
-.sidebar-toggle {
-    display: none;
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 26px;
-    cursor: pointer;
-}
 
-.sidebar-floating {
-    display: none;
-    /* só será ativado em mobile com .active */
-}
-
-/* logout small button */
 .sidebar-sair {
     position: absolute;
     bottom: 70px;
@@ -503,56 +488,6 @@ body {
 @media (max-width: 768px) {
 
     .sidebar {
-        width: 60px;
-        height: 60px;
-        border-right: none;
-        border-bottom: 4px solid #5C2222;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .sidebar-toggle {
-        display: block;
-        background: none;
-        border: none;
-        font-size: 26px;
-        color: #fff;
-    }
-
-    /* Ícones flutuantes */
-    .sidebar-floating {
-        position: absolute;
-        top: 70px;
-        left: 10px;
-        display: none;
-        flex-direction: column;
-        gap: 15px;
-    }
-
-    .sidebar-floating.active {
-        display: flex;
-    }
-
-    .sidebar-floating a,
-    .sidebar-floating button,
-    .sidebar-floating img {
-        width: 55px;
-        height: 55px;
-        border-radius: 50%;
-        background: #5C2222;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 22px;
-        border: 2px solid #000;
-    }
-
-    /* Oculta sidebar normal */
-    .sidebar-home,
-    .sidebar-admin,
-    .sidebar-google,
-    .sidebar-profile {
         display: none !important;
     }
 
@@ -562,7 +497,6 @@ body {
         justify-content: center;
         align-items: center;
     }
-
 
     .slot {
         width: 85vw;
@@ -595,6 +529,77 @@ body {
         align-items: center;
     }
 
+    /* Botões flutuantes - estilo RPG (4 botões agora) */
+    .mobile-nav-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1100;
+    }
+
+    .mobile-nav-btn {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(145deg, #2a1616, #1a0f0f);
+        border: 4px solid rgba(92, 34, 34, 0.95);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7),
+            inset 0 2px 8px rgba(255, 255, 255, 0.05);
+        color: #efe6e2;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .mobile-nav-btn::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1), transparent);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .mobile-nav-btn:hover::before,
+    .mobile-nav-btn.active::before {
+        opacity: 1;
+    }
+
+    .mobile-nav-btn:active {
+        transform: scale(0.92);
+    }
+
+    .mobile-nav-btn.active {
+        background: linear-gradient(145deg, #5c2222, #3d1616);
+        border-color: #8b3434;
+        box-shadow: 0 12px 32px rgba(92, 34, 34, 0.6),
+            inset 0 2px 12px rgba(255, 100, 100, 0.15);
+        transform: scale(1.08);
+    }
+
+    .mobile-nav-btn i {
+        position: relative;
+        z-index: 1;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    }
+
+    /* Botão de perfil - imagem circular */
+    .mobile-nav-btn img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
 }
 
 .slot-arrow {
@@ -618,5 +623,76 @@ body {
         display: flex;
     }
 
+    .title {
+        font-size: 2rem;
+    }
 
+    .slots {
+        width: 100%;
+        justify-content: center;
+        align-items: center;
+    }
+
+}
+
+@media (min-width: 769px) {
+    .mobile-nav-buttons {
+        display: none;
+    }
+}
+
+/* ---- Ajustes adicionais para telas muito pequenas ---- */
+
+/* telas muito pequenas: reduz título/subtítulo e sobe mais o slot */
+@media (max-width: 420px) {
+    .title {
+        font-size: 1.6rem; /* menor em telas muito pequenas */
+        padding: 0 10px;
+    }
+
+    .subtitle {
+        font-size: 1rem;
+        margin-top: -6px;
+    }
+
+    /* sobe os slots (reduz margin-top para aproximar do topo) */
+    .slots {
+        margin-top: 18px; /* antes era 60px; subimos o slot */
+        gap: 18px;
+    }
+
+    /* em telas bem pequenas, reduz altura do card para caber melhor */
+    .slot {
+        height: 62vh; /* um pouco menor que 70vh para caber na viewport */
+    }
+
+    /* reduz ícone das setas para caber proporcionalmente */
+    .slot-arrow {
+        font-size: 30px;
+    }
+
+    /* mobile-signout (botão aparecerá abaixo dos mobile-nav-btn) */
+    .mobile-signout {
+        box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+    }
+}
+
+/* garantir que .slots seja relativo caso precise (não quebra desktop) */
+.slots {
+    position: relative;
+}
+
+/* Garantir que as setas fiquem visíveis no mobile quando o JS as fixa */
+.slot-arrow {
+    transition: top 0.12s ease;
+}
+
+/* estilo extra para botao mobile (ja existem, mas apenas por segurança) */
+.mobile-nav-buttons {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* small cosmetic: diminuir ícone dentro do botão de perfil se não for imagem */
+.mobile-nav-btn i {
+    font-size: 20px;
 }
