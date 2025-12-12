@@ -1242,3 +1242,17 @@ section {
 .sidebar:hover .sidebar-profile {
   opacity: 1;
 }
+
+.subraca-card{
+  transition: background-color 0.3s ease;
+}
+
+.subraca-card:hover{
+  cursor: pointer;
+  background-color: #7a2a2aa2;
+}
+
+.subraca-card{
+  padding: 10px;
+  border-radius: 20px;
+}
