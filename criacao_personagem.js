@@ -1169,4 +1169,178 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  /* =========================
+   Mobile-only: mostrar descrição de raça como modal
+   e adicionar botão "Escolher" que leva ao resumo.
+   Para Feéricos: escolher -> abrir modal de sub-raças (já existente).
+   ========================= */
+
+  (function mobileRaceModalFlow() {
+    const mq = window.matchMedia('(max-width: 768px)');
+    let attached = false;
+
+    function getRaceTexts(raca) {
+      // Mesmo texto usado no JS principal (mantido aqui para consistência mobile)
+      let desc = '';
+      let bonus = '';
+      switch (raca) {
+        case 'Anão':
+          desc = "Os anões são o reflexo das montanhas de Herta: firmes, engenhosos e incansáveis. Vivem para construir, beber e lutar, acreditando que o trabalho é a forma mais pura de oração.";
+          bonus = "Recebem +1 em aumento de Vida por nível devido à sua robustez e resistência natural.";
+          break;
+        case 'Feéricos':
+          desc = "Os feéricos são herdeiros das criaturas místicas que outrora dançavam sob a luz dos deuses. Cada um nasce ligado ao espírito de um animal primordial, e dessa união surge seu poder singular.";
+          bonus = "Ágeis: +1 Técnica • Voadores: +2 deslocamento • Robustos: Bloqueio sem escudo.";
+          break;
+        case 'Elfo':
+          desc = "Os elfos de Flodia são filhos do conhecimento e da melancolia. Dotados de uma mente afiada e olhar distante, estudam o mundo como quem busca compreender um segredo esquecido.";
+          bonus = "Recebem +1 em Intelecto e podem aprender +1 feitiço ao alcançar o nível inicial.";
+          break;
+        case 'Meio Orc':
+          desc = "Forjados nas guerras do leste, os meio-orcs são a fusão da brutalidade e da disciplina. Soldados por tradição, acreditam que a glória está no confronto direto.";
+          bonus = "Recebem +1 em testes de Iniciativa e +1 em Bravura.";
+          break;
+        default:
+          desc = '';
+          bonus = '';
+      }
+      return { desc, bonus };
+    }
+
+    function createMobileRacaModalIfNeeded() {
+      if (document.getElementById('raca-desc-modal')) return;
+      const modal = document.createElement('div');
+      modal.id = 'raca-desc-modal';
+      modal.className = 'modal hidden';
+      modal.style.display = 'none';
+      modal.innerHTML = `
+      <div class="modal-content">
+        <button class="close-btn" aria-label="Fechar">&times;</button>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div class="descricao-icon"><img src="" alt="ícone raça"></div>
+          <h3 class="modal-raca-title"></h3>
+          <div class="descricao-texto"><p></p><p class="bonus"></p></div>
+          <button class="escolher-btn">Escolher</button>
+        </div>
+      </div>`;
+      document.body.appendChild(modal);
+
+      // close handlers
+      modal.querySelector('.close-btn').addEventListener('click', () => {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+      });
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.add('hidden');
+          modal.style.display = 'none';
+        }
+      });
+    }
+
+    function attachMobileHandlers() {
+      if (attached) return;
+      createMobileRacaModalIfNeeded();
+
+      const racaCards = Array.from(document.querySelectorAll('.raca-card'));
+      racaCards.forEach(rc => {
+        if (rc._mobileHandlerAttached) return;
+        // named handler so we can remove later
+        const handler = function (e) {
+          // prevent other click handlers (desktop flow) from running when mobile
+          e.stopImmediatePropagation();
+          e.preventDefault();
+
+          const racaNome = rc.dataset.raca || (rc.querySelector('p')?.textContent || '—');
+          const iconSrc = rc.querySelector('img')?.src || '';
+
+          const { desc, bonus } = getRaceTexts(racaNome);
+          const modal = document.getElementById('raca-desc-modal');
+          modal.querySelector('.modal-raca-title').textContent = racaNome;
+          const imgEl = modal.querySelector('.descricao-icon img');
+          imgEl.src = iconSrc;
+          modal.querySelector('.descricao-texto p').textContent = desc;
+          modal.querySelector('.descricao-texto .bonus').textContent = bonus;
+
+          const escolherBtn = modal.querySelector('.escolher-btn');
+
+          // remove previous click binding (safe)
+          escolherBtn.onclick = null;
+
+          escolherBtn.onclick = () => {
+            // close description modal
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+
+            if (racaNome === 'Feéricos') {
+              // open existing ferico-modal (HTML already has it)
+              const fm = document.getElementById('ferico-modal');
+              if (fm) {
+                fm.classList.remove('hidden');
+                fm.style.display = 'flex';
+
+                // attach subraca clicks once (use {once:true} on each to avoid duplication)
+                document.querySelectorAll('.subraca-card').forEach(subCard => {
+                  subCard.addEventListener('click', function (ev) {
+                    ev.preventDefault();
+                    const sub = subCard.dataset.subraca;
+                    localStorage.setItem('selectedSubrace', sub);
+                    // close ferico modal
+                    fm.classList.add('hidden');
+                    fm.style.display = 'none';
+                    // proceed to resumo (usa função existente)
+                    if (typeof proceedToResumo === 'function') proceedToResumo('Feéricos', sub);
+                  }, { once: true });
+                });
+              } else {
+                // fallback: directly go to resumo without subraca (shouldn't happen)
+                if (typeof proceedToResumo === 'function') proceedToResumo('Feéricos', null);
+              }
+            } else {
+              // not feéricos: go straight to resumo
+              if (typeof proceedToResumo === 'function') proceedToResumo(racaNome, null);
+            }
+          };
+
+          // show modal
+          modal.style.display = 'flex';
+          modal.classList.remove('hidden');
+        };
+
+        // attach in capture phase so it runs before existing bubble listeners
+        rc.addEventListener('click', handler, { capture: true });
+        rc._mobileHandler = handler;
+        rc._mobileHandlerAttached = true;
+      });
+
+      attached = true;
+    }
+
+    function detachMobileHandlers() {
+      if (!attached) return;
+      const racaCards = Array.from(document.querySelectorAll('.raca-card'));
+      racaCards.forEach(rc => {
+        if (rc._mobileHandler) {
+          rc.removeEventListener('click', rc._mobileHandler, { capture: true });
+          delete rc._mobileHandler;
+          rc._mobileHandlerAttached = false;
+        }
+      });
+      attached = false;
+    }
+
+    // on load and on resize toggle
+    function check() {
+      if (mq.matches) attachMobileHandlers();
+      else detachMobileHandlers();
+    }
+
+    // initial
+    check();
+    // respond to changes
+    mq.addEventListener ? mq.addEventListener('change', check) : mq.addListener(check);
+    window.addEventListener('resize', check);
+  })();
+
+
 });

@@ -13,11 +13,7 @@
 </head>
 
 <body>
-    <div class="sidebar">
-        <a href="index.html" class="sidebar-home">
-            <i class="fas fa-home"></i>
-        </a>
-    </div>
+    
 
     <section class="atributos">
         <div class="background">
@@ -97,7 +93,6 @@
     </div>
 
     <section class="classe hidden">
-        <div class="sidebar"></div>
         <button class="back-btn"><i class="fas fa-arrow-left"></i></button>
 
         <div class="content">
@@ -248,7 +243,6 @@
     </section>
 
     <section class="raca hidden">
-        <div class="sidebar"></div>
         <button class="back-btn"><i class="fas fa-arrow-left"></i></button>
 
         <div class="content">

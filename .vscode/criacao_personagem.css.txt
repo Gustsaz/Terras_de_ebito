@@ -290,7 +290,6 @@ section {
   font-size: 4rem;
   position: relative;
   display: inline-block;
-  background-color: black;
   padding: 0 15px;
   color: white;
 }
@@ -1582,4 +1581,183 @@ section {
     }
   }
 
+}
+
+/* Small-screen tweaks: center galharda + scale numbers for very small devices */
+@media (max-width: 420px) {
+
+  /* Center the background artwork precisely and make it fit the viewport */
+  .galharda {
+    top: 35%;
+    left: 53%;
+    transform: translate(-50%, -50%);
+    width: 700px;
+  }
+
+  /* Ensure the numbers container is still centered */
+  .numbers {
+    top: 38%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .num {
+    font-size: 6rem;
+    top: 53%;
+  }
+
+  .num.center {
+    font-size: 9rem;
+  }
+
+  .circle-container {
+    top: 32%;
+    left: 45%;
+  }
+
+  .classe .title{
+    font-size: 40px;
+  }
+  
+  .slots{
+   justify-content: center;
+   display: flex;
+   justify-items: center;
+  }
+}
+
+/* =========================
+   Ajustes responsivos para a seção .raca e modais
+   (colocar no final do arquivo CSS)
+   ========================= */
+
+@media (max-width: 768px) {
+  /* layout vertical para seleção de raças */
+  .raca .raca-container {
+    flex-direction: column;
+    gap: 18px;
+    align-items: center;
+    padding: 18px;
+    margin-top: 12px;
+  }
+
+  /* cards ficam em linha que quebra, centralizados */
+  .raca .raca-cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 18px;
+    padding: 18px;
+    background-color: #1E1E1E; /* mantém visual */
+  }
+
+  /* tamanho dos cartões e ícones */
+  .raca .raca-card {
+    width: 140px;
+    padding: 12px;
+    box-sizing: border-box;
+    border-radius: 12px;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .raca .raca-icon {
+    width: 84px;
+    height: 84px;
+    object-fit: contain;
+  }
+
+  .raca .raca-card p {
+    font-size: 1.4rem;
+    margin-top: 8px;
+    border-bottom: none;
+  }
+
+  /* descrição fica abaixo, largura total tranquila */
+  .raca .raca-descricao {
+    width: calc(100% - 40px);
+    max-width: 720px;
+    margin-top: 8px;
+    padding: 14px;
+    text-align: center;
+  }
+
+  .raca .descricao-texto {
+    font-size: 1.05rem;
+    line-height: 1.3;
+  }
+
+  .raca .bonus {
+    margin-top: 12px;
+    font-size: 1rem;
+  }
+
+  /* título e botão de voltar em posições acessíveis */
+  .raca .title { font-size: 2.2rem; padding: 0 8px; }
+  .raca .back-btn { left: 12px; top: 10px; }
+
+  /* remove hover-scaling que quebra em touch (mantém transformações no desktop) */
+  .raca .raca-card:hover { transform: none; }
+
+  /* MODAIS: empilha verticalmente e ocupa maior largura na tela pequena */
+  .modal-content {
+    max-width: 680px;
+    width: 92%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .modal-content h2 {
+    font-size: 1.45rem;
+    margin: 0;
+    text-align: center;
+  }
+
+  .subraca-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .subraca-card {
+    min-width: 140px;
+    flex: 1 1 140px;
+    padding: 10px;
+    border-radius: 12px;
+    text-align: center;
+  }
+
+  .close-btn {
+    top: 8px;
+    right: 8px;
+  }
+}
+
+
+@media (max-width: 420px) {
+  /* ajustes mais compactos para celulares pequenos */
+  .raca .raca-cards { gap: 12px; padding: 12px; }
+  .raca .raca-card { width: 120px; padding: 10px; }
+  .raca .raca-icon { width: 68px; height: 68px; }
+  .raca .raca-card p { font-size: 1.1rem; }
+
+  .raca .raca-descricao {
+    width: 100%;
+    padding: 10px;
+  }
+  .raca .descricao-texto { font-size: 0.98rem; }
+
+  .raca .title { font-size: 1.8rem; }
+
+  /* modal ainda mais compacto e botões atingíveis */
+  .modal-content { width: 96%; padding: 10px; gap: 8px; }
+  .subraca-card { min-width: 100px; padding: 8px; font-size: 0.95rem; }
+  .close-btn { font-size: 20px; top: 6px; right: 6px; }
+
+  .back-btn { left: 8px; top: 8px; padding: 8px; }
 }

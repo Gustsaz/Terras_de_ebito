@@ -290,7 +290,6 @@ section {
   font-size: 4rem;
   position: relative;
   display: inline-block;
-  background-color: black;
   padding: 0 15px;
   color: white;
 }
@@ -1583,3 +1582,324 @@ section {
   }
 
 }
+
+/* Small-screen tweaks: center galharda + scale numbers for very small devices */
+@media (max-width: 420px) {
+
+  /* Center the background artwork precisely and make it fit the viewport */
+  .galharda {
+    top: 35%;
+    left: 53%;
+    transform: translate(-50%, -50%);
+    width: 700px;
+  }
+
+  /* Ensure the numbers container is still centered */
+  .numbers {
+    top: 38%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .num {
+    font-size: 6rem;
+    top: 53%;
+  }
+
+  .num.center {
+    font-size: 9rem;
+  }
+
+  .circle-container {
+    top: 32%;
+    left: 45%;
+  }
+
+  .classe .title{
+    font-size: 40px;
+  }
+  
+  .slots{
+   justify-content: center;
+   display: flex;
+   justify-items: center;
+  }
+}
+
+/* =========================
+   Mobile: seleção de raça como telas de toque (apenas responsivo)
+   Colocar ao final do arquivo CSS (apenas dentro das media queries abaixo)
+   ========================= */
+
+@media (max-width: 768px) {
+  /* mostra só os cards, centraliza e os torna bem maiores */
+  .raca .raca-container { justify-content: center; align-items: center; gap: 12px; padding: 10px; }
+  .raca .raca-cards {
+    display: flex;
+    gap: 18px;
+    padding: 18px;
+    border-radius: 14px;
+    border: 4px solid #5C2222;
+    justify-content: center;
+    align-items: center;
+    background: rgba(30,30,30,0.95);
+  }
+
+  /* cartões bem maiores para toque confortável */
+  .raca .raca-card {
+    width: 220px !important;
+    height: 260px;
+    padding: 12px;
+    box-sizing: border-box;
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(92,34,34,0.06), rgba(30,30,30,0.6));
+    color: #efe6e2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    border: 3px solid rgba(92,34,34,0.9);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .raca .raca-card p { font-size: 1.6rem; margin: 0; border-bottom: none; color: #ffd; }
+  .raca .raca-icon { width: 120px; height: 120px; }
+
+  /* Esconde a caixa de descrição inline (usaremos modal) */
+  .raca .raca-descricao { display: none !important; }
+
+  /* Botão voltar e título menores para caber na tela */
+  .raca .title { font-size: 2rem; margin-bottom: 8px; }
+  .raca .back-btn { left: 8px; top: 8px; padding: 8px; font-size: 1rem; }
+
+  /* Modal custom para descrição de raça (usado pelo JS) */
+  #raca-desc-modal .modal-content {
+    max-width: 680px;
+    width: 92%;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    align-items: center;
+  }
+  #raca-desc-modal .descricao-icon img { width: 96px; height: auto; margin-bottom: 6px; }
+  #raca-desc-modal .modal-raca-title { font-size: 1.6rem; margin: 6px 0; color: #fff; text-align:center; }
+  #raca-desc-modal .descricao-texto { font-size: 1rem; line-height: 1.3; text-align: center; color: #efeae6; }
+  #raca-desc-modal .escolher-btn {
+    margin-top: 10px;
+    padding: 10px 18px;
+    border-radius: 12px;
+    border: 2px solid #3a1a1a;
+    background: #7a2a2a;
+    color: #efeae6;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+}
+
+
+/* =========================
+   Ajustes para tornar raca-cards responsivos e evitar overflow
+   ========================= */
+
+/* Para telas menores que 768px */
+@media (max-width: 768px) {
+  .raca .raca-cards {
+    display: flex;
+    flex-wrap: wrap;  /* Permite que os cards quebrem para a linha seguinte */
+    justify-content: center; /* Centraliza os cards */
+    gap: 20px; /* Espaçamento entre os cards */
+    padding: 20px; /* Adiciona preenchimento */
+    max-width: 100%; /* Garante que os cards não ultrapassem a largura da tela */
+    overflow: hidden; /* Evita que os elementos ultrapassem a tela */
+  }
+
+  /* Ajusta o tamanho dos cards para não exceder a tela */
+  .raca .raca-card {
+    width: 220px;
+    height: 260px;
+    padding: 12px;
+    box-sizing: border-box;
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(92,34,34,0.06), rgba(30,30,30,0.6));
+    color: #efe6e2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    border: 3px solid rgba(92,34,34,0.9);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Ajusta o tamanho do ícone dentro dos cards */
+  .raca .raca-icon {
+    width: 120px;
+    height: 120px;
+  }
+
+  /* Esconde a descrição abaixo dos cards (vai ser mostrado no modal) */
+  .raca .raca-descricao {
+    display: none !important;
+  }
+}
+
+/* =========================
+   Override compacto para 420px — mantém mesmo comportamento do 768px,
+   mas mais enxuto (colocar NO FINAL do CSS)
+   ========================= */
+
+@media (max-width: 420px) {
+  /* permitir scroll no mobile (útil para modais longos) */
+  body {
+    overflow: auto !important;
+  }
+
+  /* container dos cards: wrap + centralizado + largura limitada */
+  .raca .raca-cards {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 12px !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+    border-width: 3px !important;
+    max-width: calc(100% - 24px) !important;
+    width: 100% !important;
+    box-sizing: border-box;
+    background: rgba(30,30,30,0.95) !important;
+    overflow: visible !important;
+  }
+
+  /* cards: usar duas colunas quando couber, senão full-width */
+  .raca .raca-card {
+    flex: 0 1 calc(50% - 12px) !important; /* duas colunas */
+    max-width: 220px !important;
+    width: calc(50% - 12px) !important;
+    min-height: 200px !important;
+    height: auto !important;
+    padding: 10px !important;
+    box-sizing: border-box !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 8px !important;
+    border: 2px solid rgba(92,34,34,0.9) !important;
+    background: linear-gradient(180deg, rgba(92,34,34,0.04), rgba(30,30,30,0.6)) !important;
+  }
+
+  /* quando a tela for muito estreita, forçar uma coluna */
+  /* breakpoint extra para aparelhos bem pequenos */
+  @media (max-width: 360px) {
+    .raca .raca-card {
+      flex: 0 1 100% !important;
+      width: 100% !important;
+      max-width: none !important;
+    }
+  }
+
+  .raca .raca-icon {
+    width: 72px !important;
+    height: 72px !important;
+  }
+
+  .raca .raca-card p {
+    font-size: 1.05rem !important;
+    margin-top: 6px !important;
+    border-bottom: none !important;
+    color: #ffd !important;
+    text-align: center !important;
+    line-height: 1.1 !important;
+    word-break: keep-all;
+  }
+
+  /* esconder descrição inline (continua via modal) */
+  .raca .raca-descricao {
+    display: none !important;
+  }
+
+  /* MODAL: tamanho e scroll para caber totalmente na tela */
+  .modal {
+    align-items: center !important;
+  }
+
+  .modal-content {
+    width: 94% !important;
+    max-width: 520px !important;
+    max-height: 86vh !important;   /* evita overflow do viewport */
+    overflow-y: auto !important;   /* permite rolagem interna */
+    padding: 12px !important;
+    box-sizing: border-box !important;
+    gap: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  /* descrição de raça (modal custom) */
+  #raca-desc-modal .modal-content {
+    width: 94% !important;
+    max-width: 520px !important;
+    padding: 10px !important;
+  }
+  #raca-desc-modal .descricao-icon img {
+    width: 72px !important;
+    height: auto !important;
+  }
+  #raca-desc-modal .modal-raca-title {
+    font-size: 1.25rem !important;
+    margin: 6px 0 !important;
+    text-align: center !important;
+  }
+  #raca-desc-modal .descricao-texto {
+    font-size: 0.95rem !important;
+    line-height: 1.25 !important;
+    text-align: center !important;
+    color: #efeae6 !important;
+  }
+  #raca-desc-modal .escolher-btn {
+    margin-top: 10px !important;
+    padding: 8px 14px !important;
+    border-radius: 10px !important;
+    width: 90% !important;
+    max-width: 280px !important;
+    align-self: center !important;
+    font-size: 0.95rem !important;
+  }
+
+  /* Sub-raças (feéricos) — garantir wrap e botões alcançáveis */
+  #ferico-modal .modal-content {
+    width: 94% !important;
+    max-width: 520px !important;
+    max-height: 86vh !important;
+    overflow-y: auto !important;
+  }
+  #ferico-modal .subraca-options {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    justify-content: center !important;
+    padding: 6px 0 !important;
+  }
+  #ferico-modal .subraca-card {
+    flex: 0 1 calc(50% - 12px) !important;
+    min-width: 120px !important;
+    max-width: 220px !important;
+    padding: 8px !important;
+    text-align: center !important;
+    border-radius: 12px !important;
+  }
+
+  /* garantir que close-btn fique acessível */
+  .modal .close-btn {
+    top: 8px !important;
+    right: 8px !important;
+    font-size: 20px !important;
+    padding: 6px !important;
+  }
+}
+
+/* =========================
+   Fim do override para 420px
+   ========================= */

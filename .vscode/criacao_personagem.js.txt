@@ -138,6 +138,172 @@ document.addEventListener("DOMContentLoaded", () => {
     section.classList.remove('hidden');
   }
 
+  /* ========== Mobile-only carousel for .classe section ========== */
+  /* Cole este bloco logo após a função showSection(section) */
+
+  let mobileCarousel = {
+    enabled: false,
+    index: 0,
+    slots: [],
+    leftBtn: null,
+    rightBtn: null,
+    container: null
+  };
+
+  /* ========== Mobile-only carousel for .classe section (patched) ========== */
+
+  function updateMobileCarouselDisplay() {
+    // esconde todos e só mostra o ativo; garante QUE MOSTRE APENAS O CARD-FRONT (remove .flipped)
+    mobileCarousel.slots.forEach((s, i) => {
+      const isActive = (i === mobileCarousel.index);
+      // display control
+      s.style.display = isActive ? '' : 'none';
+      s.classList.toggle('mobile-active', isActive);
+
+      // important: quando navegamos no carrossel devemos sempre mostrar o front
+      // remove flipped para garantir que o .card-back NÃO apareça por navegação
+      s.classList.remove('flipped');                                                                                                                                                                  
+
+      // se quiser, resetamos transform do inner (opcional; CSS lida com isso)
+      const inner = s.querySelector('.card-inner');
+      if (inner) inner.style.transform = '';
+    });
+
+    // atualiza setas (se existirem)
+    if (mobileCarousel.leftBtn) {
+      mobileCarousel.leftBtn.disabled = mobileCarousel.slots.length <= 1;
+    }
+    if (mobileCarousel.rightBtn) {
+      mobileCarousel.rightBtn.disabled = mobileCarousel.slots.length <= 1;
+    }
+  }
+
+  function createMobileArrows(contentEl) {
+    // evita criar setas duplicadas
+    if (contentEl.querySelector('.mobile-carousel-arrow.left')) return;
+
+    // left
+    const left = document.createElement('button');
+    left.className = 'mobile-carousel-arrow left';
+    left.setAttribute('aria-label', 'Anterior');
+    left.innerHTML = '<i class="fas fa-chevron-left" aria-hidden="true"></i>';
+    left.type = 'button';
+
+    // right
+    const right = document.createElement('button');
+    right.className = 'mobile-carousel-arrow right';
+    right.setAttribute('aria-label', 'Próximo');
+    right.innerHTML = '<i class="fas fa-chevron-right" aria-hidden="true"></i>';
+    right.type = 'button';
+
+    // append ao container (contentEl é .classe .content)
+    contentEl.appendChild(left);
+    contentEl.appendChild(right);
+
+    // comportamento: apenas navega; NÃO dispara click no slot (não vira a carta automaticamente)
+    left.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!mobileCarousel.slots.length) return;
+      // se o slot atual estiver flipped, resetá-lo antes de navegar para manter consistência
+      mobileCarousel.slots[mobileCarousel.index]?.classList.remove('flipped');
+
+      mobileCarousel.index = (mobileCarousel.index - 1 + mobileCarousel.slots.length) % mobileCarousel.slots.length;
+      updateMobileCarouselDisplay();
+      // não disparamos click(). O usuário deve clicar no slot para ver o card-back.
+    });
+
+    right.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!mobileCarousel.slots.length) return;
+      mobileCarousel.slots[mobileCarousel.index]?.classList.remove('flipped');
+
+      mobileCarousel.index = (mobileCarousel.index + 1) % mobileCarousel.slots.length;
+      updateMobileCarouselDisplay();
+      // não disparamos click() aqui também.
+    });
+
+    // armazenar refs para remoção posterior
+    mobileCarousel.leftBtn = left;
+    mobileCarousel.rightBtn = right;
+  }
+
+  function enableMobileCarouselIfNeeded() {
+    if (!(window.matchMedia && window.matchMedia('(max-width: 768px)').matches)) return disableMobileCarousel();
+    if (mobileCarousel.enabled) return; // já ativo
+
+    const classeContent = document.querySelector('.classe .content');
+    const slotEls = Array.from(document.querySelectorAll('.classe .slots .slot'));
+
+    if (!classeContent || slotEls.length === 0) return;
+
+    mobileCarousel.slots = slotEls;
+    mobileCarousel.container = classeContent;
+
+    // index inicial: preferência para slot que tem .filled ou 0
+    const filledIndex = slotEls.findIndex(s => s.classList.contains('filled'));
+    mobileCarousel.index = filledIndex >= 0 ? filledIndex : 0;
+
+    // garantir que todos iniciem sem flipped e escondidos
+    mobileCarousel.slots.forEach((s) => {
+      s.classList.remove('mobile-active', 'flipped');
+      s.style.display = 'none';
+    });
+
+    // criar setas e ligar events (não disparam clique nos slots)
+    createMobileArrows(classeContent);
+
+    // atualizar display inicial (mostra apenas front do slot ativo)
+    updateMobileCarouselDisplay();
+
+    mobileCarousel.enabled = true;
+  }
+
+  function disableMobileCarousel() {
+    if (!mobileCarousel.enabled) return;
+    // remove classes e volta ao comportamento normal
+    mobileCarousel.slots.forEach(s => {
+      s.classList.remove('mobile-active');
+      s.style.display = ''; // volta ao estilo padrão (desktop)
+    });
+    // remove arrows
+    if (mobileCarousel.leftBtn && mobileCarousel.leftBtn.parentNode) mobileCarousel.leftBtn.parentNode.removeChild(mobileCarousel.leftBtn);
+    if (mobileCarousel.rightBtn && mobileCarousel.rightBtn.parentNode) mobileCarousel.rightBtn.parentNode.removeChild(mobileCarousel.rightBtn);
+
+    mobileCarousel.leftBtn = null;
+    mobileCarousel.rightBtn = null;
+    mobileCarousel.slots = [];
+    mobileCarousel.enabled = false;
+    mobileCarousel.container = null;
+  }
+
+  // sobrescreve a showSection para ligar/desligar o comportamento mobile quando necessário
+  const __orig_showSection = showSection;
+  showSection = function (section) {
+    __orig_showSection(section);
+
+    // se entrou na classe, tenta ativar; caso contrário, desativa
+    if (section === secClasse) {
+      // Delay curto para garantir que o DOM da seção já esteja renderizado
+      setTimeout(() => enableMobileCarouselIfNeeded(), 60);
+    } else {
+      // se trocar de seção, remove o comportamento mobile
+      disableMobileCarousel();
+    }
+  };
+
+  // também reativa/desativa ao redimensionar a tela enquanto estiver na seção .classe
+  window.addEventListener('resize', () => {
+    // se estamos na tela de classes (visível) chamamos de novo
+    if (!document.querySelector('.classe').classList.contains('hidden')) {
+      if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+        enableMobileCarouselIfNeeded();
+      } else {
+        disableMobileCarousel();
+      }
+    }
+  });
+
+
   // Reset to default values
   let pontos = 0;
   let maxPontos = 7;
@@ -251,210 +417,210 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* ---------- START: substituir aqui icons.forEach(...) e counter listeners ---------- */
 
-function safeInt(v) {
-  const n = parseInt(v, 10);
-  return Number.isNaN(n) ? 0 : n;
-}
-
-function recalcTotalsAndSave() {
-  Object.keys(clickCountGlobal).forEach(k => {
-    clickCountGlobal[k] = safeInt(clickCountGlobal[k]);
-  });
-
-  flaws = Object.values(clickCountGlobal).filter(v => v < 0).length;
-  maxPontos = 7 + flaws;
-
-  pontos = Object.values(clickCountGlobal).reduce((a, b) => a + (b > 0 ? b : 0), 0);
-
-  if (numRight) numRight.textContent = maxPontos;
-  if (numLeft) numLeft.textContent = pontos;
-
-  Object.keys(clickCountGlobal).forEach(nome => {
-    const ctrDOM = document.querySelector(`.counter.${nome}`);
-    if (ctrDOM) ctrDOM.textContent = clickCountGlobal[nome];
-  });
-
-  localStorage.setItem('attributes', JSON.stringify(clickCountGlobal));
-
-  if (pontos === maxPontos) {
-    document.querySelector('.numbers').classList.add('hidden');
-    document.querySelector('.circle-container').classList.remove('hidden');
-  } else {
-    document.querySelector('.numbers').classList.remove('hidden');
-    document.querySelector('.circle-container').classList.add('hidden');
-  }
-}
-
-function openNumberInputAt(element, nome) {
-  if (document.getElementById('mobile-attr-input')) return;
-
-  const rect = element.getBoundingClientRect();
-  const input = document.createElement('input');
-  input.type = 'number';
-  input.id = 'mobile-attr-input';
-  input.value = (clickCountGlobal[nome] !== undefined) ? clickCountGlobal[nome] : 0;
-
-  input.style.position = 'fixed';
-  input.style.left = `${rect.left + rect.width / 2}px`;
-  input.style.top = `${rect.top + rect.height / 2}px`;
-  input.style.transform = 'translate(-50%,-50%)';
-  input.style.zIndex = 2000;
-  input.style.width = '88px';
-  input.style.padding = '8px 10px';
-  input.style.fontSize = '20px';
-  input.style.borderRadius = '8px';
-  input.style.border = '2px solid #5C2222';
-  input.style.background = '#1E1E1E';
-  input.style.color = '#fff';
-  input.style.textAlign = 'center';
-  input.style.outline = 'none';
-
-  document.body.appendChild(input);
-  input.focus();
-  input.select();
-
-  function acceptAndClose() {
-    const val = safeInt(input.value);
-    clickCountGlobal[nome] = val;
-    recalcTotalsAndSave();
-    input.remove();
+  function safeInt(v) {
+    const n = parseInt(v, 10);
+    return Number.isNaN(n) ? 0 : n;
   }
 
-  input.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter') {
-      acceptAndClose();
-    } else if (ev.key === 'Escape') {
+  function recalcTotalsAndSave() {
+    Object.keys(clickCountGlobal).forEach(k => {
+      clickCountGlobal[k] = safeInt(clickCountGlobal[k]);
+    });
+
+    flaws = Object.values(clickCountGlobal).filter(v => v < 0).length;
+    maxPontos = 7 + flaws;
+
+    pontos = Object.values(clickCountGlobal).reduce((a, b) => a + (b > 0 ? b : 0), 0);
+
+    if (numRight) numRight.textContent = maxPontos;
+    if (numLeft) numLeft.textContent = pontos;
+
+    Object.keys(clickCountGlobal).forEach(nome => {
+      const ctrDOM = document.querySelector(`.counter.${nome}`);
+      if (ctrDOM) ctrDOM.textContent = clickCountGlobal[nome];
+    });
+
+    localStorage.setItem('attributes', JSON.stringify(clickCountGlobal));
+
+    if (pontos === maxPontos) {
+      document.querySelector('.numbers').classList.add('hidden');
+      document.querySelector('.circle-container').classList.remove('hidden');
+    } else {
+      document.querySelector('.numbers').classList.remove('hidden');
+      document.querySelector('.circle-container').classList.add('hidden');
+    }
+  }
+
+  function openNumberInputAt(element, nome) {
+    if (document.getElementById('mobile-attr-input')) return;
+
+    const rect = element.getBoundingClientRect();
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.id = 'mobile-attr-input';
+    input.value = (clickCountGlobal[nome] !== undefined) ? clickCountGlobal[nome] : 0;
+
+    input.style.position = 'fixed';
+    input.style.left = `${rect.left + rect.width / 2}px`;
+    input.style.top = `${rect.top + rect.height / 2}px`;
+    input.style.transform = 'translate(-50%,-50%)';
+    input.style.zIndex = 2000;
+    input.style.width = '88px';
+    input.style.padding = '8px 10px';
+    input.style.fontSize = '20px';
+    input.style.borderRadius = '8px';
+    input.style.border = '2px solid #5C2222';
+    input.style.background = '#1E1E1E';
+    input.style.color = '#fff';
+    input.style.textAlign = 'center';
+    input.style.outline = 'none';
+
+    document.body.appendChild(input);
+    input.focus();
+    input.select();
+
+    function acceptAndClose() {
+      const val = safeInt(input.value);
+      clickCountGlobal[nome] = val;
+      recalcTotalsAndSave();
       input.remove();
     }
-  });
 
-  input.addEventListener('blur', () => {
-    acceptAndClose();
-  });
-}
-
-/* Reaplica listeners com comportamento mobile/desktop adequado */
-icons.forEach(icon => {
-  const nome = icon.classList[1];
-
-  const ctr = document.querySelector(`.counter.${nome}`);
-  if (ctr) ctr.textContent = clickCountGlobal[nome] || 0;
-
-  icon.addEventListener('mouseenter', () => {
-    // Remove hover/dim de outros
-    icons.forEach(otherIcon => {
-      if (otherIcon !== icon) {
-        otherIcon.classList.remove("hovered");
-        otherIcon.classList.remove("dimmed");
-        const otherNome = otherIcon.classList[1];
-        const otherCtr = document.querySelector(`.counter.${otherNome}`);
-        if (otherCtr) otherCtr.classList.remove("visible");
-      }
-    });
-    icon.classList.add("hovered");
-    if (ctr) ctr.classList.add("visible");
-
-    // only dim icon when counter visible AND mobile
-    if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
-      icon.classList.add('dimmed');
-    }
-
-    const descDiv = document.getElementById('attr-description');
-    if (descDiv) {
-      descDiv.classList.remove('hidden');
-      descDiv.querySelector('p').textContent = descriptions[nome] || '';
-      descDiv.classList.add('visible');
-    }
-  });
-
-  icon.addEventListener('mouseleave', (e) => {
-    // remove visible/hover/description only if leaving to non-related targets
-    if (!e.relatedTarget || (!e.relatedTarget.closest('.icon') && !e.relatedTarget.closest('.counter'))) {
-      const d = document.getElementById('attr-description');
-      if (d) d.classList.remove('visible');
-      if (ctr) ctr.classList.remove('visible');
-      icon.classList.remove('hovered');
-      icon.classList.remove('dimmed');
-    }
-  });
-
-  icon.addEventListener('click', (e) => {
-    // Se mobile -> abrir input para digitar valor
-    if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
-      openNumberInputAt(icon, nome);
-      return;
-    }
-
-    // Desktop: comportamento original (left click => +1)
-    if (pontos < maxPontos) {
-      if (clickCountGlobal[nome] == undefined) clickCountGlobal[nome] = 0;
-      clickCountGlobal[nome]++;
-      recalcTotalsAndSave();
-    }
-  });
-
-  icon.addEventListener('touchstart', (ev) => {
-    /* deixado intencionalmente vazio - mobile usa click handler acima para abrir input */
-  });
-});
-
-// counters: hover + (mobile) click para editar
-document.querySelectorAll('.counter').forEach(counter => {
-  const nome = counter.classList[1];
-
-  counter.addEventListener('mouseenter', () => {
-    // remove hover/dim de outros icons
-    icons.forEach(otherIcon => {
-      const otherNome = otherIcon.classList[1];
-      if (otherNome !== nome) {
-        otherIcon.classList.remove("hovered");
-        otherIcon.classList.remove("dimmed");
-        const otherCtr = document.querySelector(`.counter.${otherNome}`);
-        if (otherCtr && otherCtr !== counter) otherCtr.classList.remove("visible");
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        acceptAndClose();
+      } else if (ev.key === 'Escape') {
+        input.remove();
       }
     });
 
-    const icon = document.querySelector(`.icon.${nome}`);
-    if (icon) {
+    input.addEventListener('blur', () => {
+      acceptAndClose();
+    });
+  }
+
+  /* Reaplica listeners com comportamento mobile/desktop adequado */
+  icons.forEach(icon => {
+    const nome = icon.classList[1];
+
+    const ctr = document.querySelector(`.counter.${nome}`);
+    if (ctr) ctr.textContent = clickCountGlobal[nome] || 0;
+
+    icon.addEventListener('mouseenter', () => {
+      // Remove hover/dim de outros
+      icons.forEach(otherIcon => {
+        if (otherIcon !== icon) {
+          otherIcon.classList.remove("hovered");
+          otherIcon.classList.remove("dimmed");
+          const otherNome = otherIcon.classList[1];
+          const otherCtr = document.querySelector(`.counter.${otherNome}`);
+          if (otherCtr) otherCtr.classList.remove("visible");
+        }
+      });
       icon.classList.add("hovered");
-      // dim only on mobile (when counter visible)
+      if (ctr) ctr.classList.add("visible");
+
+      // only dim icon when counter visible AND mobile
       if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
         icon.classList.add('dimmed');
       }
-    }
-    counter.classList.add("visible");
 
-    const descDiv = document.getElementById('attr-description');
-    if (descDiv) {
-      descDiv.classList.remove('hidden');
-      descDiv.querySelector('p').textContent = descriptions[nome] || '';
-      descDiv.classList.add('visible');
-    }
-  });
+      const descDiv = document.getElementById('attr-description');
+      if (descDiv) {
+        descDiv.classList.remove('hidden');
+        descDiv.querySelector('p').textContent = descriptions[nome] || '';
+        descDiv.classList.add('visible');
+      }
+    });
 
-  counter.addEventListener('mouseleave', (e) => {
-    if (!e.relatedTarget || (!e.relatedTarget.closest('.icon') && !e.relatedTarget.closest('.counter'))) {
-      const d = document.getElementById('attr-description');
-      if (d) d.classList.remove('visible');
-      counter.classList.remove('visible');
-
-      const icon = document.querySelector(`.icon.${nome}`);
-      if (icon) {
+    icon.addEventListener('mouseleave', (e) => {
+      // remove visible/hover/description only if leaving to non-related targets
+      if (!e.relatedTarget || (!e.relatedTarget.closest('.icon') && !e.relatedTarget.closest('.counter'))) {
+        const d = document.getElementById('attr-description');
+        if (d) d.classList.remove('visible');
+        if (ctr) ctr.classList.remove('visible');
         icon.classList.remove('hovered');
         icon.classList.remove('dimmed');
       }
-    }
+    });
+
+    icon.addEventListener('click', (e) => {
+      // Se mobile -> abrir input para digitar valor
+      if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+        openNumberInputAt(icon, nome);
+        return;
+      }
+
+      // Desktop: comportamento original (left click => +1)
+      if (pontos < maxPontos) {
+        if (clickCountGlobal[nome] == undefined) clickCountGlobal[nome] = 0;
+        clickCountGlobal[nome]++;
+        recalcTotalsAndSave();
+      }
+    });
+
+    icon.addEventListener('touchstart', (ev) => {
+      /* deixado intencionalmente vazio - mobile usa click handler acima para abrir input */
+    });
   });
 
-  // click no counter: apenas no mobile abre o input (desktop continua com contextmenu para diminuir)
-  counter.addEventListener('click', (e) => {
-    if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
-      openNumberInputAt(counter, nome);
-    }
-  });
-});
+  // counters: hover + (mobile) click para editar
+  document.querySelectorAll('.counter').forEach(counter => {
+    const nome = counter.classList[1];
 
-/* ---------- END: substituir aqui ---------- */
+    counter.addEventListener('mouseenter', () => {
+      // remove hover/dim de outros icons
+      icons.forEach(otherIcon => {
+        const otherNome = otherIcon.classList[1];
+        if (otherNome !== nome) {
+          otherIcon.classList.remove("hovered");
+          otherIcon.classList.remove("dimmed");
+          const otherCtr = document.querySelector(`.counter.${otherNome}`);
+          if (otherCtr && otherCtr !== counter) otherCtr.classList.remove("visible");
+        }
+      });
+
+      const icon = document.querySelector(`.icon.${nome}`);
+      if (icon) {
+        icon.classList.add("hovered");
+        // dim only on mobile (when counter visible)
+        if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+          icon.classList.add('dimmed');
+        }
+      }
+      counter.classList.add("visible");
+
+      const descDiv = document.getElementById('attr-description');
+      if (descDiv) {
+        descDiv.classList.remove('hidden');
+        descDiv.querySelector('p').textContent = descriptions[nome] || '';
+        descDiv.classList.add('visible');
+      }
+    });
+
+    counter.addEventListener('mouseleave', (e) => {
+      if (!e.relatedTarget || (!e.relatedTarget.closest('.icon') && !e.relatedTarget.closest('.counter'))) {
+        const d = document.getElementById('attr-description');
+        if (d) d.classList.remove('visible');
+        counter.classList.remove('visible');
+
+        const icon = document.querySelector(`.icon.${nome}`);
+        if (icon) {
+          icon.classList.remove('hovered');
+          icon.classList.remove('dimmed');
+        }
+      }
+    });
+
+    // click no counter: apenas no mobile abre o input (desktop continua com contextmenu para diminuir)
+    counter.addEventListener('click', (e) => {
+      if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+        openNumberInputAt(counter, nome);
+      }
+    });
+  });
+
+  /* ---------- END: substituir aqui ---------- */
 
 
   // Always start from atributos section
