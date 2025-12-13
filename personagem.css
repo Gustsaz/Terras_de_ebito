@@ -1683,3 +1683,6 @@ html.dragging {
     }
 }
 
+.mobile-nav-buttons {
+    -webkit-tap-highlight-color: transparent;
+}

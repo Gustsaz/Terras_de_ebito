@@ -1129,7 +1129,7 @@ section {
 }
 
 .modal-content {
-  background: #5C2222;
+  background: #1E1E1E;
   padding: 20px;
   border-radius: 10px;
   max-width: 600px;
@@ -1254,6 +1254,11 @@ section {
 .subraca-card {
   padding: 10px;
   border-radius: 20px;
+}
+
+.mobile-nav-buttons {
+  display: none;
+  /* oculto no desktop */
 }
 
 @media (max-width: 768px) {
@@ -1615,14 +1620,14 @@ section {
     left: 45%;
   }
 
-  .classe .title{
+  .classe .title {
     font-size: 40px;
   }
-  
-  .slots{
-   justify-content: center;
-   display: flex;
-   justify-items: center;
+
+  .slots {
+    justify-content: center;
+    display: flex;
+    justify-items: center;
   }
 }
 
@@ -1632,8 +1637,15 @@ section {
    ========================= */
 
 @media (max-width: 768px) {
+
   /* mostra só os cards, centraliza e os torna bem maiores */
-  .raca .raca-container { justify-content: center; align-items: center; gap: 12px; padding: 10px; }
+  .raca .raca-container {
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+  }
+
   .raca .raca-cards {
     display: flex;
     gap: 18px;
@@ -1642,7 +1654,7 @@ section {
     border: 4px solid #5C2222;
     justify-content: center;
     align-items: center;
-    background: rgba(30,30,30,0.95);
+    background: rgba(30, 30, 30, 0.95);
   }
 
   /* cartões bem maiores para toque confortável */
@@ -1652,26 +1664,47 @@ section {
     padding: 12px;
     box-sizing: border-box;
     border-radius: 16px;
-    background: linear-gradient(180deg, rgba(92,34,34,0.06), rgba(30,30,30,0.6));
+    background: linear-gradient(180deg, rgba(92, 34, 34, 0.06), rgba(30, 30, 30, 0.6));
     color: #efe6e2;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     gap: 10px;
-    border: 3px solid rgba(92,34,34,0.9);
+    border: 3px solid rgba(92, 34, 34, 0.9);
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
-  .raca .raca-card p { font-size: 1.6rem; margin: 0; border-bottom: none; color: #ffd; }
-  .raca .raca-icon { width: 120px; height: 120px; }
+
+  .raca .raca-card p {
+    font-size: 1.6rem;
+    margin: 0;
+    border-bottom: none;
+    color: #ffd;
+  }
+
+  .raca .raca-icon {
+    width: 120px;
+    height: 120px;
+  }
 
   /* Esconde a caixa de descrição inline (usaremos modal) */
-  .raca .raca-descricao { display: none !important; }
+  .raca .raca-descricao {
+    display: none !important;
+  }
 
   /* Botão voltar e título menores para caber na tela */
-  .raca .title { font-size: 2rem; margin-bottom: 8px; }
-  .raca .back-btn { left: 8px; top: 8px; padding: 8px; font-size: 1rem; }
+  .raca .title {
+    font-size: 2rem;
+    margin-bottom: 8px;
+  }
+
+  .raca .back-btn {
+    left: 8px;
+    top: 8px;
+    padding: 8px;
+    font-size: 1rem;
+  }
 
   /* Modal custom para descrição de raça (usado pelo JS) */
   #raca-desc-modal .modal-content {
@@ -1682,9 +1715,27 @@ section {
     padding: 14px;
     align-items: center;
   }
-  #raca-desc-modal .descricao-icon img { width: 96px; height: auto; margin-bottom: 6px; }
-  #raca-desc-modal .modal-raca-title { font-size: 1.6rem; margin: 6px 0; color: #fff; text-align:center; }
-  #raca-desc-modal .descricao-texto { font-size: 1rem; line-height: 1.3; text-align: center; color: #efeae6; }
+
+  #raca-desc-modal .descricao-icon img {
+    width: 96px;
+    height: auto;
+    margin-bottom: 6px;
+  }
+
+  #raca-desc-modal .modal-raca-title {
+    font-size: 1.6rem;
+    margin: 6px 0;
+    color: #fff;
+    text-align: center;
+  }
+
+  #raca-desc-modal .descricao-texto {
+    font-size: 1rem;
+    line-height: 1.3;
+    text-align: center;
+    color: #efeae6;
+  }
+
   #raca-desc-modal .escolher-btn {
     margin-top: 10px;
     padding: 10px 18px;
@@ -1706,12 +1757,18 @@ section {
 @media (max-width: 768px) {
   .raca .raca-cards {
     display: flex;
-    flex-wrap: wrap;  /* Permite que os cards quebrem para a linha seguinte */
-    justify-content: center; /* Centraliza os cards */
-    gap: 20px; /* Espaçamento entre os cards */
-    padding: 20px; /* Adiciona preenchimento */
-    max-width: 100%; /* Garante que os cards não ultrapassem a largura da tela */
-    overflow: hidden; /* Evita que os elementos ultrapassem a tela */
+    flex-wrap: wrap;
+    /* Permite que os cards quebrem para a linha seguinte */
+    justify-content: center;
+    /* Centraliza os cards */
+    gap: 20px;
+    /* Espaçamento entre os cards */
+    padding: 20px;
+    /* Adiciona preenchimento */
+    max-width: 100%;
+    /* Garante que os cards não ultrapassem a largura da tela */
+    overflow: hidden;
+    /* Evita que os elementos ultrapassem a tela */
   }
 
   /* Ajusta o tamanho dos cards para não exceder a tela */
@@ -1721,14 +1778,14 @@ section {
     padding: 12px;
     box-sizing: border-box;
     border-radius: 16px;
-    background: linear-gradient(180deg, rgba(92,34,34,0.06), rgba(30,30,30,0.6));
+    background: linear-gradient(180deg, rgba(92, 34, 34, 0.06), rgba(30, 30, 30, 0.6));
     color: #efe6e2;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     gap: 10px;
-    border: 3px solid rgba(92,34,34,0.9);
+    border: 3px solid rgba(92, 34, 34, 0.9);
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
@@ -1751,6 +1808,7 @@ section {
    ========================= */
 
 @media (max-width: 420px) {
+
   /* permitir scroll no mobile (útil para modais longos) */
   body {
     overflow: auto !important;
@@ -1768,13 +1826,14 @@ section {
     max-width: calc(100% - 24px) !important;
     width: 100% !important;
     box-sizing: border-box;
-    background: rgba(30,30,30,0.95) !important;
+    background: rgba(30, 30, 30, 0.95) !important;
     overflow: visible !important;
   }
 
   /* cards: usar duas colunas quando couber, senão full-width */
   .raca .raca-card {
-    flex: 0 1 calc(50% - 12px) !important; /* duas colunas */
+    flex: 0 1 calc(50% - 12px) !important;
+    /* duas colunas */
     max-width: 220px !important;
     width: calc(50% - 12px) !important;
     min-height: 200px !important;
@@ -1787,8 +1846,8 @@ section {
     justify-content: center !important;
     align-items: center !important;
     gap: 8px !important;
-    border: 2px solid rgba(92,34,34,0.9) !important;
-    background: linear-gradient(180deg, rgba(92,34,34,0.04), rgba(30,30,30,0.6)) !important;
+    border: 2px solid rgba(92, 34, 34, 0.9) !important;
+    background: linear-gradient(180deg, rgba(92, 34, 34, 0.04), rgba(30, 30, 30, 0.6)) !important;
   }
 
   /* quando a tela for muito estreita, forçar uma coluna */
@@ -1829,8 +1888,10 @@ section {
   .modal-content {
     width: 94% !important;
     max-width: 520px !important;
-    max-height: 86vh !important;   /* evita overflow do viewport */
-    overflow-y: auto !important;   /* permite rolagem interna */
+    max-height: 86vh !important;
+    /* evita overflow do viewport */
+    overflow-y: auto !important;
+    /* permite rolagem interna */
     padding: 12px !important;
     box-sizing: border-box !important;
     gap: 10px !important;
@@ -1843,21 +1904,25 @@ section {
     max-width: 520px !important;
     padding: 10px !important;
   }
+
   #raca-desc-modal .descricao-icon img {
     width: 72px !important;
     height: auto !important;
   }
+
   #raca-desc-modal .modal-raca-title {
     font-size: 1.25rem !important;
     margin: 6px 0 !important;
     text-align: center !important;
   }
+
   #raca-desc-modal .descricao-texto {
     font-size: 0.95rem !important;
     line-height: 1.25 !important;
     text-align: center !important;
     color: #efeae6 !important;
   }
+
   #raca-desc-modal .escolher-btn {
     margin-top: 10px !important;
     padding: 8px 14px !important;
@@ -1875,6 +1940,7 @@ section {
     max-height: 86vh !important;
     overflow-y: auto !important;
   }
+
   #ferico-modal .subraca-options {
     display: flex !important;
     flex-wrap: wrap !important;
@@ -1882,6 +1948,7 @@ section {
     justify-content: center !important;
     padding: 6px 0 !important;
   }
+
   #ferico-modal .subraca-card {
     flex: 0 1 calc(50% - 12px) !important;
     min-width: 120px !important;
@@ -1903,3 +1970,547 @@ section {
 /* =========================
    Fim do override para 420px
    ========================= */
+
+/* =========================
+   RESPONSIVIDADE: RESUMO
+   ========================= */
+
+/* Mobile / tablet (max-width: 768px)
+   - Empilha os painéis, deixa os cards roláveis quando necessário
+   - Mantém interação (contenteditable, botões) intactos
+*/
+@media (max-width: 768px) {
+  .resumo {
+    position: absolute;
+    left: 20px;
+    /* reduz margem lateral */
+    top: 20px;
+    width: calc(100% - 40px);
+    height: auto;
+    align-items: stretch;
+    /* faz os filhos ocuparem largura completa */
+    padding: 8px 0;
+    overflow-y: auto;
+  }
+
+  .resumo-inner {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+    padding: 0 12px;
+    box-sizing: border-box;
+  }
+
+  /* Painel esquerdo (história / aparência / notas) */
+  .resumo-left {
+    width: 100%;
+    padding: 12px;
+    box-sizing: border-box;
+  }
+
+  .resumo-boxes {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .resumo-box h2 {
+    font-size: 1.15rem;
+    margin-bottom: 6px;
+  }
+
+  .resumo-panel {
+    height: 220px;
+    max-height: 40vh;
+    overflow-y: auto;
+    padding: 10px;
+    box-sizing: border-box;
+  }
+
+  /* Bottom (nome / botão) vira linha flex responsiva */
+  .resumo-bottom {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .nome-label {
+    min-width: 56px;
+    font-size: 1rem;
+  }
+
+  .nome-underline {
+    flex: 1 1 auto;
+    font-size: 1rem;
+    min-width: 110px;
+  }
+
+  #create-character {
+    margin-left: auto;
+    padding: 10px 14px;
+    font-size: 1rem;
+    min-width: 140px;
+  }
+
+  /* Right column: transforma em bloco abaixo (ou carrossel horizontal leve) */
+  .resumo-right {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: space-between;
+    overflow-x: auto;
+    /* permite scroll horizontal se couber pouco espaço */
+    padding: 6px 12px 12px;
+    box-sizing: border-box;
+  }
+
+  .card-stats {
+    min-width: 260px;
+    max-width: 60%;
+    flex: 1 0 auto;
+    height: auto;
+    padding: 10px;
+  }
+
+  .card-class {
+    min-width: 220px;
+    max-width: 38%;
+    height: auto;
+    order: 0;
+    flex: 0 0 auto;
+  }
+
+  /* Ajustes visuais para manter hierarquia e legibilidade */
+  .card-stats .attr-item img {
+    width: 56px;
+    height: 56px;
+  }
+
+  .card-class .class-art {
+    height: 160px;
+  }
+
+  .card-class .class-title {
+    font-size: 1.2rem;
+  }
+
+  .card-class .class-desc {
+    font-size: 0.95rem;
+  }
+
+  /* Botão voltar menor e mais à esquerda (para telas pequenas) */
+  .resumo .back-btn {
+    left: 12px;
+    top: 8px;
+    padding: 8px;
+    font-size: 1rem;
+  }
+}
+
+/* Mobile pequeno (max-width: 420px)
+   - Empilha tudo verticalmente, amplia áreas tocáveis, reduz imagens
+*/
+@media (max-width: 420px) {
+
+  /* Botões flutuantes - estilo RPG (4 botões agora) */
+  .mobile-nav-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1100;
+  }
+
+  .resumo {
+    left: 8px;
+    top: 8px;
+    width: calc(100% - 16px);
+    padding: 6px 0;
+  }
+
+  .resumo-inner {
+    gap: 10px;
+    padding: 0 8px;
+  }
+
+  .resumo-panel {
+    height: 180px;
+    max-height: 34vh;
+    font-size: 0.95rem;
+  }
+
+  .resumo-box h2 {
+    font-size: 1.05rem;
+  }
+
+  .resumo-bottom {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .nome-underline {
+    font-size: 0.95rem;
+    min-height: 34px;
+  }
+
+  #create-character {
+    width: 100%;
+    min-width: auto;
+    margin-left: 0;
+    padding: 12px;
+    font-size: 1rem;
+  }
+
+  /* Right column vira stack vertical com largura 100% */
+  .resumo-right {
+    flex-direction: column;
+    overflow-x: visible;
+    padding: 0;
+  }
+
+  .card-class,
+  .card-stats {
+    width: 100%;
+    max-width: 100%;
+    min-width: auto;
+  }
+
+  .card-class .class-art {
+    height: 180px;
+  }
+
+  .card-stats .attr-item img {
+    width: 48px;
+    height: 48px;
+  }
+
+  .resumo .back-btn {
+    left: 8px;
+    top: 6px;
+    padding: 6px;
+    font-size: 0.95rem;
+  }
+}
+
+/* =========================
+   Correções: notas não ultrapassarem + resumo-bottom visível
+   (APLICAR SOMENTE EM RESPONSIVIDADE)
+   ========================= */
+
+@media (max-width: 768px) {
+
+  body {
+    overflow-y: auto;
+  }
+
+  /* Botões flutuantes - estilo RPG (4 botões agora) */
+  .mobile-nav-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1100;
+  }
+
+  /* garante que o painel esquerdo comporte o conteúdo e reserve espaço para o bottom */
+  .resumo-left {
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    height: auto;
+    padding-bottom: 78px;
+    /* reserva espaço para .resumo-bottom */
+    overflow: visible;
+    /* evita clipping indesejado de conteúdo rolável */
+    flex: 1 1 auto;
+  }
+
+  /* força comportamento column (seguro) e evita overflow horizontal */
+  .resumo-inner {
+    align-items: stretch;
+    box-sizing: border-box;
+  }
+
+  /* evita que os boxes forcem altura do parent — corrige "estouro" */
+  .resumo-boxes {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .resumo-box {
+    min-height: 0;
+    /* essencial em flexbox para permitir scroll interno */
+    flex: 1 1 auto;
+    box-sizing: border-box;
+  }
+
+  /* painel editável deve rolar internamente e não expandir o pai */
+  .resumo-panel {
+    min-height: 0;
+    /* permite que overflow interno funcione */
+    max-height: calc(40vh);
+    /* limita altura relativa à viewport */
+    height: auto;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 10px;
+  }
+
+
+
+  /* cards à direita ficam abaixo (ou roláveis) e com z-index menor */
+  .resumo-right {
+    width: 100%;
+    position: relative;
+    z-index: 10;
+    box-sizing: border-box;
+  }
+
+  .card-stats,
+  .card-class {
+    position: relative;
+    z-index: 10;
+    box-sizing: border-box;
+  }
+
+  .numbers,
+  .num,
+  .num.center {
+    overflow-y: hidden;
+  }
+}
+
+/* ajustes extra para telas bem pequenas: mantém o mesmo comportamento, mas
+   reduz padding reservado e garante legibilidade do bottom */
+@media (max-width: 420px) {
+
+  .numbers,
+  .num,
+  .num.center {
+    overflow-y: hidden;
+  }
+
+  .resumo-left {
+    padding-bottom: 92px;
+    /* mais espaço para botões grandes/touch */
+  }
+
+  .resumo-panel {
+    max-height: calc(34vh);
+    /* um pouco menor para telas muito pequenas */
+  }
+
+
+  /* garantir que a coluna de cards não esteja sobre o bottom */
+  .resumo-right {
+    z-index: 8;
+  }
+}
+
+/* ---------------------------
+   Mobile floating nav buttons
+   (estilo idêntico ao style.css - mobile only)
+   Paste near the end of criacao_personagem.css
+   --------------------------- */
+
+@media (max-width: 768px) {
+  .mobile-nav-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1100;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-nav-btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #2a1616, #1a0f0f);
+    border: 4px solid rgba(92, 34, 34, 0.95);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7),
+      inset 0 2px 8px rgba(255, 255, 255, 0.05);
+    color: #efe6e2;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mobile-nav-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .mobile-nav-btn:hover::before,
+  .mobile-nav-btn.active::before {
+    opacity: 1;
+  }
+
+  .mobile-nav-btn:active {
+    transform: scale(0.92);
+  }
+
+  .mobile-nav-btn.active {
+    background: linear-gradient(145deg, #5c2222, #3d1616);
+    border-color: #8b3434;
+    box-shadow: 0 12px 32px rgba(92, 34, 34, 0.6),
+      inset 0 2px 12px rgba(255, 100, 100, 0.15);
+    transform: scale(1.08);
+  }
+
+  .mobile-nav-btn i {
+    position: relative;
+    z-index: 1;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    font-size: 20px;
+    /* consistência */
+  }
+
+  .mobile-nav-btn img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+}
+
+/* hide on desktop explicitly (safe) */
+@media (min-width: 769px) {
+  .mobile-nav-buttons {
+    display: none !important;
+  }
+}
+
+/* ------- modal: variações responsivas e centered layout (adicionar ao final do CSS) ------- */
+
+/* estilo padrão: divide em duas colunas (já existe .modal-content) */
+/* centralizado (apenas usado para "raca") */
+.modal-content.modal-centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.modal-content .modal-centered-body {
+  width: 100%;
+}
+
+/* quando modal for duas-colunas - garantir colunas equilibradas */
+.modal-content .modal-left,
+.modal-content .modal-right {
+  min-width: 220px;
+}
+
+.modal-content h3 {
+  margin: 0 0 8px 0;
+  color: #fff;
+  font-family: 'MedievalSharp', serif;
+  font-size: 1.1rem;
+}
+
+/* RESPONSIVE: tablet/mobile */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 92%;
+    max-width: none;
+    padding: 14px;
+    gap: 12px;
+    flex-direction: column;
+  }
+
+  .modal-content .modal-left,
+  .modal-content .modal-right {
+    width: 100%;
+  }
+
+  .modal-content .modal-left {
+    order: 0;
+  }
+
+  .modal-content .modal-right {
+    order: 1;
+  }
+
+  .modal-content p,
+  .modal-content div {
+    font-size: 0.98rem;
+    line-height: 1.35;
+    color: #efeae6;
+  }
+
+  /* centered variant - garante texto com boa leitura em mobile */
+  .modal-content.modal-centered .modal-centered-body {
+    padding: 8px 6px;
+    font-size: 0.99rem;
+  }
+}
+
+/* RESPONSIVE: very small screens */
+@media (max-width: 420px) {
+  .modal-content {
+    width: 96%;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .modal-content p,
+  .modal-content div {
+    font-size: 0.92rem;
+  }
+
+  .modal-content .modal-left,
+  .modal-content .modal-right {
+    padding: 6px 4px;
+  }
+
+  .close-btn {
+    font-size: 22px;
+    top: 8px;
+    right: 8px;
+  }
+}
+
+/* garante que o ícone .help-icon dentro do botão mobile fique dentro do botão */
+@media (max-width: 768px) {
+  .mobile-nav-btn .help-icon {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+    font-size: 20px !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+  }
+
+  /* também assegura que o i dentro do botão tenha a cor/tamanho esperados */
+  .mobile-nav-btn i {
+    color: #efe6e2;
+    font-size: 20px;
+    line-height: 1;
+  }
+}
+

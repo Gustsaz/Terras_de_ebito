@@ -1,78 +1,89 @@
 // Google login functionality - removed since in sidebar
 
 // Update sidebar function
+// --------- updateSidebar (safe) ----------
 const updateSidebar = (user) => {
   const sidebar = document.querySelector('.sidebar');
+
+  // Se não houver sidebar nesta página, não faz nada (evita TypeError)
+  if (!sidebar) return;
+
   if (user && user.photoURL) {
     sidebar.innerHTML = `
-                <a href="index.html" class="sidebar-home">
-                    <i class="fas fa-home"></i>
-                </a>
-                <img src="${user.photoURL}" class="sidebar-profile" alt="Profile" />
-            `;
-    // Add profile click event
+      <a href="index.html" class="sidebar-home">
+        <i class="fas fa-home"></i>
+      </a>
+      <img src="${user.photoURL}" class="sidebar-profile" alt="Profile" />
+    `;
+
+    // Add profile click event (proteção com querySelector pra garantir existência)
     setTimeout(() => {
-      const profileImg = document.querySelector('.sidebar-profile');
+      const profileImg = sidebar.querySelector('.sidebar-profile');
       if (profileImg) {
         profileImg.addEventListener('click', (e) => {
           e.stopPropagation();
-          const existingSair = document.querySelector('.sidebar-sair');
+          const existingSair = sidebar.querySelector('.sidebar-sair');
           if (existingSair) {
             existingSair.remove();
-          } else {
-            const sairBtn = document.createElement('button');
-            sairBtn.className = 'sidebar-sair';
-            sairBtn.textContent = 'Sair';
-            sairBtn.style.position = 'absolute';
-            sairBtn.style.bottom = '70px'; // above the img
-            sairBtn.style.left = '50%';
-            sairBtn.style.transform = 'translateX(-50%)';
-            sairBtn.style.background = 'rgba(0,0,0,0.8)';
-            sairBtn.style.color = '#efe6e2';
-            sairBtn.style.border = 'none';
-            sairBtn.style.padding = '5px 10px';
-            sairBtn.style.borderRadius = '5px';
-            sairBtn.style.cursor = 'pointer';
-            sairBtn.style.zIndex = '1000';
-            sairBtn.addEventListener('click', async () => {
-              try {
-                await window.firebaseauth.signOut();
-                sairBtn.remove();
-              } catch (error) {
-                console.error('Error signing out:', error);
-              }
-            });
-            // hide on click outside
-            document.addEventListener('click', (evt) => {
-              if (!sairBtn.contains(evt.target) && evt.target !== profileImg) {
-                sairBtn.remove();
-              }
-            });
-            sidebar.appendChild(sairBtn);
+            return;
           }
+          const sairBtn = document.createElement('button');
+          sairBtn.className = 'sidebar-sair';
+          sairBtn.textContent = 'Sair';
+          sairBtn.style.position = 'absolute';
+          sairBtn.style.bottom = '70px';
+          sairBtn.style.left = '50%';
+          sairBtn.style.transform = 'translateX(-50%)';
+          sairBtn.style.background = 'rgba(0,0,0,0.8)';
+          sairBtn.style.color = '#efe6e2';
+          sairBtn.style.border = 'none';
+          sairBtn.style.padding = '5px 10px';
+          sairBtn.style.borderRadius = '5px';
+          sairBtn.style.cursor = 'pointer';
+          sairBtn.style.zIndex = '1000';
+          sairBtn.addEventListener('click', async () => {
+            try {
+              await window.firebaseauth.signOut();
+              sairBtn.remove();
+            } catch (error) {
+              console.error('Error signing out:', error);
+            }
+          });
+          // hide on click outside
+          const onDocClick = (evt) => {
+            if (!sairBtn.contains(evt.target) && evt.target !== profileImg) {
+              sairBtn.remove();
+              document.removeEventListener('click', onDocClick);
+            }
+          };
+          document.addEventListener('click', onDocClick);
+          sidebar.appendChild(sairBtn);
         });
       }
-    }, 100); // ensure DOM updated
+    }, 100);
   } else {
     sidebar.innerHTML = `
-                <a href="index.html" class="sidebar-home">
-                    <i class="fas fa-home"></i>
-                </a>
-                <button id="google-login" class="sidebar-google">
-                    <i class="fab fa-google"></i>
-                </button>
-            `;
-    // Add login event
-    document.getElementById('google-login').addEventListener('click', async () => {
-      const provider = new window.GoogleAuthProvider();
-      try {
-        await window.signInWithPopup(window.firebaseauth, provider);
-      } catch (error) {
-        console.error('Error during sign in:', error);
-      }
-    });
+      <a href="index.html" class="sidebar-home">
+        <i class="fas fa-home"></i>
+      </a>
+      <button id="google-login" class="sidebar-google">
+        <i class="fab fa-google"></i>
+      </button>
+    `;
+    const googleBtn = sidebar.querySelector('#google-login');
+    if (googleBtn) {
+      googleBtn.addEventListener('click', async () => {
+        const provider = new window.GoogleAuthProvider();
+        try {
+          await window.signInWithPopup(window.firebaseauth, provider);
+        } catch (error) {
+          console.error('Error during sign in:', error);
+        }
+      });
+    }
   }
-}
+};
+
 
 let clickCountGlobal = {};
 let allowNextContextMenu = false;
@@ -277,19 +288,216 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // sobrescreve a showSection para ligar/desligar o comportamento mobile quando necessário
-  const __orig_showSection = showSection;
-  showSection = function (section) {
-    __orig_showSection(section);
+  // ======= Patch: mobile profile image + history back handling =======
+  // Cole este bloco logo depois da definição original de showSection (ou da sobrescrita existente).
+  (function () {
+    // helpers - mapeia elementos de section para chaves e de volta
+    const sectionKeyFor = (sectionEl) => {
+      if (!sectionEl) return 'atributos';
+      if (sectionEl.classList.contains('atributos')) return 'atributos';
+      if (sectionEl.classList.contains('classe')) return 'classe';
+      if (sectionEl.classList.contains('raca')) return 'raca';
+      if (sectionEl.classList.contains('resumo')) return 'resumo';
+      return 'atributos';
+    };
+    const sectionElementFor = (key) => {
+      switch (key) {
+        case 'classe': return secClasse;
+        case 'raca': return secRaca;
+        case 'resumo': return secResumo;
+        default: return secAtributos;
+      }
+    };
 
-    // se entrou na classe, tenta ativar; caso contrário, desativa
-    if (section === secClasse) {
-      // Delay curto para garantir que o DOM da seção já esteja renderizado
-      setTimeout(() => enableMobileCarouselIfNeeded(), 60);
-    } else {
-      // se trocar de seção, remove o comportamento mobile
-      disableMobileCarousel();
+    // Guarda referência do original (pode já existir em seu arquivo; segura se duplicar)
+    const __orig_showSection_full = (typeof showSection === 'function') ? showSection : function (s) { };
+
+    // Substitui showSection por uma versão que também empurra histórico e mantém mobile-carousel
+    showSection = function (section) {
+      // chama a original (esconde/mostra sections)
+      __orig_showSection_full(section);
+
+      // mobile carousel: se a versão do arquivo original tinha essa lógica,
+      // mantemos comportamento (caso já exista no arquivo original, estará duplicado — mas é idempotente):
+      try {
+        if (section === secClasse) {
+          setTimeout(() => {
+            if (typeof enableMobileCarouselIfNeeded === 'function') enableMobileCarouselIfNeeded();
+          }, 60);
+        } else {
+          if (typeof disableMobileCarousel === 'function') disableMobileCarousel();
+        }
+      } catch (e) { console.warn('carousel patch error', e); }
+
+      // atualiza estado local e empurra history (evita empurrar repetido)
+      const key = sectionKeyFor(section);
+      try {
+        // se já for o mesmo estado, substitui; senão empurra
+        if (!history.state || history.state.section !== key) {
+          history.pushState({ section: key }, '', '');
+        } else {
+          history.replaceState({ section: key }, '', '');
+        }
+      } catch (err) {
+        // browsers estranhos podem negar pushState — silenciamos
+        console.warn('history.pushState falhou', err);
+      }
+      try { localStorage.setItem('currentSection', key); } catch (e) { }
+    };
+
+    // Inicializa estado na primeira carga (substitui para não criar entradas extras)
+    try {
+      const initial = localStorage.getItem('currentSection') || 'atributos';
+      history.replaceState({ section: initial }, '', '');
+    } catch (e) { /* ignore */ }
+
+    // popstate: quando o usuário pressiona voltar físico ou histórico muda
+    window.addEventListener('popstate', (ev) => {
+      const stateKey = (ev.state && ev.state.section) || localStorage.getItem('currentSection') || 'atributos';
+      // se não há mudança real (ev.state.null) e estamos no atributos -> voltamos ao index
+      if (stateKey === 'atributos') {
+        // Se a página anterior na pilha é externa (i.e. fechar app ou voltar para index),
+        // o comportamento desejado é ir para index.html. Para evitar navegação indevida
+        // quando o usuário só navegou internamente, checamos se existe mais de uma entry.
+        // A heurística simples: se history.length <= 1 -> navegar para index.html
+        // (pode variar por browser; é a solução prática mais compatível).
+        if ((history.length <= 1) || (!ev.state && !document.referrer)) {
+          window.location.href = 'index.html';
+          return;
+        }
+      }
+
+      const el = sectionElementFor(stateKey);
+      if (el) {
+        // chama showSection sem empurrar outro estado duplicado: usamos __orig_showSection_full
+        __orig_showSection_full(el);
+
+        // restaura mobile carousel conforme section
+        if (stateKey === 'classe') {
+          setTimeout(() => {
+            if (typeof enableMobileCarouselIfNeeded === 'function') enableMobileCarouselIfNeeded();
+          }, 60);
+        } else {
+          if (typeof disableMobileCarousel === 'function') disableMobileCarousel();
+        }
+
+        try { localStorage.setItem('currentSection', stateKey); } catch (e) { }
+      }
+    });
+
+    // ========== mobile-profile-btn: garantir imagem e estilo ==========
+    function applyProfileImageToBtn(user) {
+      const btn = document.getElementById('mobile-profile-btn');
+      if (!btn) return;
+      btn.innerHTML = ''; // limpa
+      if (user && user.photoURL) {
+        const img = document.createElement('img');
+        img.src = user.photoURL;
+        img.alt = user.displayName || 'Profile';
+        // estilos inline para garantir que ocupe o botão e seja circular
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        img.style.borderRadius = '50%';
+        img.style.display = 'block';
+        img.style.pointerEvents = 'none';
+        btn.appendChild(img);
+      } else {
+        btn.innerHTML = '<i class="fas fa-user"></i>';
+      }
     }
-  };
+
+    // Atualiza o botão home (seguro: já pode existir, mas reforça)
+    const mobileHomeBtn = document.getElementById('mobile-home-btn');
+    if (mobileHomeBtn) {
+      mobileHomeBtn.addEventListener('click', () => {
+        // navega para index.html
+        window.location.href = 'index.html';
+      });
+    }
+
+    // Atachamos handler de clique no profile para abrir menu/sair (se já não tiver)
+    const mobileProfileBtn = document.getElementById('mobile-profile-btn');
+    if (mobileProfileBtn && !mobileProfileBtn._profileInitialized) {
+      mobileProfileBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        // se user logado, mostra botão Sair; se não, inicia login
+        const user = (window.firebaseauth && window.firebaseauth.currentUser) || null;
+        if (user) {
+          // toggle signout small button
+          const parent = document.querySelector('.mobile-nav-buttons');
+          if (!parent) return;
+          // se já existe, remove
+          const existing = parent.querySelector('.mobile-signout');
+          if (existing) { existing.remove(); return; }
+          const signout = document.createElement('button');
+          signout.className = 'mobile-signout';
+          signout.textContent = 'Sair';
+          signout.style.marginTop = '8px';
+          signout.style.padding = '6px 10px';
+          signout.style.borderRadius = '8px';
+          signout.style.border = 'none';
+          signout.style.cursor = 'pointer';
+          signout.style.background = 'rgba(92,34,34,0.95)';
+          signout.style.color = '#efe6e2';
+          signout.style.fontFamily = 'MedievalSharp, serif';
+          signout.style.zIndex = 1200;
+          signout.addEventListener('click', async (ev) => {
+            ev.stopPropagation();
+            try {
+              if (window.firebaseauth && window.firebaseauth.signOut) {
+                await window.firebaseauth.signOut();
+              }
+              signout.remove();
+              applyProfileImageToBtn(null);
+            } catch (err) {
+              console.error('Erro ao deslogar:', err);
+            }
+          });
+          parent.appendChild(signout);
+          // remove se clicar fora
+          const onDocClick = (evt) => {
+            if (!signout.contains(evt.target) && evt.target !== mobileProfileBtn) {
+              signout.remove();
+              document.removeEventListener('click', onDocClick);
+            }
+          };
+          document.addEventListener('click', onDocClick);
+        } else {
+          // trigger Google login (se helpers do firebase existirem)
+          if (typeof window.GoogleAuthProvider !== 'undefined') {
+            try {
+              const provider = new window.GoogleAuthProvider();
+              await window.signInWithPopup(window.firebaseauth, provider);
+            } catch (err) {
+              console.error('Erro login com Google:', err);
+            }
+          } else {
+            // fallback: redireciona para tela de login (se houver)
+            console.warn('Firebase auth não disponível para login popup');
+          }
+        }
+      });
+      mobileProfileBtn._profileInitialized = true;
+    }
+
+    // Se houver observer de auth (onAuthStateChanged), chamamos applyProfileImageToBtn sempre que mudar
+    if (window.firebaseauth && typeof window.firebaseauth.onAuthStateChanged === 'function') {
+      // Se já existe um observer no seu código, isso apenas chamará a função adicionalmente.
+      window.firebaseauth.onAuthStateChanged((u) => {
+        try { applyProfileImageToBtn(u); } catch (e) { }
+      });
+    } else {
+      // fallback: tenta usar window.onAuthStateChanged (api compat)
+      if (typeof window.onAuthStateChanged === 'function') {
+        try {
+          window.onAuthStateChanged(window.firebaseauth, (u) => applyProfileImageToBtn(u));
+        } catch (e) { }
+      }
+    }
+
+  })();
+
 
   // também reativa/desativa ao redimensionar a tela enquanto estiver na seção .classe
   window.addEventListener('resize', () => {
@@ -365,55 +573,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // abre um input numérico posicionado sobre o elemento (mobile)
-  function openNumberInputAt(element, nome) {
-    if (document.getElementById('mobile-attr-input')) return;
 
-    const rect = element.getBoundingClientRect();
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.id = 'mobile-attr-input';
-    input.value = (clickCountGlobal[nome] !== undefined) ? clickCountGlobal[nome] : 0;
-
-    // styling simples inline — adapta ao seu tema se quiser
-    input.style.position = 'fixed';
-    input.style.left = `${rect.left + rect.width / 2}px`;
-    input.style.top = `${rect.top + rect.height / 2}px`;
-    input.style.transform = 'translate(-50%,-50%)';
-    input.style.zIndex = 2000;
-    input.style.width = '88px';
-    input.style.padding = '8px 10px';
-    input.style.fontSize = '20px';
-    input.style.borderRadius = '8px';
-    input.style.border = '2px solid #5C2222';
-    input.style.background = '#1E1E1E';
-    input.style.color = '#fff';
-    input.style.textAlign = 'center';
-    input.style.outline = 'none';
-
-    document.body.appendChild(input);
-    input.focus();
-    input.select();
-
-    function acceptAndClose() {
-      const val = safeInt(input.value);
-      clickCountGlobal[nome] = val;
-      recalcTotalsAndSave();
-      input.remove();
-    }
-
-    input.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter') {
-        acceptAndClose();
-      } else if (ev.key === 'Escape') {
-        input.remove();
-      }
-    });
-
-    input.addEventListener('blur', () => {
-      acceptAndClose();
-    });
-  }
 
   /* ---------- START: substituir aqui icons.forEach(...) e counter listeners ---------- */
 
@@ -450,8 +610,12 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelector('.circle-container').classList.add('hidden');
     }
   }
-
+  /* ===========================
+     openNumberInputAt (robusto)
+     Substitua todas as ocorrências antigas por esta função
+     =========================== */
   function openNumberInputAt(element, nome) {
+    // evita abrir mais de um input ao mesmo tempo
     if (document.getElementById('mobile-attr-input')) return;
 
     const rect = element.getBoundingClientRect();
@@ -479,25 +643,47 @@ document.addEventListener("DOMContentLoaded", () => {
     input.focus();
     input.select();
 
+    // flag para evitar double-execute (Enter -> blur or blur -> Enter racing)
+    let closed = false;
+
+    function cleanup() {
+      // remove listeners guardando que já fechou
+      if (closed) return;
+      closed = true;
+      input.removeEventListener('keydown', onKeyDown);
+      input.removeEventListener('blur', onBlur);
+      // remover somente se ainda estiver no DOM
+      if (input.parentNode) input.parentNode.removeChild(input);
+    }
+
     function acceptAndClose() {
+      if (closed) return;
       const val = safeInt(input.value);
       clickCountGlobal[nome] = val;
       recalcTotalsAndSave();
-      input.remove();
+      cleanup();
     }
 
-    input.addEventListener('keydown', (ev) => {
+    function onKeyDown(ev) {
       if (ev.key === 'Enter') {
         acceptAndClose();
       } else if (ev.key === 'Escape') {
-        input.remove();
+        cleanup();
       }
-    });
+    }
 
-    input.addEventListener('blur', () => {
-      acceptAndClose();
-    });
+    function onBlur() {
+      // small timeout to let Enter handler run first if keydown occured
+      setTimeout(() => {
+        // if already closed by Enter handler, cleanup() will be noop
+        acceptAndClose();
+      }, 10);
+    }
+
+    input.addEventListener('keydown', onKeyDown);
+    input.addEventListener('blur', onBlur);
   }
+
 
   /* Reaplica listeners com comportamento mobile/desktop adequado */
   icons.forEach(icon => {
@@ -1147,27 +1333,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Help modal
-  document.querySelector('.help-icon').addEventListener('click', () => {
-    const modal = document.getElementById('help-modal');
-    modal.classList.remove('hidden');
-    modal.style.display = 'flex';
-  });
+  // Help icon: reutiliza o mesmo fluxo do mobile-info-btn (evita duplicar lógica)
+  const helpIcon = document.querySelector('.help-icon');
+  if (helpIcon) {
+    helpIcon.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const btn = document.getElementById('mobile-info-btn');
+      if (btn) {
+        btn.click(); // delega todo o trabalho ao mesmo handler
+      } else {
+        // fallback mínimo: abre o modal (mas sem conteúdo dinâmico)
+        const modal = document.getElementById('help-modal');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.style.display = 'flex';
+        }
+      }
+    });
+  }
 
-  document.querySelector('.close-btn').addEventListener('click', () => {
-    const modal = document.getElementById('help-modal');
-    modal.classList.add('hidden');
-    modal.style.display = 'none';
-  });
-
-  // Close modal on background click
-  document.getElementById('help-modal').addEventListener('click', (e) => {
-    if (e.target === document.getElementById('help-modal')) {
-      const modal = document.getElementById('help-modal');
-      modal.classList.add('hidden');
-      modal.style.display = 'none';
-    }
-  });
 
   /* =========================
    Mobile-only: mostrar descrição de raça como modal
@@ -1341,6 +1525,513 @@ document.addEventListener("DOMContentLoaded", () => {
     mq.addEventListener ? mq.addEventListener('change', check) : mq.addListener(check);
     window.addEventListener('resize', check);
   })();
+  /* ---------------------------
+     Mobile nav behavior (home / profile / signout toggle)
+     Paste inside criacao_personagem.js (DOM ready)
+     --------------------------- */
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const mobileHomeBtn = document.getElementById('mobile-home-btn');
+    const mobileProfileBtn = document.getElementById('mobile-profile-btn');
+    const mobileNavContainer = document.querySelector('.mobile-nav-buttons');
+
+    // ---------- Mobile INFO modal (abre conteúdo contextual conforme section visível) ----------
+    (function attachMobileInfoModal() {
+      const mobileInfoBtn = document.getElementById('mobile-info-btn');
+      const helpModal = document.getElementById('help-modal'); // já existe no HTML
+      if (!mobileInfoBtn || !helpModal) return;
+
+      const modalContent = helpModal.querySelector('.modal-content');
+      const modalLeft = modalContent.querySelector('.modal-left');
+      const modalRight = modalContent.querySelector('.modal-right');
+      const closeBtn = modalContent.querySelector('.close-btn');
+
+      // textos solicitados (mantive quebras para legibilidade)
+      const texts = {
+        atributos: {
+          left: `Nas Terras de Ébito, cada ser nasce 
+marcado por forças que o moldam
+coragem, fé, astúcia ou simplesmente a
+vontade de sobreviver. Criar um
+personagem é o primeiro passo para
+adentrar esse mundo, onde cada escolha
+define o destino e cada fraqueza carrega 
+um preço. Aqui se esculpe a alma do
+aventureiro, aquele que desafiará os 
+limites da carne e do espírito.`,
+          rightTitle: 'Atributos',
+          right: `Os atributos representam o que há de
+mais essencial em cada personagem:
+sua força interior e suas limitações. Eles
+definem não apenas o que o herói é 
+capaz de fazer, mas também o que ele
+teme e evita.`
+        },
+        classe: {
+          left: `As classes são caminhos de propósito
+e destino. Elas não são apenas
+ofícios, mas manifestações da forma 
+como cada personagem vive.`,
+          rightTitle: '',
+          right: `<p><strong>Escudeiro</strong> ergue o escudo diante do 
+caos, a muralha entre o perigo e os que
+ama.</p>
+<p><strong>Arcanista</strong> manipula o véu invisível da
+magia, dobrando a realidade à sua
+vontade.</p>
+<p><strong>Errante</strong> vive entre a lâmina e o
+vento, movendo-se como uma
+sombra letal.</p>
+<p><strong>Luminar</strong> brilha com fé e esperança, 
+sendo a luz que resiste quando tudo 
+escurece.</p>`
+        },
+        raca: {
+          center: `Em Ébito, cada raça carrega a memória de um passado que se recusa a morrer.
+Os deuses se calaram, mas o sangue antigo ainda fala por meio dos corpos, instintos
+e dons de cada povo.`
+        },
+        resumo: {
+          leftTitle: 'Valores Fixos Iniciais',
+          left: `Todos os personagens
+compartilham algumas bases
+que moldam seus limites físicos 
+e espirituais.
+O <strong>deslocamento</strong> inicial é de 7 blocos de movimento.`,
+          right: `A <strong>carga máxima</strong> é igual a 8 mais
+o valor de Bravura.
+O <strong>nível de equipamento</strong> começa 
+em (Nível + 1).
+Exemplo: Um escudeiro nível 1
+pode usar um escudo nível 2.
+A <strong>defesa inicial</strong> é zero, 
+modificada apenas pelos equipamentos.`
+        }
+      };
+
+      // Util: determina qual section está visível (procura a primeira sem .hidden)
+      // versão robusta para detectar a section visível no DOM
+      function getVisibleSectionKey() {
+        const mapping = {
+          atributos: document.querySelector('.atributos'),
+          classe: document.querySelector('.classe'),
+          raca: document.querySelector('.raca'),
+          resumo: document.querySelector('.resumo')
+        };
+
+        // verifica visibilidade computada (display/offsetParent/dimensions)
+        const isVisible = (el) => {
+          if (!el) return false;
+          // se conter a classe hidden explicitamente, consideramos invisível
+          if (el.classList && el.classList.contains('hidden')) return false;
+          const cs = window.getComputedStyle(el);
+          if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return false;
+          // offsetParent null indica layout:hidden (display:none) ou position offscreen
+          if (el.offsetParent === null && !(cs.position && cs.position === 'fixed')) return false;
+          // width/height zero -> invisível
+          if (el.offsetWidth === 0 && el.offsetHeight === 0) return false;
+          return true;
+        };
+
+        // retorna a primeira section considerada visível (na ordem do mapping)
+        for (const key of Object.keys(mapping)) {
+          const el = mapping[key];
+          if (isVisible(el)) return key;
+        }
+
+        // fallback: se nada estiver visível, checa localStorage/currentSection
+        const cur = localStorage.getItem('currentSection');
+        if (cur && mapping[cur]) return cur;
+
+        // último fallback: atributos
+        return 'atributos';
+      }
 
 
+      function openHelpModalFor(sectionKey) {
+        // Reset content
+        modalContent.classList.remove('modal-centered');
+        modalLeft.style.display = '';
+        modalRight.style.display = '';
+
+        if (sectionKey === 'raca') {
+          // centralizado - usa todo modal-content (esconde left/right flex split)
+          modalContent.classList.add('modal-centered');
+          modalLeft.style.display = 'none';
+          modalRight.style.display = 'none';
+          // limpa e insere centro
+          modalContent.querySelector('.modal-centered-body')?.remove();
+          const centerDiv = document.createElement('div');
+          centerDiv.className = 'modal-centered-body';
+          centerDiv.style.padding = '8px 12px';
+          centerDiv.style.color = '#efeae6';
+          centerDiv.style.textAlign = 'center';
+          centerDiv.innerHTML = `<p style="white-space:pre-line;line-height:1.35;font-size:1rem">${texts.raca.center}</p>`;
+          modalContent.appendChild(centerDiv);
+        } else {
+          // remove any existing centered body
+          modalContent.querySelector('.modal-centered-body')?.remove();
+          // populate left and right
+          const t = texts[sectionKey];
+          modalLeft.innerHTML = `<div style="white-space:pre-line;line-height:1.35">${t.left || ''}</div>`;
+          // if there's a rightTitle (for resumo leftTitle), we show it
+          if (sectionKey === 'resumo') {
+            modalLeft.innerHTML = `<h3 style="margin-top:0;margin-bottom:8px">${t.leftTitle || ''}</h3>` + `<div style="white-space:pre-line;line-height:1.35">${t.left}</div>`;
+          }
+          if (sectionKey === 'atributos' || sectionKey === 'classe' || sectionKey === 'resumo') {
+            // right column: for atributos we want a title over right text
+            const rightHTML = (t.rightTitle ? `<h3 style="margin-top:0;margin-bottom:8px">${t.rightTitle}</h3>` : '') + `<div style="white-space:pre-line;line-height:1.35">${t.right || ''}</div>`;
+            modalRight.innerHTML = rightHTML;
+          } else {
+            modalRight.innerHTML = '';
+          }
+        }
+
+        // show modal
+        helpModal.style.display = 'flex';
+        helpModal.classList.remove('hidden');
+        // ensure focus on closeBtn for accessibility on mobile
+        setTimeout(() => closeBtn.focus(), 40);
+      }
+
+      // close modal helper
+      function closeHelpModal() {
+        // hide and clear any centered body
+        helpModal.classList.add('hidden');
+        helpModal.style.display = 'none';
+        modalContent.querySelector('.modal-centered-body')?.remove();
+      }
+
+      // clicking the mobile button
+      mobileInfoBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const key = getVisibleSectionKey();
+        openHelpModalFor(key);
+      });
+
+      // close button
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeHelpModal();
+      });
+
+      // close when click on overlay (fora do .modal-content)
+      helpModal.addEventListener('click', (ev) => {
+        if (ev.target === helpModal) closeHelpModal();
+      });
+
+      // also close on Escape for accessibility
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape' && helpModal && !helpModal.classList.contains('hidden')) {
+          closeHelpModal();
+        }
+      });
+    })();
+
+
+    // cria/atualiza botão de profile mobile (imagem quando logado)
+    function updateMobileProfile(user) {
+      if (!mobileProfileBtn) return;
+      // limpa conteúdo atual
+      mobileProfileBtn.innerHTML = '';
+      if (user && user.photoURL) {
+        const img = document.createElement('img');
+        img.src = user.photoURL;
+        img.alt = 'Profile';
+        mobileProfileBtn.appendChild(img);
+      } else {
+        mobileProfileBtn.innerHTML = '<i class="fas fa-user"></i>';
+      }
+    }
+
+    // inicia login Google (usa mesma lógica já presente no projeto)
+    async function startGoogleLogin() {
+      if (!window.GoogleAuthProvider || !window.signInWithPopup) {
+        console.warn('Firebase auth helpers não encontrados.');
+        return;
+      }
+      const provider = new window.GoogleAuthProvider();
+      try {
+        await window.signInWithPopup(window.firebaseauth, provider);
+      } catch (err) {
+        console.error('Erro durante login Google (mobile):', err);
+      }
+    }
+
+    // mostra/oculta botão "Sair" abaixo dos botões móveis (toggle)
+    let mobileSignoutBtn = null;
+    function showMobileSignout() {
+      // se já existe, remove (toggle)
+      if (mobileSignoutBtn) {
+        mobileSignoutBtn.remove();
+        mobileSignoutBtn = null;
+        return;
+      }
+      if (!mobileNavContainer) return;
+
+      mobileSignoutBtn = document.createElement('button');
+      mobileSignoutBtn.className = 'mobile-signout';
+      mobileSignoutBtn.textContent = 'Sair';
+      // inline styles para garantir que apareça sem precisar de mais CSS
+      Object.assign(mobileSignoutBtn.style, {
+        marginTop: '8px',
+        padding: '6px 10px',
+        borderRadius: '8px',
+        border: 'none',
+        cursor: 'pointer',
+        background: 'rgba(92,34,34,0.95)',
+        color: '#efe6e2',
+        fontFamily: 'MedievalSharp, serif',
+        zIndex: '1200',
+        boxShadow: '0 8px 20px rgba(0,0,0,0.4)'
+      });
+
+      mobileSignoutBtn.onclick = async (e) => {
+        e.stopPropagation();
+        try {
+          await window.firebaseauth.signOut();
+          if (mobileSignoutBtn) { mobileSignoutBtn.remove(); mobileSignoutBtn = null; }
+        } catch (err) {
+          console.error('Erro ao deslogar (mobile):', err);
+        }
+      };
+
+      // fecha ao clicar fora
+      const onDocClick = (ev) => {
+        if (!mobileSignoutBtn.contains(ev.target) && ev.target !== mobileProfileBtn) {
+          if (mobileSignoutBtn) { mobileSignoutBtn.remove(); mobileSignoutBtn = null; }
+          document.removeEventListener('click', onDocClick);
+        }
+      };
+      document.addEventListener('click', onDocClick);
+
+      mobileNavContainer.appendChild(mobileSignoutBtn);
+    }
+
+    // Binds
+    if (mobileHomeBtn) {
+      mobileHomeBtn.addEventListener('click', () => {
+        window.location.href = 'index.html';
+      });
+    }
+
+    if (mobileProfileBtn) {
+      mobileProfileBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const user = window.firebaseauth && window.firebaseauth.currentUser;
+        if (user) {
+          showMobileSignout();
+        } else {
+          startGoogleLogin();
+        }
+      });
+    }
+
+    // Integrar com observer de auth já existente: atualiza o botão mobile sempre que muda o auth
+    if (window.firebaseauth && window.onAuthStateChanged) {
+      window.onAuthStateChanged(window.firebaseauth, (user) => {
+        updateMobileProfile(user);
+        if (!user && mobileSignoutBtn) {
+          mobileSignoutBtn.remove();
+          mobileSignoutBtn = null;
+        }
+      });
+    } else {
+      // fallback: tenta atualizar com localStorage info (se houver)
+      const stored = localStorage.getItem('userLoggedIn');
+      if (!stored) updateMobileProfile(null);
+    }
+  });
+
+
+});
+
+
+// --------- Mobile info modal (único handler robusto) ----------
+document.addEventListener('DOMContentLoaded', () => {
+  const mobileInfoBtn = document.getElementById('mobile-info-btn');
+  const helpModal = document.getElementById('help-modal');
+  if (!mobileInfoBtn || !helpModal) return;
+
+  const modalContent = helpModal.querySelector('.modal-content');
+  // garante que existam as colunas; caso não existam, criamos (compatibilidade)
+  let modalLeft = modalContent.querySelector('.modal-left');
+  let modalRight = modalContent.querySelector('.modal-right');
+  const existingClose = modalContent.querySelector('.close-btn');
+
+  if (!modalLeft) {
+    modalLeft = document.createElement('div');
+    modalLeft.className = 'modal-left';
+    modalContent.insertBefore(modalLeft, modalContent.firstChild);
+  }
+  if (!modalRight) {
+    modalRight = document.createElement('div');
+    modalRight.className = 'modal-right';
+    // inserir antes do close button, se existir
+    if (existingClose) modalContent.insertBefore(modalRight, existingClose);
+    else modalContent.appendChild(modalRight);
+  }
+  const closeBtn = modalContent.querySelector('.close-btn') || existingClose;
+
+  const texts = {
+    atributos: {
+      left: `Nas Terras de Ébito, cada ser nasce 
+marcado por forças que o moldam
+coragem, fé, astúcia ou simplesmente a
+vontade de sobreviver. Criar um
+personagem é o primeiro passo para
+adentrar esse mundo, onde cada escolha
+define o destino e cada fraqueza carrega 
+um preço. Aqui se esculpe a alma do
+aventureiro, aquele que desafiará os 
+limites da carne e do espírito.`,
+      rightTitle: 'Atributos',
+      right: `Os atributos representam o que há de
+mais essencial em cada personagem:
+sua força interior e suas limitações. Eles
+definem não apenas o que o herói é 
+capaz de fazer, mas também o que ele
+teme e evita.`
+    },
+    classe: {
+      left: `As classes são caminhos de propósito
+e destino. Elas não são apenas
+ofícios, mas manifestações da forma 
+como cada personagem vive.`,
+      right: `<p><strong>Escudeiro</strong> ergue o escudo diante do 
+caos, a muralha entre o perigo e os que
+ama.</p>
+<p><strong>Arcanista</strong> manipula o véu invisível da
+magia, dobrando a realidade à sua
+vontade.</p>
+<p><strong>Errante</strong> vive entre a lâmina e o
+vento, movendo-se como uma
+sombra letal.</p>
+<p><strong>Luminar</strong> brilha com fé e esperança, 
+sendo a luz que resiste quando tudo 
+escurece.</p>`
+    },
+    raca: {
+      center: `Em Ébito, cada raça carrega a memória de um passado que se recusa a morrer.
+Os deuses se calaram, mas o sangue antigo ainda fala por meio dos corpos, instintos
+e dons de cada povo.`
+    },
+    resumo: {
+      leftTitle: 'Valores Fixos Iniciais',
+      left: `Todos os personagens
+compartilham algumas bases
+que moldam seus limites físicos 
+e espirituais.
+O <strong>deslocamento</strong> inicial é de 7 blocos de movimento.`,
+      right: `A <strong>carga máxima</strong> é igual a 8 mais
+o valor de Bravura.
+O <strong>nível de equipamento</strong> começa 
+em (Nível + 1).
+Exemplo: Um escudeiro nível 1
+pode usar um escudo nível 2.
+A <strong>defesa inicial</strong> é zero, 
+modificada apenas pelos equipamentos.`
+    }
+  };
+
+  // detecta qual section está realmente visível (primeiro: localStorage, depois checagem robusta)
+  function detectSectionKey() {
+    const byStorage = localStorage.getItem('currentSection');
+    const mapping = { atributos: document.querySelector('.atributos'), classe: document.querySelector('.classe'), raca: document.querySelector('.raca'), resumo: document.querySelector('.resumo') };
+    if (byStorage && mapping[byStorage]) return byStorage;
+
+    // ordem de prioridade: atributos, classe, raca, resumo (igual ao pedido)
+    for (const k of ['atributos', 'classe', 'raca', 'resumo']) {
+      const el = mapping[k];
+      if (!el) continue;
+      if (el.classList && el.classList.contains('hidden')) continue;
+      const cs = window.getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      if (el.offsetParent === null && cs.position !== 'fixed') continue;
+      if (el.offsetWidth === 0 && el.offsetHeight === 0) continue;
+      // se passou todas, consideramos visível
+      return k;
+    }
+    // fallback
+    return 'atributos';
+  }
+
+  // popula o modal conforme a chave
+  function populateModal(key) {
+    // limpa centered body se houver
+    modalContent.querySelector('.modal-centered-body')?.remove();
+    modalContent.classList.remove('modal-centered');
+    // reset display
+    modalLeft.style.display = '';
+    modalRight.style.display = '';
+
+    if (key === 'raca') {
+      // centralizado
+      modalLeft.style.display = 'none';
+      modalRight.style.display = 'none';
+      modalContent.classList.add('modal-centered');
+      const center = document.createElement('div');
+      center.className = 'modal-centered-body';
+      center.style.padding = '8px 12px';
+      center.style.color = '#efeae6';
+      center.style.textAlign = 'center';
+      center.innerHTML = `<p style="white-space:pre-line;line-height:1.35;font-size:1rem">${texts.raca.center}</p>`;
+      modalContent.appendChild(center);
+      return;
+    }
+
+    // outros: mostra left e right
+    const t = texts[key] || {};
+    if (key === 'resumo') {
+      modalLeft.innerHTML = `<h3 style="margin-top:0;margin-bottom:8px">${t.leftTitle || ''}</h3><div style="white-space:pre-line;line-height:1.35">${t.left || ''}</div>`;
+    } else {
+      modalLeft.innerHTML = `<div style="white-space:pre-line;line-height:1.35">${t.left || ''}</div>`;
+    }
+
+    const rightHTML = (t.rightTitle ? `<h3 style="margin-top:0;margin-bottom:8px">${t.rightTitle}</h3>` : '') + `<div style="white-space:pre-line;line-height:1.35">${t.right || ''}</div>`;
+    modalRight.innerHTML = rightHTML;
+  }
+
+  function openModalForCurrentSection() {
+    const key = detectSectionKey();
+    populateModal(key);
+    helpModal.style.display = 'flex';
+    helpModal.classList.remove('hidden');
+    // foco no botão fechar para acessibilidade
+    setTimeout(() => { if (closeBtn) closeBtn.focus(); }, 40);
+  }
+
+  // handler único do botão de info
+  mobileInfoBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openModalForCurrentSection();
+  });
+
+  // fechar
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      helpModal.classList.add('hidden');
+      helpModal.style.display = 'none';
+      modalContent.querySelector('.modal-centered-body')?.remove();
+    });
+  }
+
+  // fechar ao clicar fora
+  helpModal.addEventListener('click', (ev) => {
+    if (ev.target === helpModal) {
+      helpModal.classList.add('hidden');
+      helpModal.style.display = 'none';
+      modalContent.querySelector('.modal-centered-body')?.remove();
+    }
+  });
+
+  // ESC fecha
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && !helpModal.classList.contains('hidden')) {
+      helpModal.classList.add('hidden');
+      helpModal.style.display = 'none';
+      modalContent.querySelector('.modal-centered-body')?.remove();
+    }
+  });
 });
