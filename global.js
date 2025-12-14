@@ -223,5 +223,6 @@
   window.alert = function (msg) {
     createAlertModal(String(msg));
   };
+  
 })();
 

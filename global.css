@@ -220,3 +220,131 @@
   background: rgba(120, 40, 40, 0.75);
 }
 
+/* === Remover "seleções azuis" / tap highlight apenas no mobile === */
+@media (max-width: 768px) {
+  /* aplicamos às principais coisas interativas — links, botões e seus ícones */
+  a,
+  button,
+  input[type="button"],
+  input[type="submit"],
+  .mobile-nav-btn,
+  .mobile-nav-buttons,
+  .mobile-signout,
+  .slot,
+  .slot * {
+    -webkit-tap-highlight-color: transparent; /* Safari / iOS */
+    tap-highlight-color: transparent;         /* Chrome Android (nova sintaxe) */
+    -webkit-touch-callout: none;              /* evita menu de callout no iOS (segurar) */
+    -webkit-user-select: none;                /* evita seleção acidental em toques */
+    user-select: none;
+    outline: none;                            /* remove outline de foco em toque (mobile) */
+    box-shadow: none;
+  }
+
+  /* evita a "mancha" de seleção de texto quando algo é selecionado */
+  ::selection {
+    background: transparent;
+    color: inherit;
+  }
+
+  /* remove qualquer destaque por :active que alguns navegadores aplicam */
+  a:active,
+  button:active,
+  .mobile-nav-btn:active {
+    background-image: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* ===========================
+   Modal entry/exit animations
+   Applied to .alert-modal, .modal, .custom-alert-panel and elements with role="dialog"
+   =========================== */
+
+/* Keyframes */
+@keyframes modalPopIn {
+  from { transform: translateY(12px) scale(.96); opacity: 0; }
+  to   { transform: translateY(0)    scale(1);   opacity: 1; }
+}
+@keyframes modalPopOut {
+  from { transform: translateY(0)    scale(1);   opacity: 1; }
+  to   { transform: translateY(8px)  scale(.98); opacity: 0; }
+}
+@keyframes backdropFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes backdropFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* Base: aplica em quaisquer backdrops / modals existentes */
+.modal-backdrop,
+.alert-backdrop {
+  will-change: opacity;
+  animation-fill-mode: both;
+}
+
+.alert-modal,
+.modal,
+.custom-alert-panel,
+[role="dialog"],
+[role="alertdialog"] {
+  transform-origin: center;
+  will-change: transform, opacity;
+  /* garante que a animação não altere layout inesperadamente */
+}
+
+/* Enter */
+.modal-backdrop.backdrop-enter,
+.alert-backdrop.backdrop-enter {
+  animation: backdropFadeIn .32s cubic-bezier(.2,.9,.2,1) forwards;
+}
+
+.alert-modal.modal-enter,
+.modal.modal-enter,
+.custom-alert-panel.modal-enter,
+[role="dialog"].modal-enter,
+[role="alertdialog"].modal-enter {
+  animation: modalPopIn .36s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+}
+
+/* Exit */
+.modal-backdrop.backdrop-exit,
+.alert-backdrop.backdrop-exit {
+  animation: backdropFadeOut .22s ease forwards;
+}
+
+.alert-modal.modal-exit,
+.modal.modal-exit,
+.custom-alert-panel.modal-exit,
+[role="dialog"].modal-exit,
+[role="alertdialog"].modal-exit {
+  animation: modalPopOut .22s ease forwards;
+}
+
+/* Compatibilidade: mantém .visible como fallback (se já usada) */
+.alert-backdrop.visible {
+  opacity: 1;
+}
+
+/* Prefers-reduced-motion: desativa animações */
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop.backdrop-enter,
+  .modal-backdrop.backdrop-exit,
+  .alert-modal.modal-enter,
+  .alert-modal.modal-exit,
+  .modal.modal-enter,
+  .modal.modal-exit,
+  .custom-alert-panel.modal-enter,
+  .custom-alert-panel.modal-exit,
+  [role="dialog"].modal-enter,
+  [role="dialog"].modal-exit,
+  [role="alertdialog"].modal-enter,
+  [role="alertdialog"].modal-exit {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

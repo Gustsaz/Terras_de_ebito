@@ -9,6 +9,67 @@ document.addEventListener("DOMContentLoaded", () => {
     const mobileHomeBtn = document.getElementById('mobile-home-btn');
     const mobileProfileBtn = document.getElementById('mobile-profile-btn');
     const mobileNavContainer = document.querySelector('.mobile-nav-buttons');
+    /****************************************************************
+ * Sincroniza botão de Admin para aparecer também no mobile nav
+ * - cria #mobile-admin-btn (classe mobile-nav-btn) quando em mobile
+ * - remove quando em desktop
+ * - evita duplicação (checa id existente)
+ ****************************************************************/
+    (function syncMobileAdminBtn() {
+        if (!mobileNavContainer) return;
+
+        const createMobileAdminBtn = () => {
+            // se já existe, não faz nada
+            if (document.getElementById('mobile-admin-btn')) return;
+
+            const btn = document.createElement('button');
+            btn.id = 'mobile-admin-btn';
+            btn.type = 'button';
+            btn.className = 'mobile-nav-btn';
+            btn.title = 'Admin';
+            btn.setAttribute('aria-label', 'Admin');
+            btn.innerHTML = '<i class="fas fa-user-shield" aria-hidden="true"></i>';
+
+            // ação: abre o mesmo modal admin do desktop
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const adminModal = document.getElementById('admin-modal');
+                const adminPassword = document.getElementById('admin-password');
+                if (adminPassword) adminPassword.value = '';
+                if (adminModal) adminModal.style.display = 'flex';
+            });
+
+            // append ao container (pilha de botões mobile)
+            mobileNavContainer.appendChild(btn);
+        };
+
+        const removeMobileAdminBtn = () => {
+            const existing = document.getElementById('mobile-admin-btn');
+            if (existing) existing.remove();
+        };
+
+        // decide criar/remover conforme largura atual
+        const apply = () => {
+            if (window.innerWidth <= 768) createMobileAdminBtn();
+            else removeMobileAdminBtn();
+        };
+
+        // executa agora e também no resize (debounce leve)
+        apply();
+        let t = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(t);
+            t = setTimeout(apply, 120);
+        });
+
+        // proteção extra: se o container for re-renderizado por outro código,
+        // tenta reaplicar após pequenas mudanças no DOM (mutation observer leve)
+        const mo = new MutationObserver(() => {
+            apply();
+        });
+        mo.observe(mobileNavContainer, { childList: true, subtree: false });
+    })();
+
 
     // Função que atualiza o botão de perfil mobile (imagem se logado, ícone se não)
     const updateMobileProfile = (user) => {

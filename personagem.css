@@ -1156,6 +1156,10 @@ html.dragging {
     display: block;
 }
 
+.mobile-close-btn {
+    display: none;
+}
+
 /* close button */
 .magic-modal-close {
     position: absolute;
@@ -1873,3 +1877,30 @@ html.dragging {
     }
 }
 
+/* Ajuste: empurra o título para direita na ficha do personagem,
+   evitando sobreposição pela sidebar */
+body.character-sheet .title {
+  /* espaço padrão: 70px (50px da sidebar + 20px de folga) */
+  margin-left: 70px;
+  position: relative;
+  z-index: 90; /* acima da sidebar */
+  transition: margin-left 180ms ease;
+  padding: 20px;
+}
+
+/* Quando a sidebar estiver em hover ela expande (120px), então damos
+   mais folga para manter o título visível. O seletor abaixo funciona
+   porque a sua sidebar aparece ANTES do <body> no HTML. */
+.sidebar:hover + body.character-sheet .title {
+  margin-left: 130px; /* 120px sidebar + 10px folga */
+}
+
+/* Não aplicar deslocamento no mobile (sidebar escondida) */
+@media (max-width: 768px) {
+  body.character-sheet .title {
+    margin-left: 0;
+  }
+  .sidebar:hover + body.character-sheet .title {
+    margin-left: 0;
+  }
+}
