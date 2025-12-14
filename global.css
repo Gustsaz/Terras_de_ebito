@@ -1,0 +1,111 @@
+/* global.css
+   Posicionamento absoluto para garantir: #mobile-menu-btn embaixo (canto inferior direito)
+   e demais .mobile-nav-btn aparecendo acima dele.
+*/
+
+:root{
+  --mobile-nav-size: 60px;
+  --mobile-nav-gap: 12px;
+  --mobile-nav-bottom: 20px;
+  --mobile-nav-right: 20px;
+  --mobile-nav-z: 1200;
+}
+
+/* Não mostrar em desktop */
+@media (min-width: 769px) {
+  .mobile-nav-buttons { display: none !important; }
+}
+
+/* MOBILE: posicionamento absoluto */
+@media (max-width: 768px) {
+  .mobile-nav-buttons {
+    position: fixed;
+    bottom: var(--mobile-nav-bottom);
+    right: var(--mobile-nav-right);
+    /* largura = tamanho do botão para alinhar corretamente os filhos absolutos */
+    width: var(--mobile-nav-size);
+    height: auto;
+    z-index: var(--mobile-nav-z);
+    pointer-events: none; /* controlado por cada botão individualmente */
+  }
+
+  /* estilo visual dos botões (suas especificações) */
+  .mobile-nav-buttons .mobile-nav-btn {
+    position: absolute;
+    bottom: 0;         /* todos começam apoiados na mesma base (menu) */
+    right: 0;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #2a1616, #1a0f0f);
+    border: 4px solid rgba(92, 34, 34, 0.95);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.7), inset 0 2px 8px rgba(255,255,255,0.05);
+    color: #efe6e2;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 300ms cubic-bezier(0.4,0,0.2,1), opacity 220ms ease, visibility 220ms;
+    position: absolute;
+    overflow: hidden;
+    box-sizing: border-box;
+    padding: 0;
+    outline: none;
+    -webkit-user-select: none;
+    user-select: none;
+    will-change: transform, opacity;
+    pointer-events: none;  /* inativo até o JS colocá-lo ativo */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(0) scale(.98);
+  }
+
+  /* O botão menu deve estar visível e com pointer-events ativos */
+  #mobile-menu-btn {
+    pointer-events: auto;
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    z-index: calc(var(--mobile-nav-z) + 40); /* ficar abaixo dos botões expandidos, mas sempre sobre conteúdo da página */
+  }
+
+  /* Quando o container estiver aberto, os botões serão posicionados pelo JS.
+     Este seletor apenas garante que, se houver classes aplicadas, a transição ocorra. */
+  .mobile-nav-buttons.open .mobile-nav-btn:not(#mobile-menu-btn) {
+    /* o JS irá aplicar transform e pointer-events/opacity/visibility dinamicamente */
+  }
+
+  /* centralização dos ícones (garante que fique perfeito) */
+  .mobile-nav-buttons .mobile-nav-btn i,
+  .mobile-nav-buttons .mobile-nav-btn svg,
+  .mobile-nav-buttons .mobile-nav-btn img {
+    display: block;
+    width: auto;
+    height: auto;
+    line-height: 1;
+    vertical-align: middle;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
+  }
+
+  /* tamanho default do ícone */
+  .mobile-nav-buttons .mobile-nav-btn i { font-size: 24px; }
+
+  /* botão textual (logout etc) herda estilo e será tratado pelo JS */
+  .mobile-nav-buttons .mobile-signout {
+    /* deixa igual visualmente aos outros, mas será posicionado pelo JS */
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: linear-gradient(145deg, #2a1616, #1a0f0f);
+    border: 4px solid rgba(92,34,34,0.95);
+    color: #efe6e2;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.7), inset 0 2px 8px rgba(255,255,255,0.05);
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(0) scale(.98);
+    transition: transform 300ms cubic-bezier(0.4,0,0.2,1), opacity 220ms;
+  }
+}

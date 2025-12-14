@@ -646,7 +646,8 @@ body {
 /* telas muito pequenas: reduz título/subtítulo e sobe mais o slot */
 @media (max-width: 420px) {
     .title {
-        font-size: 1.6rem; /* menor em telas muito pequenas */
+        font-size: 1.6rem;
+        /* menor em telas muito pequenas */
         padding: 0 10px;
     }
 
@@ -657,13 +658,15 @@ body {
 
     /* sobe os slots (reduz margin-top para aproximar do topo) */
     .slots {
-        margin-top: 18px; /* antes era 60px; subimos o slot */
+        margin-top: 18px;
+        /* antes era 60px; subimos o slot */
         gap: 18px;
     }
 
     /* em telas bem pequenas, reduz altura do card para caber melhor */
     .slot {
-        height: 62vh; /* um pouco menor que 70vh para caber na viewport */
+        height: 62vh;
+        /* um pouco menor que 70vh para caber na viewport */
     }
 
     /* reduz ícone das setas para caber proporcionalmente */
@@ -673,7 +676,7 @@ body {
 
     /* mobile-signout (botão aparecerá abaixo dos mobile-nav-btn) */
     .mobile-signout {
-        box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
     }
 }
 

@@ -288,19 +288,216 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // sobrescreve a showSection para ligar/desligar o comportamento mobile quando necessário
-  const __orig_showSection = showSection;
-  showSection = function (section) {
-    __orig_showSection(section);
+  // ======= Patch: mobile profile image + history back handling =======
+  // Cole este bloco logo depois da definição original de showSection (ou da sobrescrita existente).
+  (function () {
+    // helpers - mapeia elementos de section para chaves e de volta
+    const sectionKeyFor = (sectionEl) => {
+      if (!sectionEl) return 'atributos';
+      if (sectionEl.classList.contains('atributos')) return 'atributos';
+      if (sectionEl.classList.contains('classe')) return 'classe';
+      if (sectionEl.classList.contains('raca')) return 'raca';
+      if (sectionEl.classList.contains('resumo')) return 'resumo';
+      return 'atributos';
+    };
+    const sectionElementFor = (key) => {
+      switch (key) {
+        case 'classe': return secClasse;
+        case 'raca': return secRaca;
+        case 'resumo': return secResumo;
+        default: return secAtributos;
+      }
+    };
 
-    // se entrou na classe, tenta ativar; caso contrário, desativa
-    if (section === secClasse) {
-      // Delay curto para garantir que o DOM da seção já esteja renderizado
-      setTimeout(() => enableMobileCarouselIfNeeded(), 60);
-    } else {
-      // se trocar de seção, remove o comportamento mobile
-      disableMobileCarousel();
+    // Guarda referência do original (pode já existir em seu arquivo; segura se duplicar)
+    const __orig_showSection_full = (typeof showSection === 'function') ? showSection : function (s) { };
+
+    // Substitui showSection por uma versão que também empurra histórico e mantém mobile-carousel
+    showSection = function (section) {
+      // chama a original (esconde/mostra sections)
+      __orig_showSection_full(section);
+
+      // mobile carousel: se a versão do arquivo original tinha essa lógica,
+      // mantemos comportamento (caso já exista no arquivo original, estará duplicado — mas é idempotente):
+      try {
+        if (section === secClasse) {
+          setTimeout(() => {
+            if (typeof enableMobileCarouselIfNeeded === 'function') enableMobileCarouselIfNeeded();
+          }, 60);
+        } else {
+          if (typeof disableMobileCarousel === 'function') disableMobileCarousel();
+        }
+      } catch (e) { console.warn('carousel patch error', e); }
+
+      // atualiza estado local e empurra history (evita empurrar repetido)
+      const key = sectionKeyFor(section);
+      try {
+        // se já for o mesmo estado, substitui; senão empurra
+        if (!history.state || history.state.section !== key) {
+          history.pushState({ section: key }, '', '');
+        } else {
+          history.replaceState({ section: key }, '', '');
+        }
+      } catch (err) {
+        // browsers estranhos podem negar pushState — silenciamos
+        console.warn('history.pushState falhou', err);
+      }
+      try { localStorage.setItem('currentSection', key); } catch (e) { }
+    };
+
+    // Inicializa estado na primeira carga (substitui para não criar entradas extras)
+    try {
+      const initial = localStorage.getItem('currentSection') || 'atributos';
+      history.replaceState({ section: initial }, '', '');
+    } catch (e) { /* ignore */ }
+
+    // popstate: quando o usuário pressiona voltar físico ou histórico muda
+    window.addEventListener('popstate', (ev) => {
+      const stateKey = (ev.state && ev.state.section) || localStorage.getItem('currentSection') || 'atributos';
+      // se não há mudança real (ev.state.null) e estamos no atributos -> voltamos ao index
+      if (stateKey === 'atributos') {
+        // Se a página anterior na pilha é externa (i.e. fechar app ou voltar para index),
+        // o comportamento desejado é ir para index.html. Para evitar navegação indevida
+        // quando o usuário só navegou internamente, checamos se existe mais de uma entry.
+        // A heurística simples: se history.length <= 1 -> navegar para index.html
+        // (pode variar por browser; é a solução prática mais compatível).
+        if ((history.length <= 1) || (!ev.state && !document.referrer)) {
+          window.location.href = 'index.html';
+          return;
+        }
+      }
+
+      const el = sectionElementFor(stateKey);
+      if (el) {
+        // chama showSection sem empurrar outro estado duplicado: usamos __orig_showSection_full
+        __orig_showSection_full(el);
+
+        // restaura mobile carousel conforme section
+        if (stateKey === 'classe') {
+          setTimeout(() => {
+            if (typeof enableMobileCarouselIfNeeded === 'function') enableMobileCarouselIfNeeded();
+          }, 60);
+        } else {
+          if (typeof disableMobileCarousel === 'function') disableMobileCarousel();
+        }
+
+        try { localStorage.setItem('currentSection', stateKey); } catch (e) { }
+      }
+    });
+
+    // ========== mobile-profile-btn: garantir imagem e estilo ==========
+    function applyProfileImageToBtn(user) {
+      const btn = document.getElementById('mobile-profile-btn');
+      if (!btn) return;
+      btn.innerHTML = ''; // limpa
+      if (user && user.photoURL) {
+        const img = document.createElement('img');
+        img.src = user.photoURL;
+        img.alt = user.displayName || 'Profile';
+        // estilos inline para garantir que ocupe o botão e seja circular
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        img.style.borderRadius = '50%';
+        img.style.display = 'block';
+        img.style.pointerEvents = 'none';
+        btn.appendChild(img);
+      } else {
+        btn.innerHTML = '<i class="fas fa-user"></i>';
+      }
     }
-  };
+
+    // Atualiza o botão home (seguro: já pode existir, mas reforça)
+    const mobileHomeBtn = document.getElementById('mobile-home-btn');
+    if (mobileHomeBtn) {
+      mobileHomeBtn.addEventListener('click', () => {
+        // navega para index.html
+        window.location.href = 'index.html';
+      });
+    }
+
+    // Atachamos handler de clique no profile para abrir menu/sair (se já não tiver)
+    const mobileProfileBtn = document.getElementById('mobile-profile-btn');
+    if (mobileProfileBtn && !mobileProfileBtn._profileInitialized) {
+      mobileProfileBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        // se user logado, mostra botão Sair; se não, inicia login
+        const user = (window.firebaseauth && window.firebaseauth.currentUser) || null;
+        if (user) {
+          // toggle signout small button
+          const parent = document.querySelector('.mobile-nav-buttons');
+          if (!parent) return;
+          // se já existe, remove
+          const existing = parent.querySelector('.mobile-signout');
+          if (existing) { existing.remove(); return; }
+          const signout = document.createElement('button');
+          signout.className = 'mobile-signout';
+          signout.textContent = 'Sair';
+          signout.style.marginTop = '8px';
+          signout.style.padding = '6px 10px';
+          signout.style.borderRadius = '8px';
+          signout.style.border = 'none';
+          signout.style.cursor = 'pointer';
+          signout.style.background = 'rgba(92,34,34,0.95)';
+          signout.style.color = '#efe6e2';
+          signout.style.fontFamily = 'MedievalSharp, serif';
+          signout.style.zIndex = 1200;
+          signout.addEventListener('click', async (ev) => {
+            ev.stopPropagation();
+            try {
+              if (window.firebaseauth && window.firebaseauth.signOut) {
+                await window.firebaseauth.signOut();
+              }
+              signout.remove();
+              applyProfileImageToBtn(null);
+            } catch (err) {
+              console.error('Erro ao deslogar:', err);
+            }
+          });
+          parent.appendChild(signout);
+          // remove se clicar fora
+          const onDocClick = (evt) => {
+            if (!signout.contains(evt.target) && evt.target !== mobileProfileBtn) {
+              signout.remove();
+              document.removeEventListener('click', onDocClick);
+            }
+          };
+          document.addEventListener('click', onDocClick);
+        } else {
+          // trigger Google login (se helpers do firebase existirem)
+          if (typeof window.GoogleAuthProvider !== 'undefined') {
+            try {
+              const provider = new window.GoogleAuthProvider();
+              await window.signInWithPopup(window.firebaseauth, provider);
+            } catch (err) {
+              console.error('Erro login com Google:', err);
+            }
+          } else {
+            // fallback: redireciona para tela de login (se houver)
+            console.warn('Firebase auth não disponível para login popup');
+          }
+        }
+      });
+      mobileProfileBtn._profileInitialized = true;
+    }
+
+    // Se houver observer de auth (onAuthStateChanged), chamamos applyProfileImageToBtn sempre que mudar
+    if (window.firebaseauth && typeof window.firebaseauth.onAuthStateChanged === 'function') {
+      // Se já existe um observer no seu código, isso apenas chamará a função adicionalmente.
+      window.firebaseauth.onAuthStateChanged((u) => {
+        try { applyProfileImageToBtn(u); } catch (e) { }
+      });
+    } else {
+      // fallback: tenta usar window.onAuthStateChanged (api compat)
+      if (typeof window.onAuthStateChanged === 'function') {
+        try {
+          window.onAuthStateChanged(window.firebaseauth, (u) => applyProfileImageToBtn(u));
+        } catch (e) { }
+      }
+    }
+
+  })();
+
 
   // também reativa/desativa ao redimensionar a tela enquanto estiver na seção .classe
   window.addEventListener('resize', () => {
