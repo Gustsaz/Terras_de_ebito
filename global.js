@@ -169,3 +169,59 @@
     applyPositions(false);
   });
 })();
+
+/* ========= GLOBAL ALERT MODAL (override window.alert) ========= */
+(function () {
+  if (window.__customAlertInstalled) return;
+  window.__customAlertInstalled = true;
+
+  const createAlertModal = (message) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'alert-backdrop';
+
+    const modal = document.createElement('div');
+    modal.className = 'alert-modal';
+    modal.setAttribute('role', 'alertdialog');
+    modal.setAttribute('aria-modal', 'true');
+
+    modal.innerHTML = `
+      <div class="alert-header">Aviso</div>
+      <div class="alert-body">${message}</div>
+      <div class="alert-actions">
+        <button class="alert-btn">OK</button>
+      </div>
+    `;
+
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+
+    requestAnimationFrame(() => backdrop.classList.add('visible'));
+
+    const close = () => {
+      backdrop.classList.remove('visible');
+      setTimeout(() => backdrop.remove(), 300);
+    };
+
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) close();
+    });
+
+    modal.querySelector('.alert-btn').addEventListener('click', close);
+
+    document.addEventListener(
+      'keydown',
+      function esc(e) {
+        if (e.key === 'Escape') {
+          close();
+          document.removeEventListener('keydown', esc);
+        }
+      },
+      { once: true }
+    );
+  };
+
+  window.alert = function (msg) {
+    createAlertModal(String(msg));
+  };
+})();
+

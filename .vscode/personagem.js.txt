@@ -4062,8 +4062,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // showCustomAlert: exibe um modal simples dentro do site e resolve quando o usuário fechar (OK, X, ESC ou clique fora).
     // Uso: await showCustomAlert('Mensagem...');
-    // Substitua a função showCustomAlert existente por esta versão:
     function showCustomAlert(message) {
+        // escape simples para evitar injeção de HTML
         function escapeHtml(str) {
             return String(str)
                 .replace(/&/g, '&amp;')
@@ -4089,6 +4089,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 backdropFilter: 'blur(2px)'
             });
 
+            // painel do alerta
             const panel = document.createElement('div');
             panel.className = 'custom-alert-panel';
             Object.assign(panel.style, {
@@ -4102,9 +4103,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 padding: '18px',
                 textAlign: 'center',
                 fontFamily: 'inherit',
-                position: 'relative'
+                position: 'relative' // necessário para posicionar o X
             });
 
+            // botão X (fechar) no canto superior direito
             const closeX = document.createElement('button');
             closeX.type = 'button';
             closeX.className = 'custom-alert-close';
@@ -4123,9 +4125,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 padding: '6px'
             });
 
+            // mensagem (conteúdo)
             const msg = document.createElement('div');
             msg.innerHTML = `<div style="margin-bottom:14px;font-size:1rem;line-height:1.3;color:#f2eae6">${escapeHtml(message)}</div>`;
 
+            // botões (OK)
             const btnWrap = document.createElement('div');
             btnWrap.style.display = 'flex';
             btnWrap.style.justifyContent = 'center';
@@ -4145,40 +4149,41 @@ document.addEventListener('DOMContentLoaded', async () => {
                 boxShadow: '0 8px 20px rgba(0,0,0,0.35)'
             });
 
-            // evitar múltiplas resoluções
-            let resolved = false;
-            function doResolve(val) {
-                if (resolved) return;
-                resolved = true;
-                // cleanup
-                document.removeEventListener('keydown', keyHandler);
+            // função de fechamento centralizada
+            function close() {
                 if (overlay.parentElement) overlay.parentElement.removeChild(overlay);
-                resolve(val);
+                // remove listener da tecla
+                document.removeEventListener('keydown', keyHandler);
+                resolve();
             }
 
-            function keyHandler(e) {
-                if (e.key === 'Escape') doResolve(false); // ESC = cancel
-            }
-
-            // clique no X => cancelar
+            // clique no X fecha
             closeX.addEventListener('click', (e) => {
                 e.stopPropagation();
-                doResolve(false);
+                close();
             });
 
-            // clique no OK => confirmar
+            // clique no OK fecha
             okBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                doResolve(true);
+                close();
             });
 
-            // fechar ao clicar no backdrop (fora do painel) => cancelar
+            // fechar ao clicar no backdrop (fora do painel)
             overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) doResolve(false);
+                if (e.target === overlay) {
+                    close();
+                }
             });
 
-            // evitar que clique dentro do painel propague
+            // evitar que clique dentro do painel borre para o overlay
             panel.addEventListener('click', (e) => e.stopPropagation());
+
+            // ESC fecha
+            function keyHandler(e) {
+                if (e.key === 'Escape') close();
+            }
+            document.addEventListener('keydown', keyHandler);
 
             // montagem DOM
             btnWrap.appendChild(okBtn);
@@ -4188,14 +4193,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             overlay.appendChild(panel);
             document.body.appendChild(overlay);
 
-            // foco acessível
+            // foco acessível no OK (melhora navegação por teclado)
             okBtn.focus();
-
-            // adiciona ESC listener
-            document.addEventListener('keydown', keyHandler);
         });
     }
-
 
     // Nota: mantemos a altura travada do left-card para evitar "pulse" de layout.
     // Se você quiser recalcular o tamanho quando mudar algo globalmente, pode chamar:
@@ -4323,17 +4324,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (homeBtn) homeBtn.addEventListener('click', (e) => { e.stopPropagation(); window.location.href = 'index.html'; });
         if (profileBtn) profileBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            const confirmed = await showCustomAlert('Deseja sair da conta?');
-            if (!confirmed) return; // usuário cancelou (X / ESC / fora do painel)
+            // Exibe o alerta-modal; quando o usuário clicar OK, prosseguimos com o logout
+            await showCustomAlert('Deseja sair da conta?');
             try {
                 await window.firebaseauth.signOut();
+                // redireciona após signOut
                 window.location.href = 'index.html';
             } catch (err) {
                 console.error('Erro ao sair:', err);
+                // mostra mensagem de erro no mesmo estilo
                 await showCustomAlert('Erro ao sair. Tente novamente.');
             }
         });
-
 
         if (closeBtn) closeBtn.addEventListener('click', closeAllViews);
         if (overlay) overlay.addEventListener('click', closeAllViews);

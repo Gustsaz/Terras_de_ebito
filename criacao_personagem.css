@@ -1773,7 +1773,7 @@ section {
 
   /* Ajusta o tamanho dos cards para não exceder a tela */
   .raca .raca-card {
-    width: 220px;
+    width: 153px;
     height: 260px;
     padding: 12px;
     box-sizing: border-box;
@@ -1807,7 +1807,7 @@ section {
    mas mais enxuto (colocar NO FINAL do CSS)
    ========================= */
 
-@media (max-width: 420px) {
+@media (max-width: 527px) {
 
   /* permitir scroll no mobile (útil para modais longos) */
   body {
@@ -2071,7 +2071,7 @@ section {
 
   .card-stats {
     min-width: 260px;
-    max-width: 60%;
+    max-width: 100%;
     flex: 1 0 auto;
     height: auto;
     padding: 10px;
@@ -2079,7 +2079,7 @@ section {
 
   .card-class {
     min-width: 220px;
-    max-width: 38%;
+    max-width: 100%;
     height: auto;
     order: 0;
     flex: 0 0 auto;

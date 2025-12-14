@@ -27,15 +27,132 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    // Função para iniciar login Google (reaproveita a mesma lógica do sidebar)
+    // ===== startGoogleLogin (safe, prevents concurrent popups) =====
+    window.__signInInProgress = window.__signInInProgress || false;
+
     const startGoogleLogin = async () => {
+        // evita tentativas simultâneas que causam auth/cancelled-popup-request
+        if (window.__signInInProgress) {
+            console.warn('Login já em progresso — ignorando nova tentativa.');
+            return;
+        }
+        window.__signInInProgress = true;
+
         const provider = new window.GoogleAuthProvider();
         try {
             await window.signInWithPopup(window.firebaseauth, provider);
+            // sign-in bem sucedido — onAuthStateChanged do firebase tratará o estado
         } catch (error) {
+            // log útil para debug (mantemos o console para ver detalhes no devtools)
             console.error('Error during sign in:', error);
+        } finally {
+            // libera o lock sempre
+            window.__signInInProgress = false;
         }
     };
+
+    // showSignOutConfirm: modal de confirmação reutilizável (Resolve true = confirmar, false = cancelar/fechar)
+    function showSignOutConfirm(message) {
+        // previne múltiplos diálogos idênticos
+        if (document.querySelector('.alert-backdrop.confirm-active')) return Promise.resolve(false);
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        return new Promise((resolve) => {
+            const backdrop = document.createElement('div');
+            backdrop.className = 'alert-backdrop confirm-active';
+            backdrop.style.zIndex = 12000; // garante estar acima de elementos móveis
+
+            const modal = document.createElement('div');
+            modal.className = 'alert-modal confirm-modal';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.style.position = 'relative';
+
+            // criar conteúdo (usa classes já estilizadas)
+            modal.innerHTML = `
+      <div class="alert-header">Confirmar</div>
+      <div class="alert-body">${escapeHtml(message)}</div>
+      <div class="alert-actions">
+        <button class="alert-btn cancel">Cancelar</button>
+        <button class="alert-btn confirm">Confirmar</button>
+      </div>
+    `;
+
+            // botão X (fechar sem confirmar)
+            const closeX = document.createElement('button');
+            closeX.setAttribute('aria-label', 'Fechar');
+            closeX.className = 'alert-close-x';
+            closeX.innerHTML = '&times;';
+            Object.assign(closeX.style, {
+                position: 'absolute',
+                top: '8px',
+                right: '10px',
+                background: 'transparent',
+                border: 'none',
+                color: '#efe6e2',
+                fontSize: '20px',
+                cursor: 'pointer',
+                zIndex: 1
+            });
+
+            modal.appendChild(closeX);
+            backdrop.appendChild(modal);
+            document.body.appendChild(backdrop);
+
+            // anima visibilidade (se você tem .alert-backdrop.visible no CSS)
+            requestAnimationFrame(() => backdrop.classList.add('visible'));
+
+            // fechar e resolver
+            function cleanup(result) {
+                backdrop.classList.remove('visible');
+                setTimeout(() => {
+                    if (backdrop.parentElement) backdrop.parentElement.removeChild(backdrop);
+                }, 260);
+                document.removeEventListener('keydown', keyHandler);
+                resolve(Boolean(result));
+            }
+
+            // eventos
+            modal.querySelector('.alert-btn.confirm').addEventListener('click', (e) => {
+                e.stopPropagation();
+                cleanup(true);
+            });
+
+            modal.querySelector('.alert-btn.cancel').addEventListener('click', (e) => {
+                e.stopPropagation();
+                cleanup(false);
+            });
+
+            closeX.addEventListener('click', (e) => {
+                e.stopPropagation();
+                cleanup(false); // X fecha sem deslogar
+            });
+
+            // fechar ao clicar fora (no backdrop)
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) cleanup(false);
+            });
+
+            // ESC fecha
+            function keyHandler(e) {
+                if (e.key === 'Escape') cleanup(false);
+            }
+            document.addEventListener('keydown', keyHandler);
+
+            // foco acessível
+            const confirmBtn = modal.querySelector('.alert-btn.confirm');
+            if (confirmBtn) confirmBtn.focus();
+        });
+    }
+
 
     // Função para mostrar botão "Sair" próximo aos botões mobile (quando logado)
     let mobileSignoutBtn = null;
@@ -92,18 +209,32 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (mobileProfileBtn) {
-        mobileProfileBtn.addEventListener('click', (e) => {
+        mobileProfileBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            // Se usuário logado — mostrar botão sair (toggle)
             const user = window.firebaseauth && window.firebaseauth.currentUser;
+
             if (user) {
-                showMobileSignout();
+                // usuário logado -> perguntar se deseja sair
+                const confirmed = await showSignOutConfirm('Deseja sair da conta?');
+                if (confirmed) {
+                    try {
+                        await window.firebaseauth.signOut();
+                        // opcional: remover qualquer botão "sair" visível
+                        const existingSignout = document.querySelector('.mobile-signout');
+                        if (existingSignout) existingSignout.remove();
+                    } catch (err) {
+                        console.error('Erro ao deslogar', err);
+                    }
+                } else {
+                    // Se cancelou/fechou, não faz nada (X e clique fora também chegam aqui)
+                }
             } else {
-                // iniciar login Google
+                // não logado -> inicia login
                 startGoogleLogin();
             }
         });
     }
+
 
     // Update sidebar function (sem criar floating menu nem sidebar-toggle)
     const updateSidebar = (user) => {
@@ -137,14 +268,13 @@ document.addEventListener("DOMContentLoaded", () => {
         // Google login — desktop
         const desktopGoogle = sidebar.querySelector('#google-login');
         if (desktopGoogle) {
-            desktopGoogle.onclick = async () => {
-                const provider = new window.GoogleAuthProvider();
-                try {
-                    await window.signInWithPopup(window.firebaseauth, provider);
-                } catch (error) {
-                    console.error('Error during sign in:', error);
-                }
-            };
+            if (desktopGoogle) {
+                desktopGoogle.onclick = (e) => {
+                    e.stopPropagation?.();
+                    startGoogleLogin();
+                };
+            }
+
         }
 
         // Admin login — desktop
@@ -483,15 +613,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    // Função para iniciar login Google (reaproveita a mesma lógica do sidebar)
-    const startGoogleLogin = async () => {
-        const provider = new window.GoogleAuthProvider();
-        try {
-            await window.signInWithPopup(window.firebaseauth, provider);
-        } catch (error) {
-            console.error('Error during sign in:', error);
-        }
-    };
 
     // Função para mostrar botão "Sair" próximo aos botões mobile (quando logado)
     let mobileSignoutBtn = null;
@@ -548,18 +669,32 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (mobileProfileBtn) {
-        mobileProfileBtn.addEventListener('click', (e) => {
+        mobileProfileBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            // Se usuário logado — mostrar botão sair (toggle)
             const user = window.firebaseauth && window.firebaseauth.currentUser;
+
             if (user) {
-                showMobileSignout();
+                // usuário logado -> perguntar se deseja sair
+                const confirmed = await showSignOutConfirm('Deseja sair da conta?');
+                if (confirmed) {
+                    try {
+                        await window.firebaseauth.signOut();
+                        // opcional: remover qualquer botão "sair" visível
+                        const existingSignout = document.querySelector('.mobile-signout');
+                        if (existingSignout) existingSignout.remove();
+                    } catch (err) {
+                        console.error('Erro ao deslogar', err);
+                    }
+                } else {
+                    // Se cancelou/fechou, não faz nada (X e clique fora também chegam aqui)
+                }
             } else {
-                // iniciar login Google
+                // não logado -> inicia login
                 startGoogleLogin();
             }
         });
     }
+
 
     // Update sidebar function (sem criar floating menu nem sidebar-toggle)
     const updateSidebar = (user) => {
@@ -909,4 +1044,3 @@ document.addEventListener("DOMContentLoaded", () => {
         updateVisibleSlot();
     }, 120); // leve delay para garantir que animações/DOM estejam prontos
 });
- 

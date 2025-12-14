@@ -620,7 +620,7 @@ textarea::placeholder {
         inset: 8px;
         /* distancia das bordas para criar margem */
         width: calc(100vw - 16px);
-        height: calc(100vh) !important;
+        height: calc(100vh)!important;
         max-width: calc(100vw - 16px);
         max-height: calc(100vh - 16px) !important;
         border-radius: 12px;
@@ -1690,186 +1690,119 @@ html.dragging {
 /* === Responsive: items-modal layout for small screens (max-width: 486px) === */
 @media (max-width: 486px) {
 
-    /* painel do modal: empilhar conteúdo verticalmente e caber na tela */
-    .items-modal-panel {
-        /* mantém o modal centralizado, mas em coluna para comportar header + list + detail */
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        width: calc(100% - 24px) !important;
-        max-width: calc(100% - 24px) !important;
-        max-height: calc(100vh - 24px);
-        padding: 10px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        overflow: hidden;
-    }
+  /* painel do modal: empilhar conteúdo verticalmente e caber na tela */
+  .items-modal-panel {
+    /* mantém o modal centralizado, mas em coluna para comportar header + list + detail */
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(100% - 24px) !important;
+    max-width: calc(100% - 24px) !important;
+    max-height: calc(100vh - 24px);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+  }
 
-    /* header do modal: forçar ocupar toda a largura no topo */
-    .items-modal-header {
-        width: 100%;
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        /* título à esquerda, botão fechar à direita */
-        align-items: center;
-        margin: 0;
-        /* remove margem lateral que poderia posicionar o header à esquerda */
-        padding-bottom: 4px;
-        z-index: 2;
-    }
+  /* header do modal: forçar ocupar toda a largura no topo */
+  .items-modal-header {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between; /* título à esquerda, botão fechar à direita */
+    align-items: center;
+    margin: 0; /* remove margem lateral que poderia posicionar o header à esquerda */
+    padding-bottom: 4px;
+    z-index: 2;
+  }
 
-    /* corpo do modal: empilhar a lista e o detalhe em coluna */
-    .items-modal-body {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        width: 100%;
-        height: 100%;
-        overflow: visible;
-    }
-
-    /* lista de itens: transformar em linha de "abas" com rolagem horizontal */
-    .items-list {
-        width: 100%;
-        max-height: none;
-        height: auto;
-        display: flex;
-        flex-direction: row;
-        gap: 8px;
-        align-items: stretch;
-        overflow-x: auto;
-        overflow-y: hidden;
-        padding: 6px 6px;
-        border-right: none;
-        /* remove borda lateral */
-        border-bottom: 2px solid rgba(90, 22, 22, 0.6);
-        /* separador visual abaixo das "abas" */
-        -webkit-overflow-scrolling: touch;
-        /* rolagem suave em iOS */
-        scroll-snap-type: x mandatory;
-    }
-
-    /* cada item na lista: formato compacto, largura mínima para enxergar o conteúdo */
-    .items-list .item-row {
-        flex: 0 0 auto;
-        /* não encolher, tamanho fixo conforme min-width */
-        min-width: 120px;
-        /* ajuste conforme necessidade (120px é um bom ponto inicial) */
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 10px;
-        margin-bottom: 0;
-        /* já removido o empilhamento vertical */
-        border-radius: 10px;
-        white-space: nowrap;
-        /* texto não quebre em múltiplas linhas nas abas */
-        scroll-snap-align: start;
-        transform: none !important;
-        /* evitar animações de translateX que puxem o layout */
-    }
-
-    /* item selecionado e hover mantêm acessibilidade/estilo sem quebrar a interação */
-    .items-list .item-row:hover,
-    .items-list .item-row:focus {
-        transform: none;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
-    }
-
-    /* detalhe do item: abaixo da lista, ocupa toda a largura disponível */
-    .item-detail {
-        width: 100%;
-        flex: 1 1 auto;
-        padding: 8px;
-        max-height: calc(100vh - 220px);
-        /* garante espaço para header + lista + ações */
-        overflow: auto;
-        background: transparent;
-        /* mantém o visual existente */
-        border-radius: 8px;
-    }
-
-    /* organiza o conteúdo interno do detail para ficar bem estruturado em coluna */
-    .item-detail .item-detail-content,
-    #detail-fields {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    /* botões de ação (confirm/cancel) em linha, responsivos */
-    .item-detail .item-detail-actions {
-        display: flex;
-        gap: 8px;
-        flex-wrap: nowrap;
-        justify-content: flex-end;
-    }
-
-    /* Ajustes finos: garantir que o botão fechar fique visível e clicável no topo */
-    .items-modal-header .modal-close,
-    #items-modal-close {
-        font-size: 20px;
-        line-height: 1;
-        padding: 6px;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-    }
-}
-
-/* === Mobile profile image: força a foto dentro do botão circular === */
-/* aplica ao botão de navegação móvel e ao botão com id #mobile-profile-btn */
-.mobile-nav-btn img,
-#mobile-profile-btn img {
+  /* corpo do modal: empilhar a lista e o detalhe em coluna */
+  .items-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-    display: block;
-    pointer-events: none;
-    /* evita interceptar cliques caso o botão trate eventos */
-    user-select: none;
-    -webkit-user-drag: none;
+    overflow: visible;
+  }
+
+  /* lista de itens: transformar em linha de "abas" com rolagem horizontal */
+  .items-list {
+    width: 100%;
+    max-height: none;
+    height: auto;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: stretch;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 6px 6px;
+    border-right: none; /* remove borda lateral */
+    border-bottom: 2px solid rgba(90, 22, 22, 0.6); /* separador visual abaixo das "abas" */
+    -webkit-overflow-scrolling: touch; /* rolagem suave em iOS */
+    scroll-snap-type: x mandatory;
+  }
+
+  /* cada item na lista: formato compacto, largura mínima para enxergar o conteúdo */
+  .items-list .item-row {
+    flex: 0 0 auto;        /* não encolher, tamanho fixo conforme min-width */
+    min-width: 120px;      /* ajuste conforme necessidade (120px é um bom ponto inicial) */
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    margin-bottom: 0;      /* já removido o empilhamento vertical */
+    border-radius: 10px;
+    white-space: nowrap;   /* texto não quebre em múltiplas linhas nas abas */
+    scroll-snap-align: start;
+    transform: none !important; /* evitar animações de translateX que puxem o layout */
+  }
+
+  /* item selecionado e hover mantêm acessibilidade/estilo sem quebrar a interação */
+  .items-list .item-row:hover,
+  .items-list .item-row:focus {
+    transform: none;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+  }
+
+  /* detalhe do item: abaixo da lista, ocupa toda a largura disponível */
+  .item-detail {
+    width: 100%;
+    flex: 1 1 auto;
+    padding: 8px;
+    max-height: calc(100vh - 220px); /* garante espaço para header + lista + ações */
+    overflow: auto;
+    background: transparent; /* mantém o visual existente */
+    border-radius: 8px;
+  }
+
+  /* organiza o conteúdo interno do detail para ficar bem estruturado em coluna */
+  .item-detail .item-detail-content,
+  #detail-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* botões de ação (confirm/cancel) em linha, responsivos */
+  .item-detail .item-detail-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+
+  /* Ajustes finos: garantir que o botão fechar fique visível e clicável no topo */
+  .items-modal-header .modal-close,
+  #items-modal-close {
+    font-size: 20px;
+    line-height: 1;
+    padding: 6px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
 }
-
-/* === Ajustes responsivos específicos (APENAS max-width: 486px) === */
-@media (max-width: 486px) {
-
-    /* evitar que as barras e os blocos sejam "cortados" pelo padding do container */
-    .char-stats,
-    .char-exp {
-        box-sizing: border-box;
-        /* neutraliza parcialmente o padding do pai sem quebrar o layout */
-        width: calc(100% + 24px);
-        margin-left: -12px;
-        margin-right: -12px;
-        padding: 8px 12px !important;
-        overflow: visible;
-        /* permite que conteúdo interno "respire" */
-        -webkit-overflow-scrolling: touch;
-    }
-
-    /* permitir que as linhas internas quebrem / encham em múltiplas linhas sem cortar */
-    .char-stats .stat-row,
-    .char-exp .stat-row {
-        overflow: visible;
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-
-    /* barras: garantir que não forcem largura fixa e sejam renderizadas por inteiro */
-    .stat-bar {
-        min-width: 0;
-        /* evita overflow forçado por min-width herdado */
-        max-width: 100%;
-        overflow: visible;
-    }
-
-    /* texto das barras: evitar quebra indesejada (mantemos legível) */
-    .bar-text {
-        white-space: nowrap;
-    }
-}
-
