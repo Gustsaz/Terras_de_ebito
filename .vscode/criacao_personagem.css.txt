@@ -2788,27 +2788,3 @@ section {
   height: 420px;
   filter: blur(22px);
 }
-
-/* ---------- Responsividade: reduzir SVG em telas <= 420px ---------- */
-@media (max-width: 420px) {
-  /* reduz o tamanho do logo/ícone animado */
-  .circle,
-  .circle svg {
-    width: 280px !important;
-    height: 280px !important;
-  }
-
-  /* ajusta o pseudo-elemento do fogo para ficar proporcional atrás do logo */
-  .circle-container::before {
-    width: 360px !important;
-    height: 360px !important;
-    filter: blur(16px) !important;
-  }
-
-  /* se houver transform/translate específicos para posicionamento, garante centralização */
-  .circle-container {
-    top: 32% !important;
-    left: 47% !important;
-    transform: translate(-50%, -50%) !important;
-  }
-}
