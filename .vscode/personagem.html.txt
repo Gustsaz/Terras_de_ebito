@@ -342,85 +342,90 @@
         <i class="fas fa-times"></i>
     </button>
 
-    <!-- Overlay de fundo mobile -->
-    <div class="mobile-overlay" id="mobile-overlay"></div>
+    <!-- ===================== ITEMS / CREATE BIG MODAL (SUBSTITUIR O ANTIGO items-modal) ===================== -->
+    <div id="items-modal-backdrop" class="alert-backdrop" aria-hidden="true" style="display:none;">
+        <div id="items-modal" class="alert-modal big-items-modal" role="dialog" aria-modal="true"
+            aria-label="Escolher ou criar item">
+            <button id="items-modal-close" class="alert-close" title="Fechar" aria-label="Fechar">&times;</button>
 
-    <!-- ================= INV-EMPTY MODAL (abrir ao clicar em inv-slot vazio) ================= -->
-    <div id="inv-empty-backdrop" class="alert-backdrop" aria-hidden="true" style="display:none;">
-        <div class="alert-modal inv-empty-modal" role="dialog" aria-modal="true" aria-label="Escolher ou criar item">
-            <div class="inv-empty-inner"
-                style="display:flex; gap:16px; width:100%; box-sizing:border-box; padding:14px;">
+            <div class="big-modal-grid">
                 <!-- LADO ESQUERDO -->
-                <div class="inv-left-pane" style="flex:1; min-width:0;">
-                    <!-- LEFT STATE 1: Escolher item -->
-                    <div class="left-state left-state-1"
-                        style="display:flex; flex-direction:column; align-items:center; justify-content:space-between; height:100%;">
-                        <h3 style="margin:6px 0; text-align:center;">Escolher item</h3>
-                        <div class="left-icon" style="font-size:48px; opacity:0.95;">
-                            <i class="fa-solid fa-magnifying-glass"></i>
+                <div class="big-left" id="big-left">
+                    <!-- Estado 1: Escolher item (inicial) -->
+                    <div class="left-state left-state-1" id="left-state-1">
+                        <div class="left-title">Escolher item</div>
+                        <div class="left-visual">
+                            <i class="fas fa-search fa-5x"></i>
                         </div>
-                        <div style="width:100%; display:flex; justify-content:center; gap:8px; padding:8px 0;">
-                            <button type="button" class="alert-btn choose-open-cats"
-                                style="min-width:120px;">Escolher</button>
+                        <div class="left-actions">
+                            <button id="btn-open-choose" class="alert-btn large">Escolher</button>
                         </div>
                     </div>
 
-                    <!-- LEFT STATE 2: categorias (aparece quando escolhe 'Escolher') -->
-                    <div class="left-state left-state-2"
-                        style="display:none; flex-direction:column; gap:12px; align-items:stretch;">
-                        <h3 style="margin:6px 0; text-align:center;">Escolher item</h3>
-                        <div class="left-cats" style="display:flex; flex-direction:column; gap:10px; padding:8px;">
-                            <button class="cat-btn cat-armas alert-btn" data-slot="armas">Armas / Equipamentos</button>
-                            <button class="cat-btn cat-protecao alert-btn" data-slot="protecao">Proteção</button>
-                            <button class="cat-btn cat-utilitarios alert-btn"
-                                data-slot="utilitarios">Utilitários</button>
+                    <!-- Estado 2: Lista de categorias -> lista de itens -->
+                    <div class="left-state left-state-2" id="left-state-2" style="display:none;">
+                        <div class="left-title">Escolher item</div>
+
+                        <div class="categories-row">
+                            <button class="cat-btn" data-types='["Arma","Equipamento"]'>Armas / Equipamentos</button>
+                            <button class="cat-btn" data-types='["Proteção"]'>Proteção</button>
+                            <button class="cat-btn" data-types='["Utilitário"]'>Utilitários</button>
+                        </div>
+
+                        <div id="items-list-wrap" class="items-list-wrap">
+                            <div id="items-list" class="items-list">Clique numa categoria</div>
+                        </div>
+
+                        <div class="left-actions">
+                            <button id="back-to-left1" class="alert-btn large">Voltar</button>
                         </div>
                     </div>
                 </div>
 
                 <!-- LADO DIREITO -->
-                <div class="inv-right-pane" style="flex:1; min-width:0;">
-                    <!-- RIGHT STATE 1: Criar item -->
-                    <div class="right-state right-state-1"
-                        style="display:flex; flex-direction:column; align-items:center; justify-content:space-between; height:100%;">
-                        <h3 style="margin:6px 0; text-align:center;">Criar item</h3>
-                        <div class="right-icon" style="font-size:48px; opacity:0.95;"><i class="fa-solid fa-plus"></i>
+                <div class="big-right" id="big-right">
+                    <!-- Estado 1: Criar item (inicial) -->
+                    <div class="right-state right-state-1" id="right-state-1">
+                        <div class="right-title">Criar item</div>
+                        <div class="right-visual">
+                            <i class="fas fa-plus-circle fa-5x"></i>
                         </div>
-                        <div style="width:100%; display:flex; justify-content:center; gap:8px; padding:8px 0;">
-                            <button type="button" class="alert-btn create-open-form"
-                                style="min-width:120px;">Criar</button>
+                        <div class="right-actions">
+                            <button id="btn-open-create" class="alert-btn large">Criar</button>
                         </div>
                     </div>
 
-                    <!-- RIGHT STATE 2: Formulário de criação -->
-                    <div class="right-state right-state-2"
-                        style="display:none; flex-direction:column; gap:10px; align-items:center; padding:8px;">
-                        <div class="create-img-placeholder"
-                            style="width:120px; height:90px; background:rgba(255,255,255,0.03); border-radius:8px; display:flex; align-items:center; justify-content:center;">
-                            <span style="opacity:0.5">Imagem</span>
+                    <!-- Estado 2: Form criar item -->
+                    <div class="right-state right-state-2" id="right-state-2" style="display:none;">
+                        <div class="right-title">Novo item</div>
+
+                        <div class="create-visual">
+                            <!-- imagem centralizada (placeholder) -->
+                            <img id="create-item-img" src="./imgs/placeholder.png" alt="imagem do item"
+                                style="max-width:160px; display:block; margin:8px auto 16px;">
                         </div>
 
-                        <input class="create-name" type="text" placeholder="Nome (obrigatório)"
-                            style="width:90%; padding:8px; border-radius:8px; border:2px solid rgba(92,34,34,0.8); background:transparent; color:inherit;" />
-                        <textarea class="create-desc" placeholder="Descrição"
-                            style="width:90%; min-height:64px; padding:8px; border-radius:8px; border:2px solid rgba(92,34,34,0.8); background:transparent; color:inherit;"></textarea>
+                        <div class="create-form">
+                            <label>Nome</label>
+                            <input id="create-item-nome" type="text" placeholder="Nome do item" />
+                            <label>Descrição</label>
+                            <textarea id="create-item-desc" placeholder="Descrição do item"></textarea>
+                        </div>
 
-                        <div style="display:flex; gap:8px; margin-top:6px;">
-                            <button class="alert-btn create-confirm" type="button" disabled>Confirmar</button>
-                            <button class="alert-btn create-cancel" type="button">Cancelar</button>
+                        <div class="right-actions">
+                            <button id="create-item-confirm" class="alert-btn large">Confirmar</button>
+                            <button id="create-item-cancel" class="alert-btn large">Cancelar</button>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- close X (opcional) -->
-            <div style="position:absolute; top:8px; right:10px;">
-                <button id="inv-empty-close" class="alert-btn" type="button" style="padding:6px 10px;">Fechar</button>
-            </div>
         </div>
     </div>
-    <!-- ================= FIM INV-EMPTY MODAL ================= -->
+    <!-- ===================== FIM ITEMS MODAL ===================== -->
 
+
+    <!-- Overlay de fundo mobile -->
+    <div class="mobile-overlay" id="mobile-overlay"></div>
 
     <script src="personagem.js"></script>
     <script type="module" src="global.js"></script>

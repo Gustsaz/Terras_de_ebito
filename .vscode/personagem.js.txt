@@ -1476,267 +1476,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         createEmptySlots();
 
-        /* ===== INV-EMPTY MODAL: abrir ao clicar em inv-slot vazio ===== */
-        (function setupInvEmptyModal() {
-            const backdrop = document.getElementById('inv-empty-backdrop');
-            if (!backdrop) return; // se não houver modal no HTML, ignora
-
-            const modal = backdrop.querySelector('.inv-empty-modal');
-            const leftState1 = modal.querySelector('.left-state-1');
-            const leftState2 = modal.querySelector('.left-state-2');
-            const rightState1 = modal.querySelector('.right-state-1');
-            const rightState2 = modal.querySelector('.right-state-2');
-
-            const chooseBtn = modal.querySelector('.choose-open-cats');
-            const catButtons = modal.querySelectorAll('.cat-btn');
-            const createBtn = modal.querySelector('.create-open-form');
-            const createConfirm = modal.querySelector('.create-confirm');
-            const createCancel = modal.querySelector('.create-cancel');
-            const createName = modal.querySelector('.create-name');
-            const createDesc = modal.querySelector('.create-desc');
-            const invClose = document.getElementById('inv-empty-close');
-
-            // abrir modal (exposição pública opcional)
-            function openInvEmptyModal(slotIndex) {
-                backdrop.style.display = 'flex';
-                setTimeout(() => backdrop.classList.add('visible'), 10);
-                backdrop.setAttribute('aria-hidden', 'false');
-
-                // reset estados
-                modal.classList.remove('left-expanded');
-                leftState1.style.display = '';
-                leftState2.style.display = 'none';
-                rightState1.style.display = '';
-                rightState2.style.display = 'none';
-
-                // limpar form
-                createName.value = '';
-                createDesc.value = '';
-                createConfirm.disabled = true;
-
-                // foco opcional
-                setTimeout(() => createBtn?.focus?.(), 120);
-
-                // lembrar slot clicado (caso queira usar)
-                backdrop.dataset.slot = String(slotIndex ?? '');
-            }
-
-            function closeInvEmptyModal() {
-                backdrop.classList.remove('visible');
-                backdrop.setAttribute('aria-hidden', 'true');
-                setTimeout(() => { backdrop.style.display = 'none'; }, 240);
-                delete backdrop.dataset.slot;
-            }
-
-            // left: quando clicar em 'Escolher'
-            chooseBtn?.addEventListener('click', (e) => {
-                e.preventDefault();
-                // mostrar categorias (left state 2), ocultar left state 1
-                leftState1.style.display = 'none';
-                leftState2.style.display = 'flex';
-                // expandir left e esconder right visualmente
-                modal.classList.add('left-expanded');
-            });
-
-            // categorias: abrir o items-modal respectivo via API já existente
-            catButtons?.forEach(btn => {
-                btn.addEventListener('click', async (ev) => {
-                    const slotKey = btn.dataset.slot; // 'armas' | 'protecao' | 'utilitarios'
-                    try {
-                        // se existir API exposta (já há window.__battleSlots.openModalForSlot)
-                        if (window.__battleSlots && typeof window.__battleSlots.openModalForSlot === 'function') {
-                            window.__battleSlots.openModalForSlot(slotKey);
-                        } else {
-                            // fallback: dispara evento para abrir o modal de items (se outra função existir no seu código)
-                            const evt = new CustomEvent('openItemsModalForSlot', { detail: { slotKey } });
-                            window.dispatchEvent(evt);
-                        }
-                    } catch (err) {
-                        console.warn('Erro ao abrir modal de items para categoria', slotKey, err);
-                    }
-                    closeInvEmptyModal();
-                });
-            });
-
-            // right: abrir formulário de criação
-            createBtn?.addEventListener('click', (e) => {
-                e.preventDefault();
-                rightState1.style.display = 'none';
-                rightState2.style.display = 'flex';
-                // desabilita left (mantemos visível mas o usuário focará no form)
-                leftState1.style.opacity = '0.6';
-                leftState2.style.opacity = '0.6';
-                createName.focus();
-            });
-
-            // validacão simples: habilita confirm se nome preenchido
-            function checkCreateForm() {
-                createConfirm.disabled = !(createName.value && createName.value.trim().length > 0);
-            }
-            createName.addEventListener('input', checkCreateForm);
-            createDesc.addEventListener('input', checkCreateForm);
-
-            createCancel.addEventListener('click', (e) => {
-                e.preventDefault();
-                // volta ao estado inicial
-                leftState1.style.opacity = '';
-                leftState2.style.opacity = '';
-                rightState1.style.display = '';
-                rightState2.style.display = 'none';
-            });
-
-            // Função robusta para criar documento de item e associar ao personagem
-            async function createItemAndAttach() {
-                try {
-                    createConfirm.disabled = true;
-                    const nome = String(createName.value || '').trim();
-                    const descricao = String(createDesc.value || '').trim();
-
-                    if (!nome) { alert('Preencha o nome do item.'); createConfirm.disabled = false; return; }
-
-                    // payload conforme esquema desejado
-                    const payload = {
-                        categoria: "Comum",
-                        critico: "Nenhum",
-                        dano: "Nenhum",
-                        descricao: descricao || "",
-                        efeito: "Nenhum",
-                        habilidade: "Nenhum",
-                        nome: nome,
-                        peso: "Nenhum",
-                        requisito: "Nenhum",
-                        tipo_dano: "Nenhum",
-                        tipo_item: "Nenhum",
-                        createdAt: Date.now()
-                    };
-
-                    // tenta criar doc na coleção 'itens' (tenta addDoc -> setDoc fallback)
-                    let newId = null;
-                    try {
-                        const colRef = window.collection(window.firestoredb, 'itens');
-                        if (typeof window.addDoc === 'function') {
-                            const res = await window.addDoc(colRef, payload);
-                            // res pode ser DocumentReference (id em res.id)
-                            newId = res?.id || res?.name || null;
-                        } else {
-                            // fallback: gerar id e usar setDoc se disponível
-                            const genId = String(Date.now()) + '_' + Math.random().toString(36).slice(2, 8);
-                            const docRef = window.doc(window.firestoredb, 'itens', genId);
-                            if (typeof window.setDoc === 'function') {
-                                await window.setDoc(docRef, payload);
-                                newId = genId;
-                            } else if (typeof window.updateDoc === 'function') {
-                                // tentar update (pode falhar se doc não existir)
-                                try {
-                                    await window.updateDoc(docRef, payload);
-                                    newId = genId;
-                                } catch (e) {
-                                    // última tentativa: usar update no root col + genId não suportado — abort
-                                    throw new Error('Método para criar documento não disponível no ambiente.');
-                                }
-                            } else {
-                                throw new Error('Nenhum método disponível para criar documento em Firestore (addDoc/setDoc/updateDoc).');
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Erro criando documento do item:', err);
-                        alert('Erro ao criar item. Veja console.');
-                        createConfirm.disabled = false;
-                        return;
-                    }
-
-                    if (!newId) {
-                        alert('Não foi possível obter o id do item criado.');
-                        createConfirm.disabled = false;
-                        return;
-                    }
-
-                    // Agora associar uid ao personagem no documento do usuário (coleção 'usuarios' -> personagens(array)->itens(array)->uid)
-                    try {
-                        const user = window.firebaseauth.currentUser;
-                        if (!user) throw new Error('Usuário não autenticado');
-
-                        const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
-                        const snap = await window.getDoc(userRef);
-                        if (!snap.exists()) throw new Error('Documento do usuário não encontrado');
-
-                        const data = snap.data();
-                        const personagens = Array.isArray(data.personagens) ? data.personagens.slice() : [];
-                        const idx = personagens.findIndex(p => p && p.uid === charUid);
-                        if (idx < 0) throw new Error('Personagem não encontrado no documento do usuário.');
-
-                        personagens[idx].itens = Array.isArray(personagens[idx].itens) ? personagens[idx].itens.slice() : [];
-                        // push novo objeto com uid
-                        personagens[idx].itens.push({ uid: String(newId) });
-
-                        // recalcular peso_atual (usa função existente)
-                        try {
-                            const novoPeso = await calcularPesoAtual(personagens[idx].itens);
-                            personagens[idx].peso_atual = novoPeso;
-                        } catch (e) {
-                            console.warn('Falha ao recalcular peso (não crítico):', e);
-                        }
-
-                        // salvar no Firestore
-                        await window.updateDoc(userRef, { personagens });
-
-                        // atualizar charData local se existir
-                        try {
-                            if (charData && Array.isArray(charData.itens)) {
-                                charData.itens.push({ uid: String(newId) });
-                                charData.peso_atual = personagens[idx].peso_atual;
-                            }
-                        } catch (e) { /* silencioso */ }
-
-                        // recarrega UI
-                        try { await refreshSlotsFromCharData(); } catch (e) { console.warn('refreshSlotsFromCharData erro (após criar item):', e); }
-
-                    } catch (err) {
-                        console.error('Erro ao associar item ao personagem:', err);
-                        alert('Item criado, mas falha ao associar ao personagem (veja console).');
-                    }
-
-                    // sucesso!
-                    closeInvEmptyModal();
-
-                } finally {
-                    createConfirm.disabled = false;
-                }
-            } // end createItemAndAttach
-
-            createConfirm?.addEventListener('click', async (ev) => {
-                ev.preventDefault();
-                await createItemAndAttach();
-            });
-
-            // fechar backdrop clicando fora do modal
-            backdrop.addEventListener('click', (ev) => {
-                if (ev.target === backdrop) closeInvEmptyModal();
-            });
-
-            // botão fechar
-            invClose?.addEventListener('click', () => closeInvEmptyModal());
-
-            // ESC fecha
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && backdrop && backdrop.classList.contains('visible')) closeInvEmptyModal();
-            });
-
-            // ----- conectando aos slots vazios: alterar createEmptySlots para anexar handler -----
-            // Se createEmptySlots existir como função, a modificação ideal é adicionar um listener dentro dela.
-            // Aqui fazemos um fallback: sempre que um slot vazio for clicado (delegation), abrimos o modal.
-            document.addEventListener('click', (ev) => {
-                const slot = ev.target.closest && ev.target.closest('.inv-slot');
-                if (!slot) return;
-                // se slot estiver vazio (sem nome/desc) => abrir modal
-                if (!slot.querySelector('.inv-name')) {
-                    // evita abrir se já houver um modal de items (por exemplo item já ligado)
-                    openInvEmptyModal(slot.dataset.slot);
-                }
-            });
-        })();
-
-
+        /* ----------- REALTIME FIRESTORE LISTENER ----------- */
         /* ----------- REALTIME FIRESTORE LISTENER ----------- */
         function enableRealtimeInventory() {
             const user = window.firebaseauth?.currentUser;
@@ -2149,12 +1889,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Abre o modal e carrega a lista de itens filtrada por tipo(s)
-        // Abre o modal e carrega a lista de itens filtrada por tipo(s)
-        // --- Substitua/cole isto dentro de setupBattleSlotsAndModal() ---
         function openModalForSlot(slotKey) {
             currentSlotKey = slotKey;
             if (!itemsListEl || !detailPanel) return;
-            itemsListEl.innerHTML = '<div style="padding:8px;color:#ddd">Carregando.</div>';
+            itemsListEl.innerHTML = '<div style="padding:8px;color:#ddd">Carregando...</div>';
             const content = detailPanel.querySelector('.item-detail-content');
             if (content) content.style.display = 'none';
             const empty = detailPanel.querySelector('.item-detail-empty');
@@ -2169,7 +1907,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const q = window.query(itensCol, window.where('tipo_item', 'in', types));
                     const snap = await window.getDocs(q);
                     const items = [];
-                    // CORREÇÃO: empacotar os campos diretamente (não em .data)
                     snap.forEach(d => items.push({ id: d.id, ...d.data() }));
                     renderItemsList(items);
                 } catch (err) {
@@ -2178,20 +1915,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             })();
 
-            // abre modal (usa atributo aria-hidden como no código atual)
             if (modal) modal.setAttribute('aria-hidden', 'false');
         }
-
-        // fallback listener (invocado quando outro código dispara o CustomEvent)
-        // O inv-empty modal usa esse evento se window.__battleSlots não existir no momento do clique.
-        window.addEventListener('openItemsModalForSlot', (ev) => {
-            try {
-                const slot = ev?.detail?.slotKey;
-                if (slot) openModalForSlot(slot);
-            } catch (e) { /* silencioso */ }
-        });
-
-
 
         // Fecha modal e reseta estado interno
         function closeModal() {
@@ -3307,6 +3032,294 @@ document.addEventListener('DOMContentLoaded', async () => {
         })();
 
     })();
+
+    /* ===================== NOVO: Modal grande Escolher / Criar itens ===================== */
+    (function setupBigItemsModal() {
+        const backdrop = document.getElementById('items-modal-backdrop');
+        const modal = document.getElementById('items-modal');
+        const closeBtn = document.getElementById('items-modal-close');
+
+        const leftState1 = document.getElementById('left-state-1');
+        const leftState2 = document.getElementById('left-state-2');
+        const rightState1 = document.getElementById('right-state-1');
+        const rightState2 = document.getElementById('right-state-2');
+
+        const btnOpenChoose = document.getElementById('btn-open-choose');
+        const btnOpenCreate = document.getElementById('btn-open-create');
+        const backToLeft1 = document.getElementById('back-to-left1');
+
+        const catBtns = Array.from(document.querySelectorAll('.cat-btn'));
+        const itemsListEl = document.getElementById('items-list');
+
+        const createConfirm = document.getElementById('create-item-confirm');
+        const createCancel = document.getElementById('create-item-cancel');
+        const createNome = document.getElementById('create-item-nome');
+        const createDesc = document.getElementById('create-item-desc');
+
+        let activeSlotIndex = null; // slot clicado
+        let selectedItem = null;    // { id, data }
+
+        function showModal() { backdrop.style.display = 'flex'; backdrop.classList.add('visible'); document.body.style.overflow = 'hidden'; }
+        function hideModal() { backdrop.style.display = 'none'; backdrop.classList.remove('visible'); document.body.style.overflow = ''; resetModal(); }
+
+        function resetModal() {
+            // volta aos estados iniciais
+            leftState1.style.display = ''; leftState2.style.display = 'none';
+            rightState1.style.display = ''; rightState2.style.display = 'none';
+            itemsListEl.innerHTML = 'Clique numa categoria';
+            selectedItem = null;
+        }
+
+        closeBtn?.addEventListener('click', hideModal);
+        backdrop?.addEventListener('click', (e) => { if (e.target === backdrop) hideModal(); });
+
+        // abrir escolha (esquerdo) -> transição para left-state-2 e esconde lado direito
+        btnOpenChoose?.addEventListener('click', (e) => {
+            leftState1.style.display = 'none';
+            leftState2.style.display = '';
+            rightState1.style.display = 'none';
+            rightState2.style.display = 'none';
+        });
+
+        backToLeft1?.addEventListener('click', (e) => {
+            resetModal();
+        });
+
+        // abrir criar (direito) -> mostra form de criação
+        btnOpenCreate?.addEventListener('click', (e) => {
+            rightState1.style.display = 'none';
+            rightState2.style.display = '';
+            // opcional: esconder left-state-1
+            leftState1.style.display = 'none';
+        });
+
+        // cancelar criação
+        createCancel?.addEventListener('click', () => {
+            rightState2.style.display = 'none';
+            rightState1.style.display = '';
+            leftState1.style.display = '';
+            createNome.value = ''; createDesc.value = '';
+        });
+
+        // helper Firestore: cria documento em 'itens' (tenta addDoc, senão setDoc)
+        async function createItemDoc(payload) {
+            try {
+                if (typeof window.addDoc === 'function') {
+                    const col = window.collection(window.firestoredb, 'itens');
+                    const res = await window.addDoc(col, payload);
+                    // se addDoc retorna ref com id
+                    return { id: res.id || (res && res._key && res._key.path && res._key.path.segments && res._key.path.segments.slice(-1)[0]) || null };
+                } else if (typeof window.setDoc === 'function') {
+                    const id = String(Date.now()) + '_' + Math.random().toString(36).slice(2, 8);
+                    const ref = window.doc(window.firestoredb, 'itens', id);
+                    await window.setDoc(ref, payload);
+                    return { id };
+                } else {
+                    // fallback: tentativa de usar window.doc + window.updateDoc
+                    const id = String(Date.now()) + '_' + Math.random().toString(36).slice(2, 8);
+                    const ref = window.doc(window.firestoredb, 'itens', id);
+                    if (typeof window.updateDoc === 'function') {
+                        await window.updateDoc(ref, payload); // pode falhar se doc não existir
+                    }
+                    return { id };
+                }
+            } catch (err) {
+                console.error('Erro ao criar doc de item:', err);
+                throw err;
+            }
+        }
+
+        // ao confirmar criação: cria doc com estrutura pedida e adiciona uid no personagem
+        createConfirm?.addEventListener('click', async () => {
+            const nome = (createNome.value || '').trim();
+            const descricao = (createDesc.value || '').trim();
+            if (!nome) { alert('Preencha o nome'); return; }
+
+            const payload = {
+                categoria: "Comum",
+                critico: "Nenhum",
+                dano: "Nenhum",
+                descricao: descricao || "",
+                efeito: "Nenhum",
+                habilidade: "Nenhum",
+                nome: nome,
+                peso: "Nenhum",
+                requisito: "Nenhum",
+                tipo_dano: "Nenhum",
+                tipo_item: "Nenhum"
+            };
+
+            try {
+                createConfirm.disabled = true;
+                const result = await createItemDoc(payload);
+                const newId = result.id;
+                if (!newId) throw new Error('ID não retornado');
+
+                // agora adiciona { uid: newId } no array personagens[].itens do usuário
+                const user = window.firebaseauth.currentUser;
+                if (!user) throw new Error('Usuário não autenticado');
+                const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+                const snap = await window.getDoc(userRef);
+                if (!snap.exists()) throw new Error('Documento de usuário não encontrado');
+
+                const data = snap.data();
+                const personagens = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+                const idx = personagens.findIndex(p => p && p.uid === charUid);
+                if (idx < 0) throw new Error('Personagem não encontrado');
+
+                personagens[idx].itens = Array.isArray(personagens[idx].itens) ? personagens[idx].itens.slice() : [];
+                const mapObj = { uid: String(newId) };
+                personagens[idx].itens.push(mapObj);
+
+                await window.updateDoc(userRef, { personagens });
+
+                // Atualiza UI local (optimistic)
+                if (typeof refreshSlotsFromCharData === 'function') await refreshSlotsFromCharData();
+
+                // limpa form e fecha/create volta
+                createNome.value = ''; createDesc.value = '';
+                alert('Item criado e adicionado ao personagem!');
+                hideModal();
+
+            } catch (err) {
+                console.error('Erro criando item e adicionando ao personagem:', err);
+                alert('Erro ao criar item. Veja console.');
+            } finally {
+                createConfirm.disabled = false;
+            }
+        });
+
+        // handler categoria -> lista itens filtrados por tipo_item (fetch all + filter cliente)
+        catBtns.forEach(cb => cb.addEventListener('click', async (e) => {
+            const types = JSON.parse(cb.dataset.types || '[]'); // ex: ["Arma","Equipamento"]
+            itemsListEl.innerHTML = '<div style="padding:12px;color:#ddd">Carregando itens...</div>';
+            selectedItem = null;
+
+            try {
+                const colRef = window.collection(window.firestoredb, 'itens');
+                const snap = await window.getDocs(colRef);
+                const docs = [];
+                snap.forEach(d => docs.push({ id: d.id, data: d.data() }));
+
+                // filtra: tipo_item deve ser um dos types (ou se tipo_item undefined tenta categoria)
+                const filtered = docs.filter(d => {
+                    const tipo = (d.data && (d.data.tipo_item || d.data.tipo || d.data.categoria)) ? String(d.data.tipo_item || d.data.tipo || d.data.categoria) : '';
+                    if (!tipo) return false;
+                    if (tipo === 'Nenhum') return false;
+                    // normalizar básico case-insensitive
+                    const tnorm = tipo.trim().toLowerCase();
+                    return types.some(tt => String(tt).trim().toLowerCase() === tnorm);
+                });
+
+                if (!filtered.length) {
+                    itemsListEl.innerHTML = '<div style="padding:12px;color:#ddd">Nenhum item encontrado nesta categoria.</div>';
+                    return;
+                }
+
+                // render
+                itemsListEl.innerHTML = '';
+                filtered.forEach(d => {
+                    const node = document.createElement('div');
+                    node.className = 'list-item';
+                    node.tabIndex = 0;
+                    node.dataset.uid = d.id;
+                    node.innerHTML = `<div class="li-left"><strong>${d.data.nome || '(Sem nome)'}</strong><div style="font-size:.9rem;opacity:.9">${(d.data.descricao || '')}</div></div>
+                          <div class="li-right"><button class="select-item-btn alert-btn">Selecionar</button></div>`;
+                    // clique na linha seleciona
+                    node.addEventListener('click', (ev) => {
+                        itemsListEl.querySelectorAll('.list-item').forEach(x => x.classList.remove('selected'));
+                        node.classList.add('selected');
+                        selectedItem = { id: d.id, data: d.data };
+                    });
+                    // botão selecionar: imediatamente equipa
+                    node.querySelector('.select-item-btn').addEventListener('click', async (ev) => {
+                        ev.stopPropagation();
+                        selectedItem = { id: d.id, data: d.data };
+                        await equipSelectedItem(); // tentar equipar
+                    });
+
+                    itemsListEl.appendChild(node);
+                });
+
+                // adiciona botão final "Confirmar seleção" se quiser selecionar + confirmar (opcional)
+                const footer = document.createElement('div');
+                footer.style.padding = '10px;'; footer.style.textAlign = 'center';
+                const confirm = document.createElement('button');
+                confirm.className = 'alert-btn large';
+                confirm.textContent = 'Confirmar seleção';
+                confirm.addEventListener('click', async () => {
+                    if (!selectedItem) { alert('Selecione um item antes.'); return; }
+                    await equipSelectedItem();
+                });
+                footer.appendChild(confirm);
+                itemsListEl.appendChild(footer);
+
+            } catch (err) {
+                console.error('Erro listando itens:', err);
+                itemsListEl.innerHTML = '<div style="padding:12px;color:#faa">Erro ao carregar itens.</div>';
+            }
+        }));
+
+        // função que adiciona o uid do item no personagem (usuarios.personagens[].itens)
+        async function equipSelectedItem() {
+            if (!selectedItem || !selectedItem.id) return alert('Nenhum item selecionado.');
+            try {
+                const user = window.firebaseauth.currentUser;
+                if (!user) return alert('Usuário não autenticado');
+
+                const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+                const snap = await window.getDoc(userRef);
+                if (!snap.exists()) return alert('Documento de usuário não encontrado');
+
+                const data = snap.data();
+                const personagens = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+                const idx = personagens.findIndex(p => p && p.uid === charUid);
+                if (idx < 0) return alert('Personagem não encontrado');
+
+                personagens[idx].itens = Array.isArray(personagens[idx].itens) ? personagens[idx].itens.slice() : [];
+                // push new map { uid: selectedItem.id }
+                personagens[idx].itens.push({ uid: String(selectedItem.id) });
+
+                // recalcula peso_atual opcionalmente (sua rotina já faz isso se existia)
+                await window.updateDoc(userRef, { personagens });
+
+                if (typeof refreshSlotsFromCharData === 'function') await refreshSlotsFromCharData();
+
+                alert('Item adicionado!');
+                hideModal();
+            } catch (err) {
+                console.error('Erro ao equipar item:', err);
+                alert('Erro ao adicionar item. Veja console.');
+            }
+        }
+
+        /* ---------------------------
+           Detectar clique em inv-slot vazio e abrir modal
+           --------------------------- */
+        // delegação: o grid de inventário (vejo que é #inventory-grid ou .inventory-grid no seu HTML)
+        const invGrid = document.querySelector('.inventory-grid') || document.getElementById('inventory-grid') || document.querySelector('#inventory-wrap .inv-grid') || document.querySelector('.inv-grid') || document.querySelector('#inventory-wrap .inv-slot')?.parentElement;
+        // fallback: pegar qualquer .inv-slot e adicionar listener
+        const allSlots = document.querySelectorAll('.inv-slot');
+        allSlots.forEach(s => {
+            s.addEventListener('click', (ev) => {
+                // se já tem um nome dentro (.inv-name) consideramos ocupado
+                const nameEl = s.querySelector('.inv-name');
+                const bodyTxt = nameEl ? (nameEl.textContent || '').trim() : '';
+                const isEmpty = !nameEl || !bodyTxt || bodyTxt.toLowerCase() === 'vazio' || bodyTxt === '(Sem nome)';
+                if (isEmpty) {
+                    // abrir modal para este slot
+                    activeSlotIndex = s.dataset.slot ?? null;
+                    showModal();
+                }
+                // se não vazio, o código já existente mostra detalhes — não interferimos
+            });
+        });
+
+        // também expor função para abrir modal manualmente se quiser
+        window.openItemsModalForSlot = function (slotIndex) { activeSlotIndex = slotIndex; showModal(); };
+
+    })();
+
 
     /* ---------- +/- buttons (PV/MN/STA) ---------- */
     function wirePlusMinus(minusId, plusId, getCur, setCur, total) {

@@ -109,6 +109,70 @@
     transition: transform 300ms cubic-bezier(0.4,0,0.2,1), opacity 220ms;
   }
 }
+/* ========= GLOBAL SCROLLBAR / OVERFLOW STYLE ========= */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(90, 22, 22, 0.6) rgba(0, 0, 0, 0.25);
+}
+
+/* Chrome / Edge / Safari */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(90, 22, 22, 0.6);
+  border-radius: 10px;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 40, 40, 0.75);
+}
+
+/* === Remover "seleções azuis" / tap highlight apenas no mobile === */
+@media (max-width: 768px) {
+  /* aplicamos às principais coisas interativas — links, botões e seus ícones */
+  a,
+  button,
+  input[type="button"],
+  input[type="submit"],
+  .mobile-nav-btn,
+  .mobile-nav-buttons,
+  .mobile-signout,
+  .slot,
+  .slot * {
+    -webkit-tap-highlight-color: transparent; /* Safari / iOS */
+    tap-highlight-color: transparent;         /* Chrome Android (nova sintaxe) */
+    -webkit-touch-callout: none;              /* evita menu de callout no iOS (segurar) */
+    -webkit-user-select: none;                /* evita seleção acidental em toques */
+    user-select: none;
+    outline: none;                            /* remove outline de foco em toque (mobile) */
+    box-shadow: none;
+  }
+
+  /* evita a "mancha" de seleção de texto quando algo é selecionado */
+  ::selection {
+    background: transparent;
+    color: inherit;
+  }
+
+  /* remove qualquer destaque por :active que alguns navegadores aplicam */
+  a:active,
+  button:active,
+  .mobile-nav-btn:active {
+    background-image: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+
 /* ========= ALERT MODAL GLOBAL ========= */
 .alert-backdrop {
   position: fixed;
@@ -193,68 +257,6 @@
   }
 }
 
-/* ========= GLOBAL SCROLLBAR / OVERFLOW STYLE ========= */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(90, 22, 22, 0.6) rgba(0, 0, 0, 0.25);
-}
-
-/* Chrome / Edge / Safari */
-*::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-*::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 10px;
-}
-
-*::-webkit-scrollbar-thumb {
-  background: rgba(90, 22, 22, 0.6);
-  border-radius: 10px;
-  border: 2px solid rgba(0, 0, 0, 0.3);
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 40, 40, 0.75);
-}
-
-/* === Remover "seleções azuis" / tap highlight apenas no mobile === */
-@media (max-width: 768px) {
-  /* aplicamos às principais coisas interativas — links, botões e seus ícones */
-  a,
-  button,
-  input[type="button"],
-  input[type="submit"],
-  .mobile-nav-btn,
-  .mobile-nav-buttons,
-  .mobile-signout,
-  .slot,
-  .slot * {
-    -webkit-tap-highlight-color: transparent; /* Safari / iOS */
-    tap-highlight-color: transparent;         /* Chrome Android (nova sintaxe) */
-    -webkit-touch-callout: none;              /* evita menu de callout no iOS (segurar) */
-    -webkit-user-select: none;                /* evita seleção acidental em toques */
-    user-select: none;
-    outline: none;                            /* remove outline de foco em toque (mobile) */
-    box-shadow: none;
-  }
-
-  /* evita a "mancha" de seleção de texto quando algo é selecionado */
-  ::selection {
-    background: transparent;
-    color: inherit;
-  }
-
-  /* remove qualquer destaque por :active que alguns navegadores aplicam */
-  a:active,
-  button:active,
-  .mobile-nav-btn:active {
-    background-image: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-}
 
 /* ===========================
    Modal entry/exit animations

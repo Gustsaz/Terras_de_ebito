@@ -2442,3 +2442,51 @@ modificada apenas pelos equipamentos.`
 
   })();
 })();
+
+// -----------------------------
+// Modal backdrop + Esc close
+// -----------------------------
+document.addEventListener('DOMContentLoaded', () => {
+  const allModals = Array.from(document.querySelectorAll('.modal'));
+
+  function closeModal(modal) {
+    // mantém compatibilidade com o padrão usado no seu código
+    modal.classList.add('hidden');
+    try { modal.style.display = 'none'; } catch (e) { /*silent*/ }
+  }
+
+  allModals.forEach(modal => {
+    // se o modal tiver .modal-content, evita que clique dentro feche
+    const content = modal.querySelector('.modal-content');
+    if (content) {
+      content.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+      });
+    }
+
+    // clique no backdrop (quando target === modal) fecha
+    modal.addEventListener('click', (ev) => {
+      if (ev.target === modal) {
+        closeModal(modal);
+      }
+    });
+
+    // fecha ao clicar em qualquer botão .close-btn dentro do modal
+    const closeBtn = modal.querySelector('.close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        closeModal(modal);
+      });
+    }
+  });
+
+  // Esc fecha qualquer modal aberto
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' || ev.key === 'Esc') {
+      allModals.forEach(m => {
+        if (!m.classList.contains('hidden')) closeModal(m);
+      });
+    }
+  });
+});
