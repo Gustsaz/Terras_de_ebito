@@ -1979,3 +1979,29 @@ body.character-sheet .title {
 .item-detail .item-detail-content img.detail-icon {
     max-height: 160px;
 }
+
+/* imagem de fundo opaca dentro do inv-slot, NÃO altera tamanho */
+.inv-slot .inv-bg-img {
+  position: absolute;
+  z-index: 1; /* atrás do nome */
+  width: 70%; /* ajusta o tamanho da imagem dentro do slot; não altera o layout */
+  max-width: 70%;
+  height: auto;
+  opacity: 0.40; /* bastante opaca, conforme pediu */
+  object-fit: contain;
+  pointer-events: none; /* não interfere em cliques */
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -45%); /* centraliza horizontalmente, um pouco acima do centro vertical */
+}
+
+/* garante que o nome fique acima da imagem */
+.inv-slot .inv-name {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 6px 8px;
+  color: #efe6e2; /* mantém contraste (ajusta se quiser) */
+  word-break: break-word;
+  max-width: 92%;
+}

@@ -31,7 +31,7 @@
             <div class="card-tabs" role="tablist" aria-label="Abas da ficha">
                 <button class="card-tab active" data-tab="general" role="tab" aria-selected="true">Geral</button>
                 <button class="card-tab" data-tab="description" role="tab" aria-selected="false">Descrição</button>
-                <button class="card-tab" data-tab="battle" role="tab" aria-selected="false">Batalha</button>
+                <button class="card-tab" data-tab="battle" role="tab" aria-selected="false">Equipáveis</button>
             </div>
 
             <!-- corpo do cartão (conteúdo trocável) -->
@@ -209,7 +209,7 @@
 
                 <!-- ======= Painel BATALHA (com slots e modal) ======= -->
                 <div class="tab-content tab-battle" data-tab="battle" style="display:none;">
-                    <h2>Batalha</h2>
+                    <h2>Equipáveis</h2>
 
 
                     <div class="battle-equip">
@@ -267,12 +267,18 @@
                                     </div>
                                     <div class="item-detail-content" style="display:none;">
                                         <h4 id="detail-name"></h4>
+
+                                        <!-- IMAGEM DO ITEM (adicionada) -->
+                                        <img id="detail-icon" class="detail-icon" src="./imgs/placeholder.png"
+                                            alt="Ícone do item" style="display:none;" />
+
                                         <div id="detail-fields"></div>
                                         <div class="item-detail-actions">
                                             <button id="confirm-equip" class="btn-confirm">Confirmar</button>
                                             <button id="cancel-equip" class="btn-cancel">Cancelar</button>
                                         </div>
                                     </div>
+
                                 </section>
                             </div>
                         </div>
