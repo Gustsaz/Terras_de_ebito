@@ -125,6 +125,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+
     // Extract data from charData
     const attributes = charData.atributos || {};
     Object.keys(attributes).forEach(k => attributes[k] = Number(attributes[k] || 0));
@@ -269,6 +270,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!savedRace) el('char-race').textContent = '—';
         else el('char-race').textContent = (savedRace === 'Feéricos' && savedSubrace) ? `Feérico (${savedSubrace})` : savedRace;
     }
+
+    try { updatePontosClasse(); } catch (e) { console.warn('updatePontosClasse init erro:', e); }
+
 
     // imagem do personagem (prioriza img[] personalizado; fallback para imagem da classe)
     if (el('char-img')) {
@@ -1091,6 +1095,269 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    /* =========================
+   Condições: UI + Modal + Firestore
+   Cole após saveCharacterField(...) dentro do mesmo escopo (DOMContentLoaded).
+   ========================= */
+
+    const condContainerEl = () => document.getElementById('char-conditions');
+    const condOpenBtn = () => document.getElementById('open-cond-modal');
+
+    // helper: busca doc de condicao por uid
+    async function fetchConditionDoc(uid) {
+        try {
+            const ref = window.doc(window.firestoredb, 'condicoes', uid);
+            const snap = await window.getDoc(ref);
+            if (!snap.exists()) return null;
+            return { uid: snap.id, ...(snap.data() || {}) };
+        } catch (e) {
+            console.warn('fetchConditionDoc erro', e);
+            return null;
+        }
+    }
+
+    // renderiza as condições do personagem (pills)
+    async function renderConditionPills() {
+        try {
+            const cont = condContainerEl();
+            if (!cont) return;
+            cont.innerHTML = '';
+
+            const condsArray = Array.isArray(charData.condicoes) ? charData.condicoes : [];
+            if (!condsArray.length) {
+                // adiciona um pequeno placeholder invisível para manter o botão à direita
+                cont.innerHTML = '';
+                return;
+            }
+
+            // para cada condição no personagem (obj { uid: '...' })
+            for (const c of condsArray) {
+                const uid = (c && c.uid) ? String(c.uid) : null;
+                if (!uid) continue;
+                const condDoc = await fetchConditionDoc(uid);
+                const name = condDoc?.nome ?? ('Condição');
+                const color = condDoc?.cor ?? '#ddd';
+
+                const pill = document.createElement('div');
+                pill.className = 'cond-pill';
+                pill.dataset.uid = uid;
+                pill.style.background = color;
+                pill.title = name;
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'cond-name';
+                nameSpan.textContent = name;
+
+                pill.appendChild(nameSpan);
+                // clique abre modal com detalhes e botão para remover
+                pill.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showConditionDetailModal({ uid, ...condDoc }, true);
+                });
+
+                cont.appendChild(pill);
+            }
+        } catch (err) {
+            console.warn('renderConditionPills erro', err);
+        }
+    }
+
+    // abre modal com lista de todas condições e opção de adicionar
+    async function openConditionsSelectionModal() {
+        // evita abrir múltiplos
+        if (document.getElementById('cond-modal-overlay')) return;
+
+        // pega todas as condicoes do Firestore
+        let all = [];
+        try {
+            const qSnap = await window.getDocs(window.collection(window.firestoredb, 'condicoes'));
+            all = qSnap.docs.map(d => ({ uid: d.id, ...(d.data() || {}) }));
+        } catch (e) {
+            console.error('Erro ao carregar condicoes:', e);
+            alert('Falha ao carregar condições.');
+            return;
+        }
+
+        // monta overlay/modal
+        const overlay = document.createElement('div');
+        overlay.id = 'cond-modal-overlay';
+        overlay.className = 'cond-modal-overlay';
+
+        const box = document.createElement('div');
+        box.className = 'cond-modal';
+        box.setAttribute('role', 'dialog');
+        box.innerHTML = `
+    <div class="cond-modal-header"><strong>Adicionar Condição</strong></div>
+    <div class="cond-list" id="cond-list"></div>
+    <div class="cond-actions"></div>
+  `;
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        // click fora fecha
+        overlay.addEventListener('click', (ev) => {
+            if (ev.target === overlay) overlay.remove();
+        });
+
+        const listEl = box.querySelector('#cond-list');
+
+        // ids já no personagem
+        const existing = new Set((Array.isArray(charData.condicoes) ? charData.condicoes.map(x => x.uid) : []).filter(Boolean));
+
+        all.forEach(cond => {
+            const card = document.createElement('div');
+            card.className = 'cond-card';
+            card.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02))';
+            card.innerHTML = `
+      <div style="width:12px;height:12px;border-radius:4px;background:${cond.cor || '#999'};flex-shrink:0;margin-top:6px;"></div>
+      <div style="flex:1;">
+        <div class="cond-name-strong">${cond.nome || 'Sem nome'}</div>
+        <div class="cond-desc">${(cond.descricao || cond.desc || '').slice(0, 220)}</div>
+      </div>
+    `;
+
+            const actionWrap = document.createElement('div');
+            actionWrap.style.display = 'flex';
+            actionWrap.style.flexDirection = 'column';
+            actionWrap.style.gap = '6px';
+            actionWrap.style.alignItems = 'flex-end';
+
+            // botão ver (abre detalhes)
+            const btnView = document.createElement('button');
+            btnView.className = 'alert-btn';
+            btnView.textContent = 'Ver';
+            btnView.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showConditionDetailModal(cond, false);
+            });
+            actionWrap.appendChild(btnView);
+
+            if (!existing.has(cond.uid)) {
+                const btnAdd = document.createElement('button');
+                btnAdd.className = 'alert-btn';
+                btnAdd.textContent = 'Adicionar';
+                btnAdd.addEventListener('click', async (ev) => {
+                    ev.stopPropagation();
+                    await addConditionToCharacter(cond.uid);
+                    overlay.remove();
+                });
+                actionWrap.appendChild(btnAdd);
+            } else {
+                const badge = document.createElement('div');
+                badge.textContent = 'Já adicionada';
+                badge.style.fontSize = '0.78rem';
+                badge.style.opacity = '0.9';
+                actionWrap.appendChild(badge);
+            }
+
+            card.appendChild(actionWrap);
+            listEl.appendChild(card);
+        });
+    }
+
+    // mostra modal de detalhe (cond) — if removable true mostra botão remover
+    function showConditionDetailModal(condObj = {}, allowRemove = false) {
+        // evita duplicados
+        if (document.getElementById('cond-detail-overlay')) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'cond-detail-overlay';
+        overlay.className = 'cond-modal-overlay';
+        const box = document.createElement('div');
+        box.className = 'cond-modal';
+        box.innerHTML = `
+    <div class="cond-modal-header">${condObj.nome || 'Condição'}</div>
+    <div class="cond-detail">
+      <div><strong>Descrição:</strong></div>
+      <div style="margin-top:6px;">${condObj.descricao || condObj.desc || '—'}</div>
+      <hr style="opacity:0.06;margin:10px 0;">
+      <div><strong>Efeito:</strong></div>
+      <div style="margin-top:6px;">${condObj.efeito ?? condObj.efeito_texto ?? '—'}</div>
+    </div>
+    <div class="cond-actions"></div>
+  `;
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (ev) => {
+            if (ev.target === overlay) overlay.remove();
+        });
+
+        const actions = box.querySelector('.cond-actions');
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'alert-btn';
+        closeBtn.textContent = 'Fechar';
+        closeBtn.addEventListener('click', () => overlay.remove());
+        actions.appendChild(closeBtn);
+
+        if (allowRemove) {
+            const remBtn = document.createElement('button');
+            remBtn.className = 'alert-btn';
+            remBtn.textContent = 'Retirar condição';
+            remBtn.addEventListener('click', async () => {
+                try {
+                    await removeConditionFromCharacter(condObj.uid);
+                } catch (err) {
+                    console.error('Falha ao remover condição', err);
+                    alert('Erro ao remover condição.');
+                } finally {
+                    overlay.remove();
+                }
+            });
+            actions.appendChild(remBtn);
+        }
+    }
+
+    // adiciona condição ao personagem (salva no Firestore usando saveCharacterField)
+    async function addConditionToCharacter(condUid) {
+        try {
+            const current = Array.isArray(charData.condicoes) ? [...charData.condicoes] : [];
+            // previne duplicatas
+            if (current.some(c => c && c.uid === condUid)) {
+                return;
+            }
+            current.push({ uid: condUid });
+            await saveCharacterField('condicoes', current);
+            // atualiza charData local e UI
+            charData.condicoes = current;
+            await renderConditionPills();
+        } catch (e) {
+            console.error('addConditionToCharacter erro', e);
+            alert('Falha ao adicionar condição.');
+        }
+    }
+
+    // remove condição do personagem
+    async function removeConditionFromCharacter(condUid) {
+        try {
+            const current = Array.isArray(charData.condicoes) ? [...charData.condicoes] : [];
+            const next = current.filter(c => !(c && c.uid === condUid));
+            await saveCharacterField('condicoes', next);
+            charData.condicoes = next;
+            await renderConditionPills();
+        } catch (e) {
+            console.error('removeConditionFromCharacter erro', e);
+            alert('Falha ao remover condição.');
+        }
+    }
+
+    /* hookup - conecta o botão e inicializa a renderização */
+    try {
+        const btn = condOpenBtn();
+        if (btn) {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openConditionsSelectionModal();
+            });
+        }
+        // render inicial das condições (sempre que charData estiver disponível)
+        (async () => { await renderConditionPills(); })();
+    } catch (err) {
+        console.warn('hookup condicoes erro', err);
+    }
+
+
     // ---------- Funções de Level Up e modal de proficiências ----------
 
     /**
@@ -1318,6 +1585,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const lvlEl = document.getElementById('exp-level');
                 if (lvlEl) lvlEl.textContent = String(charData.LVL ?? expLevel);
+                try { updatePontosClasse(); } catch (e) { console.warn('updatePontosClasse(post-level) erro:', e); }
 
                 if (document.getElementById('stat-pv')) document.getElementById('stat-pv').textContent = String(totPV);
                 if (document.getElementById('stat-mn')) document.getElementById('stat-mn').textContent = String(totMN);
@@ -2197,6 +2465,69 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    /* ---------- Persistir pontos_classe com garantia (colar logo APÓS saveBarsToFirestore) ---------- */
+    async function persistPontosClasse(pontos) {
+        try {
+            // validações básicas
+            if (!window.firebaseauth || !window.firebaseauth.currentUser) {
+                throw new Error('Usuário não autenticado (firebaseauth.currentUser ausente).');
+            }
+            if (!window.firestoredb || typeof window.doc !== 'function') {
+                throw new Error('Firestore não inicializado corretamente (window.firestoredb ou window.doc ausente).');
+            }
+
+            const userUid = window.firebaseauth.currentUser.uid;
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', userUid);
+            const userDocSnap = await window.getDoc(userDocRef);
+            if (!userDocSnap.exists()) {
+                throw new Error('Documento do usuário não encontrado no Firestore.');
+            }
+
+            const data = userDocSnap.data() || {};
+            const characters = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+
+            // tenta obter charUid do escopo (variável definida mais acima no arquivo) e fallback para URL
+            const resolvedCharUid = (typeof charUid !== 'undefined' && charUid) ? charUid
+                : (new URLSearchParams(window.location.search)).get('uid');
+
+            if (!resolvedCharUid) {
+                throw new Error('charUid não encontrado (impossível localizar personagem no array).');
+            }
+
+            const idx = characters.findIndex(c => c && String(c.uid) === String(resolvedCharUid));
+            if (idx === -1) {
+                throw new Error('Personagem não encontrado no array personagens do documento do usuário.');
+            }
+
+            // escreve o campo pontos_classe (preservando o restante do personagem)
+            characters[idx] = Object.assign({}, characters[idx], { pontos_classe: Number(pontos) });
+
+            // persiste no Firestore (substitui o array inteiro de personagens como você já faz em outros lugares)
+            await window.updateDoc(userDocRef, { personagens: characters });
+
+            // atualiza o objeto local charData se for o mesmo personagem
+            try {
+                if (typeof charData !== 'undefined' && charData && String(charData.uid) === String(resolvedCharUid)) {
+                    charData.pontos_classe = Number(pontos);
+                }
+            } catch (e) { /* não crítico */ }
+
+            // atualiza UI imediata (caso ainda não tenha sido atualizada)
+            try {
+                const el = document.getElementById('char-pontos-classe-value');
+                if (el) el.textContent = String(Number(pontos));
+            } catch (e) { /* não crítico */ }
+
+            console.log('pontos_classe persistido com sucesso:', pontos);
+            return true;
+        } catch (err) {
+            console.error('persistPontosClasse erro:', err);
+            // rethrow para que chamadores possam lidar, se quiserem
+            throw err;
+        }
+    }
+
+
     /* ---------- EXP: limite por nível ---------- */
     function expLimitForLevel(level) {
         const base = 100;
@@ -2229,6 +2560,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const lvlEl = document.getElementById('exp-level');
         if (lvlEl) lvlEl.textContent = String(expLevel);
+        // atualiza pontos de classe sempre que as barras / nível mudarem
+        try { updatePontosClasse(); } catch (e) { console.warn('updatePontosClasse(updateAllBars) erro:', e); }
+
 
         if (document.getElementById('stat-pv')) document.getElementById('stat-pv').textContent = totPV;
         if (document.getElementById('stat-mn')) document.getElementById('stat-mn').textContent = totMN;
@@ -2238,6 +2572,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveBarsToFirestore();
     }
     updateAllBars();
+
+    // ---------- Pontos de Classe (expo: 1 ponto a cada 3 níveis) ----------
+    function updatePontosClasse() {
+        try {
+            // pega o nível (prioriza charData se disponível)
+            const lvl = Number((charData && Number(charData.LVL)) ?? (typeof expLevel !== 'undefined' ? Number(expLevel) : 1));
+            const pontos = Math.floor((Number(lvl) || 0) / 3);
+
+            // atualiza UI
+            const elVal = document.getElementById('char-pontos-classe-value');
+            if (elVal) elVal.textContent = String(pontos);
+
+            // mantém o objeto local (charData) sincronizado e persiste se diferente
+            if (typeof charData !== 'undefined' && charData) {
+                const prev = Number(charData.pontos_classe ?? NaN);
+                if (Number.isNaN(prev) || prev !== pontos) {
+                    // atualiza localmente
+                    charData.pontos_classe = pontos;
+
+                    // tenta salvar usando sua função existente saveCharacterField, se disponível
+                    if (typeof saveCharacterField === 'function') {
+                        saveCharacterField('pontos_classe', pontos).catch(err => {
+                            console.warn('Falha ao salvar pontos_classe (não crítico):', err);
+                        });
+                    } // substitua o bloco else { … } por isto:
+                    else {
+                        // chama a função robusta que criámos para persistir pontos_classe
+                        persistPontosClasse(pontos).catch(err => {
+                            console.warn('Falha ao persistir pontos_classe via persistPontosClasse (não crítico):', err);
+                        });
+                    }
+
+                }
+            }
+        } catch (e) {
+            console.warn('updatePontosClasse erro:', e);
+        }
+    }
+
 
     /* <<< ADICIONADO: slots de batalha, modal e integração com Firestore >>> */
     (function setupBattleSlotsAndModal() {
@@ -4223,6 +4596,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         // atualiza nível/exp visíveis
                         const lvlEl = document.getElementById('exp-level');
                         if (lvlEl) lvlEl.textContent = String(charData.LVL ?? expLevel);
+                        try { updatePontosClasse(); } catch (e) { console.warn('updatePontosClasse(post-level) erro:', e); }
                         const expLimit = expLimitForLevel(Number(charData.LVL ?? expLevel));
                         applyBar('exp-bar-fill', 'exp-bar-text', currentEXP, expLimit, 'exp');
 
@@ -4324,6 +4698,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         // atualiza nível/exp visíveis
                         const lvlEl = document.getElementById('exp-level');
                         if (lvlEl) lvlEl.textContent = String(charData.LVL ?? expLevel);
+                        try { updatePontosClasse(); } catch (e) { console.warn('updatePontosClasse(post-level) erro:', e); }
                         const expLimit = expLimitForLevel(Number(charData.LVL ?? expLevel));
                         applyBar('exp-bar-fill', 'exp-bar-text', currentEXP, expLimit, 'exp');
 

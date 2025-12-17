@@ -125,6 +125,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+
     // Extract data from charData
     const attributes = charData.atributos || {};
     Object.keys(attributes).forEach(k => attributes[k] = Number(attributes[k] || 0));
@@ -269,6 +270,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!savedRace) el('char-race').textContent = '—';
         else el('char-race').textContent = (savedRace === 'Feéricos' && savedSubrace) ? `Feérico (${savedSubrace})` : savedRace;
     }
+
+    try { updatePontosClasse(); } catch (e) { console.warn('updatePontosClasse init erro:', e); }
+
 
     // imagem do personagem (prioriza img[] personalizado; fallback para imagem da classe)
     if (el('char-img')) {
@@ -1581,6 +1585,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const lvlEl = document.getElementById('exp-level');
                 if (lvlEl) lvlEl.textContent = String(charData.LVL ?? expLevel);
+                try { updatePontosClasse(); } catch (e) { console.warn('updatePontosClasse(post-level) erro:', e); }
 
                 if (document.getElementById('stat-pv')) document.getElementById('stat-pv').textContent = String(totPV);
                 if (document.getElementById('stat-mn')) document.getElementById('stat-mn').textContent = String(totMN);
@@ -2460,6 +2465,69 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    /* ---------- Persistir pontos_classe com garantia (colar logo APÓS saveBarsToFirestore) ---------- */
+    async function persistPontosClasse(pontos) {
+        try {
+            // validações básicas
+            if (!window.firebaseauth || !window.firebaseauth.currentUser) {
+                throw new Error('Usuário não autenticado (firebaseauth.currentUser ausente).');
+            }
+            if (!window.firestoredb || typeof window.doc !== 'function') {
+                throw new Error('Firestore não inicializado corretamente (window.firestoredb ou window.doc ausente).');
+            }
+
+            const userUid = window.firebaseauth.currentUser.uid;
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', userUid);
+            const userDocSnap = await window.getDoc(userDocRef);
+            if (!userDocSnap.exists()) {
+                throw new Error('Documento do usuário não encontrado no Firestore.');
+            }
+
+            const data = userDocSnap.data() || {};
+            const characters = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+
+            // tenta obter charUid do escopo (variável definida mais acima no arquivo) e fallback para URL
+            const resolvedCharUid = (typeof charUid !== 'undefined' && charUid) ? charUid
+                : (new URLSearchParams(window.location.search)).get('uid');
+
+            if (!resolvedCharUid) {
+                throw new Error('charUid não encontrado (impossível localizar personagem no array).');
+            }
+
+            const idx = characters.findIndex(c => c && String(c.uid) === String(resolvedCharUid));
+            if (idx === -1) {
+                throw new Error('Personagem não encontrado no array personagens do documento do usuário.');
+            }
+
+            // escreve o campo pontos_classe (preservando o restante do personagem)
+            characters[idx] = Object.assign({}, characters[idx], { pontos_classe: Number(pontos) });
+
+            // persiste no Firestore (substitui o array inteiro de personagens como você já faz em outros lugares)
+            await window.updateDoc(userDocRef, { personagens: characters });
+
+            // atualiza o objeto local charData se for o mesmo personagem
+            try {
+                if (typeof charData !== 'undefined' && charData && String(charData.uid) === String(resolvedCharUid)) {
+                    charData.pontos_classe = Number(pontos);
+                }
+            } catch (e) { /* não crítico */ }
+
+            // atualiza UI imediata (caso ainda não tenha sido atualizada)
+            try {
+                const el = document.getElementById('char-pontos-classe-value');
+                if (el) el.textContent = String(Number(pontos));
+            } catch (e) { /* não crítico */ }
+
+            console.log('pontos_classe persistido com sucesso:', pontos);
+            return true;
+        } catch (err) {
+            console.error('persistPontosClasse erro:', err);
+            // rethrow para que chamadores possam lidar, se quiserem
+            throw err;
+        }
+    }
+
+
     /* ---------- EXP: limite por nível ---------- */
     function expLimitForLevel(level) {
         const base = 100;
@@ -2492,6 +2560,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const lvlEl = document.getElementById('exp-level');
         if (lvlEl) lvlEl.textContent = String(expLevel);
+        // atualiza pontos de classe sempre que as barras / nível mudarem
+        try { updatePontosClasse(); } catch (e) { console.warn('updatePontosClasse(updateAllBars) erro:', e); }
+
 
         if (document.getElementById('stat-pv')) document.getElementById('stat-pv').textContent = totPV;
         if (document.getElementById('stat-mn')) document.getElementById('stat-mn').textContent = totMN;
@@ -2501,6 +2572,71 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveBarsToFirestore();
     }
     updateAllBars();
+
+    // ---------- Pontos de Classe (expo: 1 ponto a cada 3 níveis) ----------
+    /* ---------- Pontos de Classe (1 ponto a cada 3 níveis) - versão segura ---------- */
+    function updatePontosClasse() {
+        try {
+            // obtém nível (preferência charData.LVL quando existir)
+            const lvl = Number((charData && Number(charData.LVL)) ?? (typeof expLevel !== 'undefined' ? Number(expLevel) : 1));
+            const pontos = Math.max(0, Math.floor((Number(lvl) || 0) / 3));
+
+            // Atualiza o DOM IMEDIATO SEM DEPENDER do Firestore
+            const elVal = document.getElementById('char-pontos-classe-value');
+            if (elVal) elVal.textContent = String(pontos);
+
+            // Mantém charData sincronizado localmente
+            if (typeof charData !== 'undefined' && charData) {
+                charData.pontos_classe = pontos;
+            }
+
+            // Função auxiliar para garantir persistência (usamos persistPontosClasse como garantia)
+            const safePersist = async (value) => {
+                // 1) tenta saveCharacterField se existir (mantemos compatibilidade)
+                if (typeof saveCharacterField === 'function') {
+                    try {
+                        await saveCharacterField('pontos_classe', value);
+                    } catch (err) {
+                        console.warn('saveCharacterField falhou para pontos_classe (não crítico):', err);
+                        // continuar para a garantia abaixo
+                    }
+                }
+
+                // 2) garante por persistPontosClasse — cria o campo se não existir e sobrescreve
+                if (typeof persistPontosClasse === 'function') {
+                    try {
+                        await persistPontosClasse(value);
+                    } catch (err) {
+                        console.error('persistPontosClasse falhou (tente verificar permissões/console):', err);
+                    }
+                } else {
+                    // fallback robusto se persistPontosClasse não existir (tenta update direto)
+                    try {
+                        if (window.firebaseauth?.currentUser && window.firestoredb && typeof window.doc === 'function') {
+                            const userDocRef = window.doc(window.firestoredb, 'usuarios', window.firebaseauth.currentUser.uid);
+                            const snap = await window.getDoc(userDocRef);
+                            if (snap && snap.exists()) {
+                                const data = snap.data() || {};
+                                const characters = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+                                const idx = characters.findIndex(c => c && String(c.uid) === String(charUid));
+                                if (idx >= 0) {
+                                    characters[idx] = Object.assign({}, characters[idx], { pontos_classe: Number(value) });
+                                    await window.updateDoc(userDocRef, { personagens: characters });
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Fallback update pontos_classe falhou:', e);
+                    }
+                }
+            };
+
+            // dispara persistência (não bloqueante)
+            safePersist(pontos).catch(e => console.warn('safePersist pontos_classe erro (não crítico):', e));
+        } catch (e) {
+            console.warn('updatePontosClasse erro:', e);
+        }
+    }
 
     /* <<< ADICIONADO: slots de batalha, modal e integração com Firestore >>> */
     (function setupBattleSlotsAndModal() {
@@ -4486,6 +4622,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         // atualiza nível/exp visíveis
                         const lvlEl = document.getElementById('exp-level');
                         if (lvlEl) lvlEl.textContent = String(charData.LVL ?? expLevel);
+                        try { updatePontosClasse(); } catch (e) { console.warn('updatePontosClasse(post-level) erro:', e); }
                         const expLimit = expLimitForLevel(Number(charData.LVL ?? expLevel));
                         applyBar('exp-bar-fill', 'exp-bar-text', currentEXP, expLimit, 'exp');
 
@@ -4587,6 +4724,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         // atualiza nível/exp visíveis
                         const lvlEl = document.getElementById('exp-level');
                         if (lvlEl) lvlEl.textContent = String(charData.LVL ?? expLevel);
+                        try { updatePontosClasse(); } catch (e) { console.warn('updatePontosClasse(post-level) erro:', e); }
                         const expLimit = expLimitForLevel(Number(charData.LVL ?? expLevel));
                         applyBar('exp-bar-fill', 'exp-bar-text', currentEXP, expLimit, 'exp');
 

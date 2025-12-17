@@ -2374,3 +2374,11 @@ body.character-sheet .title {
     line-height: 1.35;
     font-size: 0.95rem;
 }
+
+#char-pontos-classe {
+  margin-top: 6px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #efe6e2;
+  display: block;
+}

@@ -45,9 +45,34 @@
                         </div>
                         <div class="char-basic">
                             <div class="char-name">
-                                <h2>Nome: <span id="char-name">Herói Sem Nome</span></h2>
-                                <p>Classe: <span id="char-class">—</span></p>
+                                <h2 style="display:inline-block; margin:0;">
+                                    Nome: <span id="char-name">Herói Sem Nome</span>
+                                </h2>
+
+                                <!-- container para mostrar as condições (pills) e o botão de abrir modal -->
+                                <div class="char-conditions-wrapper"
+                                    style="display:inline-flex; align-items:center; gap:8px; margin-left:12px;">
+                                    <!-- as condições serão renderizadas aqui dinamicamente -->
+                                    <div id="char-conditions" class="char-conditions" aria-live="polite"></div>
+
+                                    <!-- botão sem borda com ícone de tontura (Font Awesome) -->
+                                    <button id="open-cond-modal" class="icon-cond-btn" title="Adicionar condição"
+                                        aria-label="Adicionar condição"
+                                        style="border:none; background:transparent; padding:6px; cursor:pointer; color:inherit;">
+                                        <i class="fas fa-dizzy" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+
+                                <p style="margin-top:6px;">Classe: <span id="char-class">—</span></p>
                                 <p class="subraca" id="char-race">—</p>
+
+                                <!-- PONTOS DE CLASSE (AGORA ABAIXO DO subraca) -->
+                                <div id="char-pontos-classe"
+                                    style="margin-top:6px; font-weight:700; font-size:0.95rem; color:#efe6e2;">
+                                    Pontos de classe: <span id="char-pontos-classe-value">0</span>
+                                </div>
+
+
                             </div>
 
                             <!-- barras PV / MN / STA -->
