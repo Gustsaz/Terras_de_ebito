@@ -1091,6 +1091,269 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    /* =========================
+   Condições: UI + Modal + Firestore
+   Cole após saveCharacterField(...) dentro do mesmo escopo (DOMContentLoaded).
+   ========================= */
+
+    const condContainerEl = () => document.getElementById('char-conditions');
+    const condOpenBtn = () => document.getElementById('open-cond-modal');
+
+    // helper: busca doc de condicao por uid
+    async function fetchConditionDoc(uid) {
+        try {
+            const ref = window.doc(window.firestoredb, 'condicoes', uid);
+            const snap = await window.getDoc(ref);
+            if (!snap.exists()) return null;
+            return { uid: snap.id, ...(snap.data() || {}) };
+        } catch (e) {
+            console.warn('fetchConditionDoc erro', e);
+            return null;
+        }
+    }
+
+    // renderiza as condições do personagem (pills)
+    async function renderConditionPills() {
+        try {
+            const cont = condContainerEl();
+            if (!cont) return;
+            cont.innerHTML = '';
+
+            const condsArray = Array.isArray(charData.condicoes) ? charData.condicoes : [];
+            if (!condsArray.length) {
+                // adiciona um pequeno placeholder invisível para manter o botão à direita
+                cont.innerHTML = '';
+                return;
+            }
+
+            // para cada condição no personagem (obj { uid: '...' })
+            for (const c of condsArray) {
+                const uid = (c && c.uid) ? String(c.uid) : null;
+                if (!uid) continue;
+                const condDoc = await fetchConditionDoc(uid);
+                const name = condDoc?.nome ?? ('Condição');
+                const color = condDoc?.cor ?? '#ddd';
+
+                const pill = document.createElement('div');
+                pill.className = 'cond-pill';
+                pill.dataset.uid = uid;
+                pill.style.background = color;
+                pill.title = name;
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'cond-name';
+                nameSpan.textContent = name;
+
+                pill.appendChild(nameSpan);
+                // clique abre modal com detalhes e botão para remover
+                pill.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showConditionDetailModal({ uid, ...condDoc }, true);
+                });
+
+                cont.appendChild(pill);
+            }
+        } catch (err) {
+            console.warn('renderConditionPills erro', err);
+        }
+    }
+
+    // abre modal com lista de todas condições e opção de adicionar
+    async function openConditionsSelectionModal() {
+        // evita abrir múltiplos
+        if (document.getElementById('cond-modal-overlay')) return;
+
+        // pega todas as condicoes do Firestore
+        let all = [];
+        try {
+            const qSnap = await window.getDocs(window.collection(window.firestoredb, 'condicoes'));
+            all = qSnap.docs.map(d => ({ uid: d.id, ...(d.data() || {}) }));
+        } catch (e) {
+            console.error('Erro ao carregar condicoes:', e);
+            alert('Falha ao carregar condições.');
+            return;
+        }
+
+        // monta overlay/modal
+        const overlay = document.createElement('div');
+        overlay.id = 'cond-modal-overlay';
+        overlay.className = 'cond-modal-overlay';
+
+        const box = document.createElement('div');
+        box.className = 'cond-modal';
+        box.setAttribute('role', 'dialog');
+        box.innerHTML = `
+    <div class="cond-modal-header"><strong>Adicionar Condição</strong></div>
+    <div class="cond-list" id="cond-list"></div>
+    <div class="cond-actions"></div>
+  `;
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        // click fora fecha
+        overlay.addEventListener('click', (ev) => {
+            if (ev.target === overlay) overlay.remove();
+        });
+
+        const listEl = box.querySelector('#cond-list');
+
+        // ids já no personagem
+        const existing = new Set((Array.isArray(charData.condicoes) ? charData.condicoes.map(x => x.uid) : []).filter(Boolean));
+
+        all.forEach(cond => {
+            const card = document.createElement('div');
+            card.className = 'cond-card';
+            card.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02))';
+            card.innerHTML = `
+      <div style="width:12px;height:12px;border-radius:4px;background:${cond.cor || '#999'};flex-shrink:0;margin-top:6px;"></div>
+      <div style="flex:1;">
+        <div class="cond-name-strong">${cond.nome || 'Sem nome'}</div>
+        <div class="cond-desc">${(cond.descricao || cond.desc || '').slice(0, 220)}</div>
+      </div>
+    `;
+
+            const actionWrap = document.createElement('div');
+            actionWrap.style.display = 'flex';
+            actionWrap.style.flexDirection = 'column';
+            actionWrap.style.gap = '6px';
+            actionWrap.style.alignItems = 'flex-end';
+
+            // botão ver (abre detalhes)
+            const btnView = document.createElement('button');
+            btnView.className = 'alert-btn';
+            btnView.textContent = 'Ver';
+            btnView.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showConditionDetailModal(cond, false);
+            });
+            actionWrap.appendChild(btnView);
+
+            if (!existing.has(cond.uid)) {
+                const btnAdd = document.createElement('button');
+                btnAdd.className = 'alert-btn';
+                btnAdd.textContent = 'Adicionar';
+                btnAdd.addEventListener('click', async (ev) => {
+                    ev.stopPropagation();
+                    await addConditionToCharacter(cond.uid);
+                    overlay.remove();
+                });
+                actionWrap.appendChild(btnAdd);
+            } else {
+                const badge = document.createElement('div');
+                badge.textContent = 'Já adicionada';
+                badge.style.fontSize = '0.78rem';
+                badge.style.opacity = '0.9';
+                actionWrap.appendChild(badge);
+            }
+
+            card.appendChild(actionWrap);
+            listEl.appendChild(card);
+        });
+    }
+
+    // mostra modal de detalhe (cond) — if removable true mostra botão remover
+    function showConditionDetailModal(condObj = {}, allowRemove = false) {
+        // evita duplicados
+        if (document.getElementById('cond-detail-overlay')) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'cond-detail-overlay';
+        overlay.className = 'cond-modal-overlay';
+        const box = document.createElement('div');
+        box.className = 'cond-modal';
+        box.innerHTML = `
+    <div class="cond-modal-header">${condObj.nome || 'Condição'}</div>
+    <div class="cond-detail">
+      <div><strong>Descrição:</strong></div>
+      <div style="margin-top:6px;">${condObj.descricao || condObj.desc || '—'}</div>
+      <hr style="opacity:0.06;margin:10px 0;">
+      <div><strong>Efeito:</strong></div>
+      <div style="margin-top:6px;">${condObj.efeito ?? condObj.efeito_texto ?? '—'}</div>
+    </div>
+    <div class="cond-actions"></div>
+  `;
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (ev) => {
+            if (ev.target === overlay) overlay.remove();
+        });
+
+        const actions = box.querySelector('.cond-actions');
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'alert-btn';
+        closeBtn.textContent = 'Fechar';
+        closeBtn.addEventListener('click', () => overlay.remove());
+        actions.appendChild(closeBtn);
+
+        if (allowRemove) {
+            const remBtn = document.createElement('button');
+            remBtn.className = 'alert-btn';
+            remBtn.textContent = 'Retirar condição';
+            remBtn.addEventListener('click', async () => {
+                try {
+                    await removeConditionFromCharacter(condObj.uid);
+                } catch (err) {
+                    console.error('Falha ao remover condição', err);
+                    alert('Erro ao remover condição.');
+                } finally {
+                    overlay.remove();
+                }
+            });
+            actions.appendChild(remBtn);
+        }
+    }
+
+    // adiciona condição ao personagem (salva no Firestore usando saveCharacterField)
+    async function addConditionToCharacter(condUid) {
+        try {
+            const current = Array.isArray(charData.condicoes) ? [...charData.condicoes] : [];
+            // previne duplicatas
+            if (current.some(c => c && c.uid === condUid)) {
+                return;
+            }
+            current.push({ uid: condUid });
+            await saveCharacterField('condicoes', current);
+            // atualiza charData local e UI
+            charData.condicoes = current;
+            await renderConditionPills();
+        } catch (e) {
+            console.error('addConditionToCharacter erro', e);
+            alert('Falha ao adicionar condição.');
+        }
+    }
+
+    // remove condição do personagem
+    async function removeConditionFromCharacter(condUid) {
+        try {
+            const current = Array.isArray(charData.condicoes) ? [...charData.condicoes] : [];
+            const next = current.filter(c => !(c && c.uid === condUid));
+            await saveCharacterField('condicoes', next);
+            charData.condicoes = next;
+            await renderConditionPills();
+        } catch (e) {
+            console.error('removeConditionFromCharacter erro', e);
+            alert('Falha ao remover condição.');
+        }
+    }
+
+    /* hookup - conecta o botão e inicializa a renderização */
+    try {
+        const btn = condOpenBtn();
+        if (btn) {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openConditionsSelectionModal();
+            });
+        }
+        // render inicial das condições (sempre que charData estiver disponível)
+        (async () => { await renderConditionPills(); })();
+    } catch (err) {
+        console.warn('hookup condicoes erro', err);
+    }
+
+
     // ---------- Funções de Level Up e modal de proficiências ----------
 
     /**
@@ -4968,3 +5231,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     })();
 
 })();
+
+

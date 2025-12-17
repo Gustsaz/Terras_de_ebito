@@ -2028,151 +2028,349 @@ body.character-sheet .title {
 
 /* backdrop do modal (usamos o próprio container .inventory-modal com pseudo-elemento) */
 .inventory-modal {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.28s ease;
-  -webkit-font-smoothing: subpixel-antialiased;
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.28s ease;
+    -webkit-font-smoothing: subpixel-antialiased;
 }
 
 /* overlay (fundo escuro + blur) */
 .inventory-modal::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.65);
-  backdrop-filter: blur(3px);
-  z-index: 10000;
-  opacity: 0;
-  transition: opacity 0.28s ease;
-  pointer-events: none;
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(3px);
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.28s ease;
+    pointer-events: none;
 }
 
 /* quando aberto: habilita interação e mostra */
 .inventory-modal.open {
-  opacity: 1;
-  pointer-events: auto;
+    opacity: 1;
+    pointer-events: auto;
 }
+
 .inventory-modal.open::before {
-  opacity: 1;
-  pointer-events: auto;
+    opacity: 1;
+    pointer-events: auto;
 }
 
 /* o painel interno (sua div.modal-content) — estilo alert-modal */
 .inventory-modal .modal-content {
-  width: 360px;
-  max-width: calc(100% - 32px);
-  background: linear-gradient(180deg, #1a1414, #2a1c1c);
-  border: 4px solid rgba(92, 34, 34, 0.95);
-  border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
-  color: #efe6e2;
-  padding: 10px 14px;
-  position: relative;
-  z-index: 10001; /* sempre acima do overlay */
-  transform-origin: center;
-  opacity: 0;
-  /* garante que ao adicionar .open executamos a animação */
+    width: 360px;
+    max-width: calc(100% - 32px);
+    background: linear-gradient(180deg, #1a1414, #2a1c1c);
+    border: 4px solid rgba(92, 34, 34, 0.95);
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
+    color: #efe6e2;
+    padding: 10px 14px;
+    position: relative;
+    z-index: 10001;
+    /* sempre acima do overlay */
+    transform-origin: center;
+    opacity: 0;
+    /* garante que ao adicionar .open executamos a animação */
 }
 
 /* header inside modal: título / close button (se usar .item-detail-title) */
 .inventory-modal .item-detail-title {
-  margin: 6px 0 8px 0;
-  font-weight: 900;
-  font-size: 1.05rem;
-  text-align: center;
-  letter-spacing: 1px;
-  padding: 8px 6px;
-  border-bottom: 2px solid rgba(90,22,22,0.6);
+    margin: 6px 0 8px 0;
+    font-weight: 900;
+    font-size: 1.05rem;
+    text-align: center;
+    letter-spacing: 1px;
+    padding: 8px 6px;
+    border-bottom: 2px solid rgba(90, 22, 22, 0.6);
 }
 
 /* botão fechar estilo discreto (top-right) */
 .inventory-modal .close-btn {
-  position: absolute;
-  right: 10px;
-  top: 10px;
-  background: transparent;
-  color: #efe6e2;
-  border: none;
-  font-weight: 700;
-  font-size: 1rem;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 8px;
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    background: transparent;
+    color: #efe6e2;
+    border: none;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 8px;
 }
+
 .inventory-modal .close-btn:hover {
-  background: rgba(255,255,255,0.03);
+    background: rgba(255, 255, 255, 0.03);
 }
 
 /* corpo / campos do detalhe */
 .inventory-modal .item-detail-fields {
-  padding: 10px 8px;
-  text-align: left;
-  line-height: 1.35;
-  font-size: 0.96rem;
+    padding: 10px 8px;
+    text-align: left;
+    line-height: 1.35;
+    font-size: 0.96rem;
 }
 
 /* ações (usa sua classe alert-btn já existente) */
 .inventory-modal .item-detail-actions {
-  padding: 12px;
-  display: flex;
-  gap: 8px;
-  justify-content: center;
+    padding: 12px;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
 }
 
 /* botões - se quiser, afina aparência específica dentro do modal */
 .inventory-modal .alert-btn {
-  padding: 8px 22px;
-  border-radius: 10px;
-  border: none;
-  background: linear-gradient(145deg, #5c2222, #3d1616);
-  color: #efe6e2;
-  font-family: inherit;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(92, 34, 34, 0.5);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+    padding: 8px 22px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(145deg, #5c2222, #3d1616);
+    color: #efe6e2;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(92, 34, 34, 0.5);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
+
 .inventory-modal .alert-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 26px rgba(92, 34, 34, 0.7);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px rgba(92, 34, 34, 0.7);
 }
-.inventory-modal .alert-btn:active { transform: scale(0.98); }
+
+.inventory-modal .alert-btn:active {
+    transform: scale(0.98);
+}
 
 /* animação: quando adicionar .open, o painel anima com pop */
 @keyframes alertPop {
-  from { transform: scale(0.85) translateY(10px); opacity: 0; }
-  to   { transform: scale(1) translateY(0);    opacity: 1; }
+    from {
+        transform: scale(0.85) translateY(10px);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
 }
 
 /* inicia animação quando o backdrop/modal ficou visível */
 .inventory-modal.open .modal-content {
-  animation: alertPop 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  opacity: 1;
+    animation: alertPop 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    opacity: 1;
 }
 
 /* animações de entrada/saída (compatibilidade) */
-@keyframes modalPopIn { from { transform: translateY(12px) scale(.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
-@keyframes modalPopOut { from { transform: translateY(0) scale(1); opacity: 1; } to { transform: translateY(8px) scale(.98); opacity: 0; } }
-@keyframes backdropFadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes backdropFadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes modalPopIn {
+    from {
+        transform: translateY(12px) scale(.96);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes modalPopOut {
+    from {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateY(8px) scale(.98);
+        opacity: 0;
+    }
+}
+
+@keyframes backdropFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes backdropFadeOut {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
 
 /* acessibilidade: prefere reduzir movimento */
 @media (prefers-reduced-motion: reduce) {
-  .inventory-modal.open .modal-content { animation: none !important; transform: none !important; }
-  .inventory-modal, .inventory-modal::before { transition: none !important; }
+    .inventory-modal.open .modal-content {
+        animation: none !important;
+        transform: none !important;
+    }
+
+    .inventory-modal,
+    .inventory-modal::before {
+        transition: none !important;
+    }
 }
 
 /* pequenas correções para mobile (mantém modal centralizado e wide permitido) */
 @media (max-width: 520px) {
-  .inventory-modal .modal-content {
-    width: calc(100% - 24px);
-    max-width: calc(100% - 24px);
-    margin: 0 12px;
-  }
+    .inventory-modal .modal-content {
+        width: calc(100% - 24px);
+        max-width: calc(100% - 24px);
+        margin: 0 12px;
+    }
+}
+
+/* ====== Condições (pills) ao lado do nome ====== */
+.char-conditions-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* container das condições (espaço limitado, faz wrap se necessário) */
+.char-conditions {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    max-width: 520px;
+}
+
+/* cada pill de condição */
+.cond-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    border-radius: 10px;
+    color: #0f0f0f;
+    font-weight: 700;
+    font-size: 0.86rem;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    box-shadow: inset 0 -4px 8px rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+}
+
+/* nome dentro do pill */
+.cond-pill .cond-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+
+/* botão de abrir modal (apenas aparência) */
+.icon-cond-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: transform .12s ease, background .12s;
+}
+
+.icon-cond-btn:hover {
+    transform: translateY(-3px);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* ====== modal-style (reaproveita o estilo alerta) ====== */
+.cond-modal-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 12000;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(3px);
+}
+
+.cond-modal {
+    width: 520px;
+    max-width: calc(100% - 32px);
+    background: linear-gradient(180deg, #1a1414, #2a1c1c);
+    border: 4px solid rgba(92, 34, 34, 0.95);
+    border-radius: 14px;
+    padding: 12px;
+    color: #efe6e2;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+.cond-modal .cond-modal-header {
+    font-weight: 900;
+    text-align: center;
+    padding: 8px 6px;
+    border-bottom: 2px solid rgba(90, 22, 22, 0.6);
+    margin-bottom: 6px;
+}
+
+.cond-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    max-height: 320px;
+    overflow: auto;
+    padding: 8px 4px;
+}
+
+.cond-list .cond-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.cond-card .cond-name-strong {
+    font-weight: 800;
+    color: #efe6e2;
+    font-size: 0.95rem;
+}
+
+.cond-card .cond-desc {
+    font-size: 0.88rem;
+    color: #ddd;
+    opacity: 0.92;
+}
+
+/* ação embaixo */
+.cond-modal .cond-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    padding: 10px 6px;
+}
+
+/* botão padrão */
+.cond-modal .alert-btn {
+    /* usa suas regras já existentes */
+}
+
+/* detalhe: painel individual grande */
+.cond-detail {
+    padding: 8px;
+    line-height: 1.35;
+    font-size: 0.95rem;
 }
