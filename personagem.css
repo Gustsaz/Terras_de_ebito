@@ -580,6 +580,11 @@ textarea::placeholder {
 
 /* responsivo — mantém as barras adequadas em telas menores */
 @media (max-width: 920px) {
+
+    .char-equipment-slot {
+        width: 100%;
+    }
+
     .left-card {
         display: none !important;
     }
@@ -1696,6 +1701,10 @@ html.dragging {
 /* === Responsive: items-modal layout for small screens (max-width: 486px) === */
 @media (max-width: 486px) {
 
+    .char-equipment-slot {
+        width: 100%;
+    }
+
     /* painel do modal: empilhar conteúdo verticalmente e caber na tela */
     .items-modal-panel {
         /* mantém o modal centralizado, mas em coluna para comportar header + list + detail */
@@ -1982,26 +1991,32 @@ body.character-sheet .title {
 
 /* imagem de fundo opaca dentro do inv-slot, NÃO altera tamanho */
 .inv-slot .inv-bg-img {
-  position: absolute;
-  z-index: 1; /* atrás do nome */
-  width: 70%; /* ajusta o tamanho da imagem dentro do slot; não altera o layout */
-  max-width: 70%;
-  height: auto;
-  opacity: 0.40; /* bastante opaca, conforme pediu */
-  object-fit: contain;
-  pointer-events: none; /* não interfere em cliques */
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -45%); /* centraliza horizontalmente, um pouco acima do centro vertical */
+    position: absolute;
+    z-index: 1;
+    /* atrás do nome */
+    width: 70%;
+    /* ajusta o tamanho da imagem dentro do slot; não altera o layout */
+    max-width: 70%;
+    height: auto;
+    opacity: 0.40;
+    /* bastante opaca, conforme pediu */
+    object-fit: contain;
+    pointer-events: none;
+    /* não interfere em cliques */
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -45%);
+    /* centraliza horizontalmente, um pouco acima do centro vertical */
 }
 
 /* garante que o nome fique acima da imagem */
 .inv-slot .inv-name {
-  position: relative;
-  z-index: 2;
-  text-align: center;
-  padding: 6px 8px;
-  color: #efe6e2; /* mantém contraste (ajusta se quiser) */
-  word-break: break-word;
-  max-width: 92%;
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    padding: 6px 8px;
+    color: #efe6e2;
+    /* mantém contraste (ajusta se quiser) */
+    word-break: break-word;
+    max-width: 92%;
 }
