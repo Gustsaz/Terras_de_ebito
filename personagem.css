@@ -2020,3 +2020,159 @@ body.character-sheet .title {
     word-break: break-word;
     max-width: 92%;
 }
+
+/* =========================
+   Inventory modal (alert-style)
+   Cole no final de personagem.css
+   ========================= */
+
+/* backdrop do modal (usamos o próprio container .inventory-modal com pseudo-elemento) */
+.inventory-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+
+/* overlay (fundo escuro + blur) */
+.inventory-modal::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(3px);
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+  pointer-events: none;
+}
+
+/* quando aberto: habilita interação e mostra */
+.inventory-modal.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.inventory-modal.open::before {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* o painel interno (sua div.modal-content) — estilo alert-modal */
+.inventory-modal .modal-content {
+  width: 360px;
+  max-width: calc(100% - 32px);
+  background: linear-gradient(180deg, #1a1414, #2a1c1c);
+  border: 4px solid rgba(92, 34, 34, 0.95);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
+  color: #efe6e2;
+  padding: 10px 14px;
+  position: relative;
+  z-index: 10001; /* sempre acima do overlay */
+  transform-origin: center;
+  opacity: 0;
+  /* garante que ao adicionar .open executamos a animação */
+}
+
+/* header inside modal: título / close button (se usar .item-detail-title) */
+.inventory-modal .item-detail-title {
+  margin: 6px 0 8px 0;
+  font-weight: 900;
+  font-size: 1.05rem;
+  text-align: center;
+  letter-spacing: 1px;
+  padding: 8px 6px;
+  border-bottom: 2px solid rgba(90,22,22,0.6);
+}
+
+/* botão fechar estilo discreto (top-right) */
+.inventory-modal .close-btn {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  background: transparent;
+  color: #efe6e2;
+  border: none;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+.inventory-modal .close-btn:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+/* corpo / campos do detalhe */
+.inventory-modal .item-detail-fields {
+  padding: 10px 8px;
+  text-align: left;
+  line-height: 1.35;
+  font-size: 0.96rem;
+}
+
+/* ações (usa sua classe alert-btn já existente) */
+.inventory-modal .item-detail-actions {
+  padding: 12px;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* botões - se quiser, afina aparência específica dentro do modal */
+.inventory-modal .alert-btn {
+  padding: 8px 22px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(145deg, #5c2222, #3d1616);
+  color: #efe6e2;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(92, 34, 34, 0.5);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.inventory-modal .alert-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(92, 34, 34, 0.7);
+}
+.inventory-modal .alert-btn:active { transform: scale(0.98); }
+
+/* animação: quando adicionar .open, o painel anima com pop */
+@keyframes alertPop {
+  from { transform: scale(0.85) translateY(10px); opacity: 0; }
+  to   { transform: scale(1) translateY(0);    opacity: 1; }
+}
+
+/* inicia animação quando o backdrop/modal ficou visível */
+.inventory-modal.open .modal-content {
+  animation: alertPop 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  opacity: 1;
+}
+
+/* animações de entrada/saída (compatibilidade) */
+@keyframes modalPopIn { from { transform: translateY(12px) scale(.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+@keyframes modalPopOut { from { transform: translateY(0) scale(1); opacity: 1; } to { transform: translateY(8px) scale(.98); opacity: 0; } }
+@keyframes backdropFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes backdropFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* acessibilidade: prefere reduzir movimento */
+@media (prefers-reduced-motion: reduce) {
+  .inventory-modal.open .modal-content { animation: none !important; transform: none !important; }
+  .inventory-modal, .inventory-modal::before { transition: none !important; }
+}
+
+/* pequenas correções para mobile (mantém modal centralizado e wide permitido) */
+@media (max-width: 520px) {
+  .inventory-modal .modal-content {
+    width: calc(100% - 24px);
+    max-width: calc(100% - 24px);
+    margin: 0 12px;
+  }
+}

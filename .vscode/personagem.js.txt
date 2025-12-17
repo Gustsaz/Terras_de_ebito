@@ -1747,16 +1747,68 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 const item = itemSnap.data();
                                 inventoryFromFirebase.push(item);
 
+                                // ---------- SUBSTITUIR AQUI: criação/população do slot ----------
+                                /*
+                                  Este trecho substitui a criação simples do `.inv-name` e adiciona,
+                                  quando aplicável, uma imagem de fundo opaca (sem alterar tamanho).
+                                */
                                 const s = slots[index];
 
-                                const div = document.createElement("div");
-                                div.className = "inv-name";
-                                div.textContent = item.nome || "(Sem nome)";
+                                // cria container de nome (mantemos como antes)
+                                const nameDiv = document.createElement("div");
+                                nameDiv.className = "inv-name";
+                                nameDiv.textContent = item.nome || "(Sem nome)";
+                                // guardamos uid para usar ao abrir detalhe
+                                nameDiv.dataset.uid = itemSnap.id || '';
 
-                                s.appendChild(div);
+                                // Mapeamento de imagens por tipo/categoria (ajusta caminhos conforme tua pasta)
+                                const tipoNormalizado = String(item.tipo_item || '').trim().toLowerCase();
+                                const categoriaNormalizada = String(item.categoria || '').trim().toLowerCase();
+
+                                const imgMap = {
+                                    // tipo_item -> imagem
+                                    'arma': './imgs/Arma.png',
+                                    'equipamento': './imgs/Arma.png', // se você quiser outra imagem, altere aqui
+                                    'utilitário': './imgs/Utilitário.png',
+                                    'utilitario': './imgs/Utilitário.png', // sem acento
+                                    // categoria -> imagem (checa categoria antes)
+                                    'armadura': './imgs/Armadura.png',
+                                    'tomo': './imgs/Tomo.png',
+                                    'cajado': './imgs/Cajado.png',
+                                    'escudo': './imgs/Escudos.png',
+                                    'proteção': './imgs/Escudos.png',
+                                    'protecao': './imgs/Escudos.png'
+                                };
+
+                                // decide se mostramos a imagem: procuramos por correspondência em tipo ou categoria
+                                let imgSrc = null;
+                                if (imgMap[tipoNormalizado]) imgSrc = imgMap[tipoNormalizado];
+                                else if (imgMap[categoriaNormalizada]) imgSrc = imgMap[categoriaNormalizada];
+
+                                // Se houver imagem aplicável, cria elemento <img> posicionado por CSS atrás do nome.
+                                // NOTA: itens criados por você via modal, pelo código atual, normalmente terão
+                                // tipo_item == "Nenhum" e categoria == "Comum" — portanto imgSrc será null e
+                                // não será adicionada a imagem (comportamento que você pediu).
+                                if (imgSrc) {
+                                    const bg = document.createElement('img');
+                                    bg.className = 'inv-bg-img';
+                                    bg.src = imgSrc;
+                                    bg.alt = item.nome || '';
+                                    // estilo inline apenas como defesa; o CSS abaixo garante posicionamento.
+                                    bg.style.pointerEvents = 'none'; // não interfere em cliques
+                                    s.appendChild(bg);
+                                }
+
+                                // adiciona o nome (acima da imagem)
+                                s.appendChild(nameDiv);
+
+                                // mantém onclick para abrir detalhe (como antes)
                                 s.onclick = () => openItemDetailModal(itemSnap.id, item);
 
+                                // incrementa índice do slot visível
                                 index++;
+                                // ---------- FIM DO BLOCO SUBSTITUÍDO ----------
+
                             } catch (err) {
                                 console.warn("Erro lendo item:", err);
                             }
