@@ -74,7 +74,7 @@ body {
 /* Card grande à esquerda (ficha / portrait + stats) */
 .left-card {
     width: 900px;
-    min-height: 680px;
+    min-height: 720px;
     background: #1E1E1E;
     border: 6px solid rgba(92, 34, 34, 1);
     border-radius: 28px;
@@ -1909,39 +1909,73 @@ body.character-sheet .title {
         margin-left: 0;
     }
 }
+
 /* ===== custom create-item tweaks (usa alert-backdrop/alert-modal) ===== */
 #create-item-img i {
-  color: rgba(255,255,255,0.9);
+    color: rgba(255, 255, 255, 0.9);
 }
 
 /* input focus */
-#create-item-nome:focus, #create-item-descricao:focus {
-  outline: none;
-  box-shadow: 0 6px 18px rgba(92,34,34,0.3);
-  border-color: rgba(140, 48, 48, 1);
+#create-item-nome:focus,
+#create-item-descricao:focus {
+    outline: none;
+    box-shadow: 0 6px 18px rgba(92, 34, 34, 0.3);
+    border-color: rgba(140, 48, 48, 1);
 }
 
 /* responsivo: garantir que o modal caiba em telas pequenas */
 @media (max-width: 520px) {
-  .alert-modal { width: calc(100% - 24px) !important; max-width: none; }
-  #create-item-img { width:120px;height:100px; }
+    .alert-modal {
+        width: calc(100% - 24px) !important;
+        max-width: none;
+    }
+
+    #create-item-img {
+        width: 120px;
+        height: 100px;
+    }
 }
 
 
 /* estilo para o input de peso do modal de criação */
 #create-item-peso {
-  background: transparent;
-  color: #efe6e2;
-  border-radius: 8px;
-  padding: 10px;
-  border: 2px solid rgba(90,22,22,0.6);
-  font-family: inherit;
-  width: 100%;
-  box-sizing: border-box;
+    background: transparent;
+    color: #efe6e2;
+    border-radius: 8px;
+    padding: 10px;
+    border: 2px solid rgba(90, 22, 22, 0.6);
+    font-family: inherit;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 #create-item-peso:focus {
-  outline: none;
-  box-shadow: 0 6px 18px rgba(92,34,34,0.3);
-  border-color: rgba(140, 48, 48, 1);
+    outline: none;
+    box-shadow: 0 6px 18px rgba(92, 34, 34, 0.3);
+    border-color: rgba(140, 48, 48, 1);
+}
+
+/* ícone do item no painel de detalhe */
+.item-detail .detail-icon {
+    display: block;
+    /* block para usar margin auto */
+    margin: 8px auto 6px;
+    /* centraliza horizontalmente */
+    width: 120px;
+    /* tamanho padrão */
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+/* versão menor em telas pequenas */
+@media (max-width: 720px) {
+    .item-detail .detail-icon {
+        width: 90px;
+    }
+}
+
+/* nunca deixa estourar o painel verticalmente */
+.item-detail .item-detail-content img.detail-icon {
+    max-height: 160px;
 }

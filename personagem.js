@@ -2264,8 +2264,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (itemsListEl) itemsListEl.innerHTML = '';
             if (detailName) detailName.textContent = '';
             if (detailFields) detailFields.innerHTML = '';
+            // esconder ou resetar a imagem do detalhe (se existir)
+            const imgEl = detailPanel.querySelector('#detail-icon');
+            if (imgEl) {
+                imgEl.style.display = 'none';
+                imgEl.src = './imgs/placeholder.png';
+            }
             const content = detailPanel.querySelector('.item-detail-content');
             if (content) content.style.display = 'none';
+
             const empty = detailPanel.querySelector('.item-detail-empty');
             if (empty) empty.style.display = '';
         }
@@ -2299,6 +2306,65 @@ document.addEventListener('DOMContentLoaded', async () => {
             content.style.display = '';
             if (detailName) detailName.textContent = it.nome || 'Item';
             if (detailFields) detailFields.innerHTML = '';
+
+            // --- exibir imagem baseada em tipo/categoria ---
+            try {
+                // garante que exista o elemento (caso você não tenha inserido no HTML, cria em runtime)
+                let imgEl = detailPanel.querySelector('#detail-icon');
+                if (!imgEl) {
+                    imgEl = document.createElement('img');
+                    imgEl.id = 'detail-icon';
+                    imgEl.className = 'detail-icon';
+                    imgEl.style.display = 'none';
+                    // insere logo após o título (detail-name)
+                    const nameEl = detailPanel.querySelector('#detail-name');
+                    if (nameEl && nameEl.parentNode) nameEl.parentNode.insertBefore(imgEl, nameEl.nextSibling);
+                    else detailPanel.querySelector('.item-detail-content')?.prepend(imgEl);
+                }
+
+                // função helper para normalizar e comparar sem acentos/caixa
+                const normalizeStr = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+
+                const tipo = normalizeStr(it.tipo_item);
+                const categoria = normalizeStr(it.categoria);
+
+                // regras de prioridade conforme solicitado:
+                // 1) se tipo_item == "Arma" -> Arma.png
+                // 2) se categoria == "Armadura" -> Armadura.png
+                // 3) se categoria == "Tomo" -> Tomo.png
+                // 4) se categoria == "Cajado" -> Cajado.png
+                // 5) se tipo_item == "Utilitário" -> Utilitário.png
+                // 6) se categoria == "Escudo" -> Escudos.png
+                let src = './imgs/placeholder.png';
+
+                if (tipo === 'arma') {
+                    src = './imgs/Arma.png';
+                } else if (categoria === 'armadura') {
+                    src = './imgs/Armadura.png';
+                } else if (categoria === 'tomo') {
+                    src = './imgs/Tomo.png';
+                } else if (categoria === 'cajado') {
+                    src = './imgs/Cajado.png';
+                } else if (tipo.includes('utilit')) { // cobre 'utilitário' e variações
+                    src = './imgs/Utilitário.png';
+                } else if (categoria === 'escudo') {
+                    src = './imgs/Escudos.png';
+                }
+
+                // aplica src e mostra o elemento
+                imgEl.src = src;
+                imgEl.alt = it.nome ? `Ícone de ${it.nome}` : 'Ícone do item';
+                imgEl.style.display = ''; // remove display:none
+
+                // fallback: se imagem não carregar, volta para placeholder
+                imgEl.onerror = function () {
+                    this.onerror = null;
+                    this.src = './imgs/placeholder.png';
+                };
+            } catch (err) {
+                console.warn('Erro ao montar imagem do item (não crítico):', err);
+            }
+
 
             // ordem e rótulos dos campos que queremos mostrar
             const mapping = [
