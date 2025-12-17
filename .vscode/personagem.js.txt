@@ -1389,39 +1389,74 @@ document.addEventListener('DOMContentLoaded', async () => {
         noteTA.setAttribute('data-listener-added-firestore', 'true');
     }
 
+    // --- Substitua sua função openItemDetailModal existente por esta ---
     function openItemDetailModal(itemId, itemData) {
-
         const modal = document.getElementById("inventory-item-modal");
-        const titleEl = modal.querySelector(".item-detail-title");
-        const fieldsEl = modal.querySelector(".item-detail-fields");
-
-        if (!modal || !titleEl || !fieldsEl) {
+        if (!modal) {
             console.warn("Modal do inventário não encontrado no HTML");
             return;
         }
 
+        const titleEl = modal.querySelector(".item-detail-title");
+        const fieldsEl = modal.querySelector(".item-detail-fields");
+        const actionsContainer = modal.querySelector(".item-detail-actions");
+
+        if (!titleEl || !fieldsEl) {
+            console.warn("Elementos internos do modal não encontrados (title/fields).");
+            return;
+        }
+
         // título
-        titleEl.textContent = itemData.nome || "(Sem nome)";
+        titleEl.textContent = (itemData && itemData.nome) ? String(itemData.nome) : "(Sem nome)";
 
         // limpa conteúdo
         fieldsEl.innerHTML = "";
 
-        // adiciona campos válidos
-        for (const [key, value] of Object.entries(itemData)) {
-
+        // adiciona campos válidos (mesma lógica que já tinha)
+        for (const [key, value] of Object.entries(itemData || {})) {
             if (key === "nome") continue;
-
-            // --- regras para ocultar campo ---
-            if (value === "Nenhum") continue;          // 1) exatamente "Nenhum"
+            if (value === "Nenhum") continue;
             if (value === "" || value === null) continue;
             if (typeof value === "string" && value.trim() === "") continue;
             if (value === undefined) continue;
 
-            // cria a linha normal
             const row = document.createElement("div");
             row.className = "detail-row";
-            row.innerHTML = `<strong>${key}:</strong> ${value}`;
+            // mostra label mais legível: capitaliza key simples (você pode ajustar conforme quiser)
+            const label = String(key).replace(/_/g, ' ');
+            row.innerHTML = `<strong>${label}:</strong> <span>${String(value)}</span>`;
             fieldsEl.appendChild(row);
+        }
+
+        // garante que a área de ações exista (se o HTML não tiver, criamos)
+        if (!actionsContainer) {
+            const ac = document.createElement('div');
+            ac.className = 'item-detail-actions';
+            ac.style.display = 'flex';
+            ac.style.flexDirection = 'column';
+            ac.style.gap = '8px';
+            ac.style.marginTop = '12px';
+
+            const btnDelete = document.createElement('button');
+            btnDelete.id = 'inv-item-delete';
+            btnDelete.type = 'button';
+            btnDelete.className = 'alert-btn';
+            btnDelete.textContent = 'Excluir';
+            ac.appendChild(btnDelete);
+
+            const btnRemove = document.createElement('button');
+            btnRemove.id = 'inv-remove-from-char';
+            btnRemove.type = 'button';
+            btnRemove.className = 'alert-btn';
+            btnRemove.textContent = 'Remover do inventário';
+            ac.appendChild(btnRemove);
+
+            modal.querySelector('.modal-content').appendChild(ac);
+        } else {
+            // se existe, removemos event listeners antigos pra evitar duplicação (substituímos via clone)
+            // (nó rápido: clona e substitui para limpar listeners)
+            const fresh = actionsContainer.cloneNode(true);
+            actionsContainer.parentElement.replaceChild(fresh, actionsContainer);
         }
 
         // abre o modal
@@ -1430,10 +1465,117 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // botão fechar
         const closeBtn = document.getElementById("inv-item-close");
-        closeBtn.onclick = () => {
-            modal.classList.remove("open");
-            modal.setAttribute("aria-hidden", "true");
-        };
+        if (closeBtn) {
+            closeBtn.onclick = (ev) => {
+                ev.stopPropagation();
+                modal.classList.remove("open");
+                modal.setAttribute("aria-hidden", "true");
+            };
+        }
+
+        // Handler do botão "Remover do inventário" (apaga somente a entrada em usuários.personagens[].itens)
+        const removeBtn = document.getElementById('inv-remove-from-char');
+        if (removeBtn) {
+            removeBtn.onclick = async (ev) => {
+                ev.stopPropagation();
+                if (!itemId) {
+                    alert('UID do item não disponível — impossível remover.');
+                    return;
+                }
+                // confirmação
+                const ok = window.confirm('Remover este item do inventário do personagem?');
+                if (!ok) return;
+
+                try {
+                    const user = window.firebaseauth?.currentUser;
+                    if (!user) throw new Error('Usuário não autenticado.');
+
+                    const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+                    const userSnap = await window.getDoc(userRef);
+                    if (!userSnap.exists()) throw new Error('Documento de usuário não encontrado.');
+
+                    const data = userSnap.data() || {};
+                    const personagens = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+
+                    // busca o charId no contexto (usa sua função utilitária se existir)
+                    const charId = (typeof getCharUidFromContext === 'function') ? getCharUidFromContext() : (typeof charUid !== 'undefined' ? charUid : null);
+                    if (!charId) throw new Error('UID do personagem não definido (getCharUidFromContext/charUid).');
+
+                    const idx = personagens.findIndex(p => p && p.uid === charId);
+                    if (idx < 0) throw new Error('Personagem não encontrado no documento do usuário.');
+
+                    // garante array de itens do personagem
+                    personagens[idx].itens = Array.isArray(personagens[idx].itens) ? personagens[idx].itens.slice() : [];
+
+                    // encontra por uid e remove somente aquela entrada
+                    const removeIndex = personagens[idx].itens.findIndex(it => String(it?.uid) === String(itemId));
+                    if (removeIndex < 0) {
+                        alert('Item não encontrado no inventário deste personagem.');
+                        return;
+                    }
+
+                    const removedEntry = personagens[idx].itens[removeIndex];
+                    const removedItemUid = removedEntry?.uid;
+
+                    // cria novo array sem o elemento
+                    const novoArray = personagens[idx].itens.slice();
+                    novoArray.splice(removeIndex, 1);
+                    personagens[idx].itens = novoArray;
+
+                    // recalcula peso usando sua função existente (calcularPesoAtual)
+                    let novoPeso = 0;
+                    try {
+                        if (typeof calcularPesoAtual === 'function') {
+                            novoPeso = await calcularPesoAtual(personagens[idx].itens);
+                        }
+                    } catch (e) {
+                        console.warn('Falha ao recalcular peso (não crítico):', e);
+                    }
+                    personagens[idx].peso_atual = Number(novoPeso || 0);
+
+                    // salva no Firestore
+                    await window.updateDoc(userRef, { personagens });
+
+                    // se o item removido tiver uid, ajusta DEF via sua função (se aplicável)
+                    if (removedItemUid && typeof modifyDefByItemUid === 'function') {
+                        try {
+                            await modifyDefByItemUid(String(removedItemUid), 'remove');
+                        } catch (e) {
+                            console.warn('Falha ao ajustar DEF depois de remover item (não crítico):', e);
+                        }
+                    }
+
+                    // Atualiza UI local (peso, slots)
+                    if (typeof updatePesoUI === 'function') updatePesoUI();
+                    if (typeof refreshSlotsFromCharData === 'function') await refreshSlotsFromCharData();
+
+                    // Fecha modal
+                    modal.classList.remove('open');
+                    modal.setAttribute('aria-hidden', 'true');
+
+                } catch (err) {
+                    console.error('Erro ao remover item do inventário', err);
+                    alert('Erro ao remover item do inventário. Veja o console para detalhes.');
+                }
+            };
+        }
+
+        // (Opcional) Handler do botão "Excluir" (apenas visual — se você já tiver lógica para apagar o documento, mantenha;
+        //  aqui não implementamos exclusão de documento para segurança — caso queira que ele apague o doc de 'itens',
+        //  posso adicionar essa lógica depois.)
+        const deleteBtn = document.getElementById('inv-item-delete');
+        if (deleteBtn) {
+            deleteBtn.onclick = (ev) => {
+                ev.stopPropagation();
+                // se você tiver uma função específica para excluir o documento do collection 'itens', chame-a aqui.
+                // Exemplo (NÃO HABILITADO): deleteItemDocument(itemId);
+                // por enquanto, mostramos um aviso:
+                const c = window.confirm('Este botão deveria apagar o documento do collection "itens". Deseja implementar?');
+                if (c) {
+                    alert('Função de exclusão de documento não foi implementada automaticamente (precisa confirmar comportamento).');
+                }
+            };
+        }
     }
 
     /* ---------- INVENTÁRIO (real-time Firestore) ---------- */
@@ -1470,13 +1612,40 @@ document.addEventListener('DOMContentLoaded', async () => {
                 s.className = "inv-slot";
                 s.dataset.slot = i;
                 s.setAttribute("tabindex", "0");
+
+                // handler: se vazio -> abrir modal criar; se tiver .inv-name -> abrir detalhe
+                s.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    // se tem um filho com classe inv-name (item presente) -> abrir detalhe
+                    if (s.querySelector('.inv-name')) {
+                        // você já tem função openItemDetailModal(itemId, itemData)
+                        // tentaremos extrair o id do texto ou dataset — caso o populate normal já setou
+                        const nameDiv = s.querySelector('.inv-name');
+                        // se o slot foi populado via enableRealtimeInventory, o onclick já será setado
+                        // mas aqui tentamos uma proteção: se existir dataset.itemUid use ele
+                        const uid = nameDiv && nameDiv.dataset && nameDiv.dataset.uid;
+                        if (typeof openItemDetailModal === 'function' && uid) {
+                            openItemDetailModal(uid);
+                        } else if (typeof openItemDetailModal === 'function') {
+                            openItemDetailModal(null); // fallback se sua função aceita null
+                        }
+                    } else {
+                        // slot vazio -> abrir modal criar item
+                        openCreateItemModal(Number(s.dataset.slot || 0));
+                    }
+                });
+
+                // permitir keyboard enter para abrir também
+                s.addEventListener('keydown', (ev) => {
+                    if (ev.key === 'Enter') s.click();
+                });
+
                 grid.appendChild(s);
             }
         }
 
         createEmptySlots();
 
-        /* ----------- REALTIME FIRESTORE LISTENER ----------- */
         /* ----------- REALTIME FIRESTORE LISTENER ----------- */
         function enableRealtimeInventory() {
             const user = window.firebaseauth?.currentUser;
@@ -1598,6 +1767,172 @@ document.addEventListener('DOMContentLoaded', async () => {
                 setInterval(pollInventory, 3000);
             }
         }
+
+        /* ========== Create-item modal logic ========== */
+        const createBackdrop = document.getElementById('create-item-backdrop');
+        const viewChoose = document.getElementById('create-view-choose');
+        const viewForm = document.getElementById('create-view-form');
+        const btnOpenForm = document.getElementById('btn-open-create-form');
+        const btnCancelCreate = document.getElementById('btn-cancel-create');
+        const btnBackToChoose = document.getElementById('btn-back-to-choose');
+        const btnConfirmCreate = document.getElementById('btn-confirm-create');
+        const inputNome = document.getElementById('create-item-nome');
+        const inputDesc = document.getElementById('create-item-descricao');
+        const inputPeso = document.getElementById('create-item-peso');
+
+        // abre modal (slotIndex é reservado para futura lógica, hoje não usado mas útil)
+        function openCreateItemModal(slotIndex) {
+            if (!createBackdrop) return;
+            // reset form
+            if (inputNome) inputNome.value = '';
+            if (inputDesc) inputDesc.value = '';
+            if (inputPeso) inputPeso.value = '';
+            // show choose view
+            if (viewChoose) viewChoose.style.display = '';
+            if (viewForm) viewForm.style.display = 'none';
+            createBackdrop.style.display = 'flex';
+            createBackdrop.classList.add('visible');
+            createBackdrop.setAttribute('aria-hidden', 'false');
+            // focar botão criar (melhora acessibilidade)
+            if (btnOpenForm) btnOpenForm.focus();
+        }
+
+        // fechar modal
+        function closeCreateItemModal() {
+            if (!createBackdrop) return;
+            createBackdrop.classList.remove('visible');
+            createBackdrop.style.display = 'none';
+            createBackdrop.setAttribute('aria-hidden', 'true');
+        }
+
+        // botão "Criar" mostra o formulário
+        if (btnOpenForm) btnOpenForm.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            if (viewChoose) viewChoose.style.display = 'none';
+            if (viewForm) viewForm.style.display = 'flex';
+            if (inputNome) inputNome.focus();
+        });
+
+        // voltar para choose
+        if (btnBackToChoose) btnBackToChoose.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            if (viewForm) viewForm.style.display = 'none';
+            if (viewChoose) viewChoose.style.display = '';
+            if (btnOpenForm) btnOpenForm.focus();
+        });
+
+        // cancelar / fechar
+        if (btnCancelCreate) btnCancelCreate.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            closeCreateItemModal();
+        });
+
+        // clique no backdrop fecha
+        if (createBackdrop) {
+            createBackdrop.addEventListener('click', (ev) => {
+                if (ev.target === createBackdrop) closeCreateItemModal();
+            });
+        }
+
+        // confirmar criação: cria doc em 'itens' e adiciona uid em usuarios.personagens[idx].itens
+        if (btnConfirmCreate) btnConfirmCreate.addEventListener('click', async (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (!inputNome) return alert('Preencha o nome.');
+            const nome = String(inputNome.value || '').trim();
+            const descricao = String(inputDesc.value || '').trim();
+
+            if (!nome) {
+                alert('O nome do item é obrigatório.');
+                inputNome.focus();
+                return;
+            }
+
+
+            try {
+                btnConfirmCreate.disabled = true;
+
+                // antes de criar o doc, parseia o peso
+                let pesoNumber = 0;
+                if (inputPeso) {
+                    const raw = String(inputPeso.value || '').trim();
+                    // aceita vírgula como decimal (troca para ponto) e parseia
+                    const parsed = parseFloat(raw.replace(',', '.'));
+                    pesoNumber = Number.isFinite(parsed) ? parsed : 0;
+                }
+
+                // 1) criar documento na coleção 'itens'
+                const itensCol = window.collection(window.firestoredb, 'itens');
+                const newDocRef = await window.addDoc(itensCol, {
+                    categoria: "Comum",
+                    critico: "Nenhum",
+                    dano: "Nenhum",
+                    descricao: descricao || "",
+                    efeito: "Nenhum",
+                    habilidade: "Nenhum",
+                    nome: nome,
+                    peso: pesoNumber,
+                    requisito: "Nenhum",
+                    tipo_dano: "Nenhum",
+                    tipo_item: "Nenhum"
+                });
+
+                const newItemId = String(newDocRef.id);
+
+                // 2) adicionar uid desse item no array personagens[].itens do documento do usuário
+                const user = window.firebaseauth.currentUser;
+                if (!user) throw new Error('Usuário não autenticado.');
+
+                const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
+                const userSnap = await window.getDoc(userRef);
+                if (!userSnap.exists()) throw new Error('Documento de usuário não encontrado.');
+
+                const data = userSnap.data();
+                const characters = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+
+                // achar índice do personagem atual (usa getCharUidFromContext se existir)
+                const charId = (typeof getCharUidFromContext === 'function') ? getCharUidFromContext() : (typeof charUid !== 'undefined' ? charUid : null);
+                if (!charId) throw new Error('UID do personagem não definido (getCharUidFromContext/charUid).');
+
+                const idx = characters.findIndex(p => p && p.uid === charId);
+                if (idx < 0) throw new Error('Personagem não encontrado no documento do usuário.');
+
+                // garantir array e inserir { uid: newItemId }
+                characters[idx].itens = Array.isArray(characters[idx].itens) ? characters[idx].itens.slice() : [];
+                characters[idx].itens.push({ uid: newItemId });
+
+                // recalcula peso_atual (usa sua função calcularPesoAtual)
+                try {
+                    const novoPeso = (typeof calcularPesoAtual === 'function')
+                        ? await calcularPesoAtual(characters[idx].itens)
+                        : Number(await (window.calcularPesoAtual?.(characters[idx].itens) ?? 0));
+                    characters[idx].peso_atual = Number(novoPeso || 0);
+                } catch (e) {
+                    console.warn('Falha ao recalcular peso após criação do item (não crítico):', e);
+                }
+
+                // salva no Firestore
+                await window.updateDoc(userRef, { personagens: characters });
+
+                // Atualiza UI local (se quiser também atualizar charData local)
+                if (typeof refreshSlotsFromCharData === 'function') {
+                    await refreshSlotsFromCharData();
+                }
+                if (typeof updatePesoUI === 'function') {
+                    try { updatePesoUI(); } catch (e) {/*silent*/ }
+                }
+
+                closeCreateItemModal();
+                alert('Item criado e adicionado ao inventário.');
+
+            } catch (err) {
+                console.error('Erro criando item:', err);
+                alert('Erro ao criar item. Veja console.');
+            } finally {
+                btnConfirmCreate.disabled = false;
+            }
+        });
+
 
         // ativa listener realtime
         setTimeout(enableRealtimeInventory, 300);
@@ -2110,7 +2445,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 characters[idx].itens.push({ uid: selItemId });
 
                 // recalcula peso_atual já com o novo item
-                const novoPeso = await calcularPesoAtual(characters[idx].itens);
+                const novoPeso = (typeof calcularPesoAtual === 'function')
+                    ? await calcularPesoAtual(characters[idx].itens)
+                    : Number(await (window.calcularPesoAtual?.(characters[idx].itens) ?? 0));
                 characters[idx].peso_atual = novoPeso;
 
                 // salva no Firestore
@@ -2160,6 +2497,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return soma;
         }
 
+        window.calcularPesoAtual = calcularPesoAtual;
 
         // Lê os dados do usuário e preenche os textos dos slots conforme itens equipados
         // Substituir por esta versão — mostra LISTAS de itens por slot (cada item embaixo do outro)
@@ -3032,294 +3370,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         })();
 
     })();
-
-    /* ===================== NOVO: Modal grande Escolher / Criar itens ===================== */
-    (function setupBigItemsModal() {
-        const backdrop = document.getElementById('items-modal-backdrop');
-        const modal = document.getElementById('items-modal');
-        const closeBtn = document.getElementById('items-modal-close');
-
-        const leftState1 = document.getElementById('left-state-1');
-        const leftState2 = document.getElementById('left-state-2');
-        const rightState1 = document.getElementById('right-state-1');
-        const rightState2 = document.getElementById('right-state-2');
-
-        const btnOpenChoose = document.getElementById('btn-open-choose');
-        const btnOpenCreate = document.getElementById('btn-open-create');
-        const backToLeft1 = document.getElementById('back-to-left1');
-
-        const catBtns = Array.from(document.querySelectorAll('.cat-btn'));
-        const itemsListEl = document.getElementById('items-list');
-
-        const createConfirm = document.getElementById('create-item-confirm');
-        const createCancel = document.getElementById('create-item-cancel');
-        const createNome = document.getElementById('create-item-nome');
-        const createDesc = document.getElementById('create-item-desc');
-
-        let activeSlotIndex = null; // slot clicado
-        let selectedItem = null;    // { id, data }
-
-        function showModal() { backdrop.style.display = 'flex'; backdrop.classList.add('visible'); document.body.style.overflow = 'hidden'; }
-        function hideModal() { backdrop.style.display = 'none'; backdrop.classList.remove('visible'); document.body.style.overflow = ''; resetModal(); }
-
-        function resetModal() {
-            // volta aos estados iniciais
-            leftState1.style.display = ''; leftState2.style.display = 'none';
-            rightState1.style.display = ''; rightState2.style.display = 'none';
-            itemsListEl.innerHTML = 'Clique numa categoria';
-            selectedItem = null;
-        }
-
-        closeBtn?.addEventListener('click', hideModal);
-        backdrop?.addEventListener('click', (e) => { if (e.target === backdrop) hideModal(); });
-
-        // abrir escolha (esquerdo) -> transição para left-state-2 e esconde lado direito
-        btnOpenChoose?.addEventListener('click', (e) => {
-            leftState1.style.display = 'none';
-            leftState2.style.display = '';
-            rightState1.style.display = 'none';
-            rightState2.style.display = 'none';
-        });
-
-        backToLeft1?.addEventListener('click', (e) => {
-            resetModal();
-        });
-
-        // abrir criar (direito) -> mostra form de criação
-        btnOpenCreate?.addEventListener('click', (e) => {
-            rightState1.style.display = 'none';
-            rightState2.style.display = '';
-            // opcional: esconder left-state-1
-            leftState1.style.display = 'none';
-        });
-
-        // cancelar criação
-        createCancel?.addEventListener('click', () => {
-            rightState2.style.display = 'none';
-            rightState1.style.display = '';
-            leftState1.style.display = '';
-            createNome.value = ''; createDesc.value = '';
-        });
-
-        // helper Firestore: cria documento em 'itens' (tenta addDoc, senão setDoc)
-        async function createItemDoc(payload) {
-            try {
-                if (typeof window.addDoc === 'function') {
-                    const col = window.collection(window.firestoredb, 'itens');
-                    const res = await window.addDoc(col, payload);
-                    // se addDoc retorna ref com id
-                    return { id: res.id || (res && res._key && res._key.path && res._key.path.segments && res._key.path.segments.slice(-1)[0]) || null };
-                } else if (typeof window.setDoc === 'function') {
-                    const id = String(Date.now()) + '_' + Math.random().toString(36).slice(2, 8);
-                    const ref = window.doc(window.firestoredb, 'itens', id);
-                    await window.setDoc(ref, payload);
-                    return { id };
-                } else {
-                    // fallback: tentativa de usar window.doc + window.updateDoc
-                    const id = String(Date.now()) + '_' + Math.random().toString(36).slice(2, 8);
-                    const ref = window.doc(window.firestoredb, 'itens', id);
-                    if (typeof window.updateDoc === 'function') {
-                        await window.updateDoc(ref, payload); // pode falhar se doc não existir
-                    }
-                    return { id };
-                }
-            } catch (err) {
-                console.error('Erro ao criar doc de item:', err);
-                throw err;
-            }
-        }
-
-        // ao confirmar criação: cria doc com estrutura pedida e adiciona uid no personagem
-        createConfirm?.addEventListener('click', async () => {
-            const nome = (createNome.value || '').trim();
-            const descricao = (createDesc.value || '').trim();
-            if (!nome) { alert('Preencha o nome'); return; }
-
-            const payload = {
-                categoria: "Comum",
-                critico: "Nenhum",
-                dano: "Nenhum",
-                descricao: descricao || "",
-                efeito: "Nenhum",
-                habilidade: "Nenhum",
-                nome: nome,
-                peso: "Nenhum",
-                requisito: "Nenhum",
-                tipo_dano: "Nenhum",
-                tipo_item: "Nenhum"
-            };
-
-            try {
-                createConfirm.disabled = true;
-                const result = await createItemDoc(payload);
-                const newId = result.id;
-                if (!newId) throw new Error('ID não retornado');
-
-                // agora adiciona { uid: newId } no array personagens[].itens do usuário
-                const user = window.firebaseauth.currentUser;
-                if (!user) throw new Error('Usuário não autenticado');
-                const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
-                const snap = await window.getDoc(userRef);
-                if (!snap.exists()) throw new Error('Documento de usuário não encontrado');
-
-                const data = snap.data();
-                const personagens = Array.isArray(data.personagens) ? data.personagens.slice() : [];
-                const idx = personagens.findIndex(p => p && p.uid === charUid);
-                if (idx < 0) throw new Error('Personagem não encontrado');
-
-                personagens[idx].itens = Array.isArray(personagens[idx].itens) ? personagens[idx].itens.slice() : [];
-                const mapObj = { uid: String(newId) };
-                personagens[idx].itens.push(mapObj);
-
-                await window.updateDoc(userRef, { personagens });
-
-                // Atualiza UI local (optimistic)
-                if (typeof refreshSlotsFromCharData === 'function') await refreshSlotsFromCharData();
-
-                // limpa form e fecha/create volta
-                createNome.value = ''; createDesc.value = '';
-                alert('Item criado e adicionado ao personagem!');
-                hideModal();
-
-            } catch (err) {
-                console.error('Erro criando item e adicionando ao personagem:', err);
-                alert('Erro ao criar item. Veja console.');
-            } finally {
-                createConfirm.disabled = false;
-            }
-        });
-
-        // handler categoria -> lista itens filtrados por tipo_item (fetch all + filter cliente)
-        catBtns.forEach(cb => cb.addEventListener('click', async (e) => {
-            const types = JSON.parse(cb.dataset.types || '[]'); // ex: ["Arma","Equipamento"]
-            itemsListEl.innerHTML = '<div style="padding:12px;color:#ddd">Carregando itens...</div>';
-            selectedItem = null;
-
-            try {
-                const colRef = window.collection(window.firestoredb, 'itens');
-                const snap = await window.getDocs(colRef);
-                const docs = [];
-                snap.forEach(d => docs.push({ id: d.id, data: d.data() }));
-
-                // filtra: tipo_item deve ser um dos types (ou se tipo_item undefined tenta categoria)
-                const filtered = docs.filter(d => {
-                    const tipo = (d.data && (d.data.tipo_item || d.data.tipo || d.data.categoria)) ? String(d.data.tipo_item || d.data.tipo || d.data.categoria) : '';
-                    if (!tipo) return false;
-                    if (tipo === 'Nenhum') return false;
-                    // normalizar básico case-insensitive
-                    const tnorm = tipo.trim().toLowerCase();
-                    return types.some(tt => String(tt).trim().toLowerCase() === tnorm);
-                });
-
-                if (!filtered.length) {
-                    itemsListEl.innerHTML = '<div style="padding:12px;color:#ddd">Nenhum item encontrado nesta categoria.</div>';
-                    return;
-                }
-
-                // render
-                itemsListEl.innerHTML = '';
-                filtered.forEach(d => {
-                    const node = document.createElement('div');
-                    node.className = 'list-item';
-                    node.tabIndex = 0;
-                    node.dataset.uid = d.id;
-                    node.innerHTML = `<div class="li-left"><strong>${d.data.nome || '(Sem nome)'}</strong><div style="font-size:.9rem;opacity:.9">${(d.data.descricao || '')}</div></div>
-                          <div class="li-right"><button class="select-item-btn alert-btn">Selecionar</button></div>`;
-                    // clique na linha seleciona
-                    node.addEventListener('click', (ev) => {
-                        itemsListEl.querySelectorAll('.list-item').forEach(x => x.classList.remove('selected'));
-                        node.classList.add('selected');
-                        selectedItem = { id: d.id, data: d.data };
-                    });
-                    // botão selecionar: imediatamente equipa
-                    node.querySelector('.select-item-btn').addEventListener('click', async (ev) => {
-                        ev.stopPropagation();
-                        selectedItem = { id: d.id, data: d.data };
-                        await equipSelectedItem(); // tentar equipar
-                    });
-
-                    itemsListEl.appendChild(node);
-                });
-
-                // adiciona botão final "Confirmar seleção" se quiser selecionar + confirmar (opcional)
-                const footer = document.createElement('div');
-                footer.style.padding = '10px;'; footer.style.textAlign = 'center';
-                const confirm = document.createElement('button');
-                confirm.className = 'alert-btn large';
-                confirm.textContent = 'Confirmar seleção';
-                confirm.addEventListener('click', async () => {
-                    if (!selectedItem) { alert('Selecione um item antes.'); return; }
-                    await equipSelectedItem();
-                });
-                footer.appendChild(confirm);
-                itemsListEl.appendChild(footer);
-
-            } catch (err) {
-                console.error('Erro listando itens:', err);
-                itemsListEl.innerHTML = '<div style="padding:12px;color:#faa">Erro ao carregar itens.</div>';
-            }
-        }));
-
-        // função que adiciona o uid do item no personagem (usuarios.personagens[].itens)
-        async function equipSelectedItem() {
-            if (!selectedItem || !selectedItem.id) return alert('Nenhum item selecionado.');
-            try {
-                const user = window.firebaseauth.currentUser;
-                if (!user) return alert('Usuário não autenticado');
-
-                const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
-                const snap = await window.getDoc(userRef);
-                if (!snap.exists()) return alert('Documento de usuário não encontrado');
-
-                const data = snap.data();
-                const personagens = Array.isArray(data.personagens) ? data.personagens.slice() : [];
-                const idx = personagens.findIndex(p => p && p.uid === charUid);
-                if (idx < 0) return alert('Personagem não encontrado');
-
-                personagens[idx].itens = Array.isArray(personagens[idx].itens) ? personagens[idx].itens.slice() : [];
-                // push new map { uid: selectedItem.id }
-                personagens[idx].itens.push({ uid: String(selectedItem.id) });
-
-                // recalcula peso_atual opcionalmente (sua rotina já faz isso se existia)
-                await window.updateDoc(userRef, { personagens });
-
-                if (typeof refreshSlotsFromCharData === 'function') await refreshSlotsFromCharData();
-
-                alert('Item adicionado!');
-                hideModal();
-            } catch (err) {
-                console.error('Erro ao equipar item:', err);
-                alert('Erro ao adicionar item. Veja console.');
-            }
-        }
-
-        /* ---------------------------
-           Detectar clique em inv-slot vazio e abrir modal
-           --------------------------- */
-        // delegação: o grid de inventário (vejo que é #inventory-grid ou .inventory-grid no seu HTML)
-        const invGrid = document.querySelector('.inventory-grid') || document.getElementById('inventory-grid') || document.querySelector('#inventory-wrap .inv-grid') || document.querySelector('.inv-grid') || document.querySelector('#inventory-wrap .inv-slot')?.parentElement;
-        // fallback: pegar qualquer .inv-slot e adicionar listener
-        const allSlots = document.querySelectorAll('.inv-slot');
-        allSlots.forEach(s => {
-            s.addEventListener('click', (ev) => {
-                // se já tem um nome dentro (.inv-name) consideramos ocupado
-                const nameEl = s.querySelector('.inv-name');
-                const bodyTxt = nameEl ? (nameEl.textContent || '').trim() : '';
-                const isEmpty = !nameEl || !bodyTxt || bodyTxt.toLowerCase() === 'vazio' || bodyTxt === '(Sem nome)';
-                if (isEmpty) {
-                    // abrir modal para este slot
-                    activeSlotIndex = s.dataset.slot ?? null;
-                    showModal();
-                }
-                // se não vazio, o código já existente mostra detalhes — não interferimos
-            });
-        });
-
-        // também expor função para abrir modal manualmente se quiser
-        window.openItemsModalForSlot = function (slotIndex) { activeSlotIndex = slotIndex; showModal(); };
-
-    })();
-
 
     /* ---------- +/- buttons (PV/MN/STA) ---------- */
     function wirePlusMinus(minusId, plusId, getCur, setCur, total) {

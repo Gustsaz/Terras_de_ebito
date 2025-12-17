@@ -1926,22 +1926,3 @@ body.character-sheet .title {
   .alert-modal { width: calc(100% - 24px) !important; max-width: none; }
   #create-item-img { width:120px;height:100px; }
 }
-
-
-/* estilo para o input de peso do modal de criação */
-#create-item-peso {
-  background: transparent;
-  color: #efe6e2;
-  border-radius: 8px;
-  padding: 10px;
-  border: 2px solid rgba(90,22,22,0.6);
-  font-family: inherit;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-#create-item-peso:focus {
-  outline: none;
-  box-shadow: 0 6px 18px rgba(92,34,34,0.3);
-  border-color: rgba(140, 48, 48, 1);
-}

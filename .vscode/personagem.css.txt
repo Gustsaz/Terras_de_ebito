@@ -1909,125 +1909,39 @@ body.character-sheet .title {
         margin-left: 0;
     }
 }
-/* ===================== BIG ITEMS MODAL STYLES (ADICIONAR AO FINAL) ===================== */
-
-.big-items-modal {
-  width: 1100px;               /* muito maior */
-  max-width: calc(100% - 48px);
-  height: 720px;
-  max-height: calc(100vh - 48px);
-  border-radius: 14px;
-  padding: 18px;
-  display: flex;
-  align-items: stretch;
-  box-sizing: border-box;
-  overflow: hidden;
+/* ===== custom create-item tweaks (usa alert-backdrop/alert-modal) ===== */
+#create-item-img i {
+  color: rgba(255,255,255,0.9);
 }
 
-/* layout: duas colunas (esquerda + direita) */
-.big-modal-grid {
-  display: flex;
-  gap: 18px;
-  width: 100%;
-  height: 100%;
+/* input focus */
+#create-item-nome:focus, #create-item-descricao:focus {
+  outline: none;
+  box-shadow: 0 6px 18px rgba(92,34,34,0.3);
+  border-color: rgba(140, 48, 48, 1);
 }
 
-/* left / right */
-.big-left, .big-right {
-  background: linear-gradient(180deg,#241515,#341f1f);
-  border: 3px solid rgba(92,34,34,0.95);
-  border-radius: 10px;
-  padding: 16px;
-  box-sizing: border-box;
+/* responsivo: garantir que o modal caiba em telas pequenas */
+@media (max-width: 520px) {
+  .alert-modal { width: calc(100% - 24px) !important; max-width: none; }
+  #create-item-img { width:120px;height:100px; }
+}
+
+
+/* estilo para o input de peso do modal de criação */
+#create-item-peso {
+  background: transparent;
   color: #efe6e2;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-/* por padrão metade cada um */
-.big-left { flex: 1 1 55%; min-width: 480px; }
-.big-right { flex: 1 1 45%; min-width: 360px; }
-
-/* título centralizado em cada lado */
-.left-title, .right-title {
-  text-align: center;
-  font-weight: 900;
-  font-size: 1.4rem;
-  margin-bottom: 8px;
-}
-
-/* visual central grande (ícones) */
-.left-visual, .right-visual {
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex: 1;
-}
-.left-visual i, .right-visual i { font-size: 3.6rem; opacity: 0.95; }
-
-/* botões grandes */
-.alert-btn.large {
-  padding: 12px 28px;
-  font-size: 1.05rem;
-  border-radius: 12px;
-}
-
-/* categories row */
-.categories-row {
-  display:flex;
-  gap:10px;
-  justify-content:center;
-  margin-bottom: 12px;
-}
-.cat-btn {
-  padding: 12px 14px;
-  font-weight:700;
-  border-radius:10px;
-  border: 2px solid rgba(92,34,34,0.9);
-  background: linear-gradient(145deg,#3b1a1a,#1f0f0f);
-  cursor:pointer;
-}
-
-/* items list wrap */
-.items-list-wrap {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding: 8px;
   border-radius: 8px;
-  background: rgba(0,0,0,0.12);
-}
-.items-list .list-item {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
   padding: 10px;
-  margin-bottom:8px;
-  border-radius:8px;
-  cursor:pointer;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.05));
-}
-.items-list .list-item.selected { box-shadow: 0 8px 26px rgba(92,34,34,0.6); outline: 2px solid rgba(92,34,34,0.75); }
-
-/* create form */
-.create-form { display:flex; flex-direction:column; gap:8px; }
-.create-form input[type="text"], .create-form textarea {
-  padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); color: #efe6e2;
+  border: 2px solid rgba(90,22,22,0.6);
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-/* ações / botões inferiores centralizados */
-.left-actions, .right-actions { display:flex; gap:10px; justify-content:center; margin-top:8px; }
-
-/* close X */
-.alert-close {
-  position:absolute; right:18px; top:8px; z-index:30;
-  background:transparent; color:#efe6e2; border:none; font-size:28px; cursor:pointer;
-}
-
-/* responsivo */
-@media (max-width: 1200px) {
-  .big-items-modal { width: calc(100% - 24px); height: calc(100vh - 24px); flex-direction: column; }
-  .big-left, .big-right { min-width: unset; }
-  .big-left { order: 1; }
-  .big-right { order: 2; }
+#create-item-peso:focus {
+  outline: none;
+  box-shadow: 0 6px 18px rgba(92,34,34,0.3);
+  border-color: rgba(140, 48, 48, 1);
 }

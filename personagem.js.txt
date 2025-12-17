@@ -1546,11 +1546,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
 
                     // Atualiza UI local (peso, slots)
-                    if (typeof updatePesoImmediately === 'function') {
-                        try { await updatePesoImmediately(); } catch (e) { console.warn('updatePesoImmediately falhou:', e); }
-                    } else if (typeof updatePesoUI === 'function') {
-                        try { updatePesoUI(); } catch (e) {/*silent*/ }
-                    }
+                    if (typeof updatePesoUI === 'function') updatePesoUI();
                     if (typeof refreshSlotsFromCharData === 'function') await refreshSlotsFromCharData();
 
                     // Fecha modal
@@ -1704,11 +1700,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     }
 
-                    if (typeof updatePesoImmediately === 'function') {
-                        try { await updatePesoImmediately(); } catch (e) { console.warn('updatePesoImmediately falhou:', e); }
-                    } else if (typeof updatePesoUI === 'function') {
-                        try { updatePesoUI(); } catch (e) {/*silent*/ }
-                    }
+                    if (typeof updatePesoUI === "function") updatePesoUI();
                 }, (error) => {
                     console.warn('onSnapshot error:', error);
                 });
@@ -1762,11 +1754,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             }
                         }
 
-                        if (typeof updatePesoImmediately === 'function') {
-                            try { await updatePesoImmediately(); } catch (e) { console.warn('updatePesoImmediately falhou:', e); }
-                        } else if (typeof updatePesoUI === 'function') {
-                            try { updatePesoUI(); } catch (e) {/*silent*/ }
-                        }
+                        if (typeof updatePesoUI === "function") updatePesoUI();
                     } catch (error) {
                         console.warn('Poll inventory error:', error);
                     }
@@ -1790,7 +1778,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const btnConfirmCreate = document.getElementById('btn-confirm-create');
         const inputNome = document.getElementById('create-item-nome');
         const inputDesc = document.getElementById('create-item-descricao');
-        const inputPeso = document.getElementById('create-item-peso');
 
         // abre modal (slotIndex é reservado para futura lógica, hoje não usado mas útil)
         function openCreateItemModal(slotIndex) {
@@ -1798,7 +1785,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             // reset form
             if (inputNome) inputNome.value = '';
             if (inputDesc) inputDesc.value = '';
-            if (inputPeso) inputPeso.value = '';
             // show choose view
             if (viewChoose) viewChoose.style.display = '';
             if (viewForm) viewForm.style.display = 'none';
@@ -1860,22 +1846,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-
             try {
-                // dentro do try do btnConfirmCreate:
                 btnConfirmCreate.disabled = true;
 
-                // 1) ler peso do input (se existir)
-                let pesoNumber = "Nenhum";
-                try {
-                    const rawPeso = (typeof inputPeso !== 'undefined' && inputPeso) ? String(inputPeso.value || '').trim() : '';
-                    const p = parseFloat(rawPeso.replace(',', '.'));
-                    if (!isNaN(p) && isFinite(p)) pesoNumber = Number(p);
-                } catch (e) {
-                    pesoNumber = "Nenhum";
-                }
-
-                // 2) criar documento na coleção 'itens' (incluindo peso numérico quando aplicável)
+                // 1) criar documento na coleção 'itens'
                 const itensCol = window.collection(window.firestoredb, 'itens');
                 const newDocRef = await window.addDoc(itensCol, {
                     categoria: "Comum",
@@ -1885,7 +1859,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     efeito: "Nenhum",
                     habilidade: "Nenhum",
                     nome: nome,
-                    peso: pesoNumber,
+                    peso: "Nenhum",
                     requisito: "Nenhum",
                     tipo_dano: "Nenhum",
                     tipo_item: "Nenhum"
@@ -1893,7 +1867,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const newItemId = String(newDocRef.id);
 
-                // 3) adiciona UID no array do personagem (igual antes)
+                // 2) adicionar uid desse item no array personagens[].itens do documento do usuário
                 const user = window.firebaseauth.currentUser;
                 if (!user) throw new Error('Usuário não autenticado.');
 
@@ -1915,17 +1889,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                 characters[idx].itens = Array.isArray(characters[idx].itens) ? characters[idx].itens.slice() : [];
                 characters[idx].itens.push({ uid: newItemId });
 
-                // salva o array no Firestore (peso será recalculado por updatePesoImmediately)
+                // recalcula peso_atual (usa sua função calcularPesoAtual)
+                try {
+                    const novoPeso = await calcularPesoAtual(characters[idx].itens);
+                    characters[idx].peso_atual = Number(novoPeso || 0);
+                } catch (e) {
+                    console.warn('Falha ao recalcular peso após criação do item (não crítico):', e);
+                }
+
+                // salva no Firestore
                 await window.updateDoc(userRef, { personagens: characters });
 
-                // Atualiza UI local e força recalculo e salvamento imediato do peso
-                if (typeof refreshSlotsFromCharData === 'function') await refreshSlotsFromCharData();
-                // usa a nova função para garantir que peso_atual e UI fiquem consistentes agora
-                if (typeof updatePesoImmediately === 'function') await updatePesoImmediately();
+                // Atualiza UI local (se quiser também atualizar charData local)
+                if (typeof refreshSlotsFromCharData === 'function') {
+                    await refreshSlotsFromCharData();
+                }
+                if (typeof updatePesoUI === 'function') {
+                    try { updatePesoUI(); } catch (e) {/*silent*/ }
+                }
 
                 closeCreateItemModal();
                 alert('Item criado e adicionado ao inventário.');
-
 
             } catch (err) {
                 console.error('Erro criando item:', err);
@@ -2447,9 +2431,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 characters[idx].itens.push({ uid: selItemId });
 
                 // recalcula peso_atual já com o novo item
-                const novoPeso = (typeof calcularPesoAtual === 'function')
-                    ? await calcularPesoAtual(characters[idx].itens)
-                    : Number(await (window.calcularPesoAtual?.(characters[idx].itens) ?? 0));
+                const novoPeso = await calcularPesoAtual(characters[idx].itens);
                 characters[idx].peso_atual = novoPeso;
 
                 // salva no Firestore
@@ -2498,70 +2480,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             return soma;
         }
-
-        window.calcularPesoAtual = calcularPesoAtual;
-
-        // ---------- NOVO: recalc + salva e atualiza a UI imediatamente ----------
-        async function updatePesoImmediately() {
-            try {
-                // pega uid do personagem no contexto
-                const charId = (typeof getCharUidFromContext === 'function') ? getCharUidFromContext() : (typeof charUid !== 'undefined' ? charUid : null);
-                if (!charId) return;
-
-                const user = window.firebaseauth?.currentUser;
-                if (!user) return;
-
-                const userRef = window.doc(window.firestoredb, 'usuarios', user.uid);
-                const userSnap = await window.getDoc(userRef);
-                if (!userSnap.exists()) return;
-
-                const data = userSnap.data() || {};
-                const personagens = Array.isArray(data.personagens) ? data.personagens.slice() : [];
-                const idx = personagens.findIndex(p => p && p.uid === charId);
-                if (idx < 0) return;
-
-                // garante array itens
-                const itensArray = Array.isArray(personagens[idx].itens) ? personagens[idx].itens.slice() : [];
-
-                // calcula peso (usa sua função existente)
-                let novoPeso = 0;
-                if (typeof calcularPesoAtual === 'function') {
-                    try {
-                        novoPeso = await calcularPesoAtual(itensArray);
-                    } catch (e) {
-                        console.warn('Falha ao calcular peso dentro de updatePesoImmediately (não crítico):', e);
-                        novoPeso = Number(personagens[idx].peso_atual || 0);
-                    }
-                }
-
-                novoPeso = Number(novoPeso || 0);
-                personagens[idx].peso_atual = novoPeso;
-
-                // salva no Firestore (substitui array personagens)
-                await window.updateDoc(userRef, { personagens });
-
-                // atualiza cache local se existir
-                try { if (typeof charData !== 'undefined') charData = personagens[idx]; } catch (e) {/*ignore*/ }
-
-                // atualiza o span de peso na UI imediatamente
-                const pesoInfoEl = document.getElementById('peso-info');
-                if (pesoInfoEl) {
-                    // tenta calcular carga máxima (usa sua lógica atual: carga / atributos.bravura / fallback)
-                    let cargaMax = Number(personagens[idx].carga ?? personagens[idx].atributos?.carga);
-                    if (!Number.isFinite(cargaMax) || cargaMax <= 0) {
-                        const bravuraRaw = Number(personagens[idx].atributos?.bravura ?? 0) || 0;
-                        cargaMax = 8 + bravuraRaw;
-                    }
-                    pesoInfoEl.textContent = `${novoPeso} / ${cargaMax}`;
-                }
-
-            } catch (err) {
-                console.warn('updatePesoImmediately falhou:', err);
-            }
-        }
-
-        // expõe globalmente (protege casos onde outras funções chamam global)
-        window.updatePesoImmediately = updatePesoImmediately;
 
 
         // Lê os dados do usuário e preenche os textos dos slots conforme itens equipados
