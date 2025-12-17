@@ -1357,7 +1357,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             const nivelAtual = (savedNivel !== null && !Number.isNaN(savedNivel)) ? savedNivel : Number(currentIndex || 0);
 
             // centro mostra o nível atual (index)
-            if (center) center.textContent = String(nivelAtual || 0);
+            // --- mostrar imagem do caminho dentro do centro (usa campo 'img' do doc caminhos) ---
+            if (center) {
+                // imagem do caminho (fallback para placeholder)
+                const imgSrc = (path && (path.img || (Array.isArray(path.img) && path.img[0]))) ?
+                    (Array.isArray(path.img) ? path.img[0] : path.img) :
+                    './imgs/placeholder.png';
+
+                // inserir imagem + badge do nível
+                center.innerHTML = `
+        <img src="${imgSrc.replace(/"/g, '&quot;')}" alt="${(path && path.nome) ? path.nome.replace(/"/g, '&quot;') : ''}" />
+        <span class="selected-center-level">${nivelAtual || 0}</span>
+    `;
+            }
 
             vertical.innerHTML = ''; // cria nós: assumimos niveis length
             const niveis = Array.isArray(path.niveis) ? path.niveis : [];
@@ -1413,7 +1425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   `;
             overlay.appendChild(box);
 
-            // actions (montamos dinamicamente para poder omitir o botão quando já upado)
+            // monta ações dinamicamente
             const actions = document.createElement('div');
             actions.className = 'modal-actions';
 
@@ -1422,43 +1434,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             fecharBtn.id = 'fechar-nivel-btn';
             fecharBtn.textContent = 'Fechar';
 
-            // determinar if upado
+            // estado salvo do caminho no personagem
             const charCaminho = Array.isArray(charData.caminho) && charData.caminho.length ? charData.caminho[0] : null;
             const savedNivel = charCaminho ? Number(charCaminho.nivel_atual || 0) : 0;
 
-            // só adiciona botão Subir se esse nível for > savedNivel
-            let subirBtn = null;
-            if (levelIndex > savedNivel) {
-                subirBtn = document.createElement('button');
-                subirBtn.className = 'alert-btn';
-                subirBtn.id = 'subir-nivel-btn';
-                subirBtn.textContent = 'Subir de nível';
-                actions.appendChild(subirBtn);
-            }
+            // Se o nível clicado for <= savedNivel (já upado ou igual), mostrar botão "Voltar para este nível"
+            if (levelIndex <= savedNivel) {
+                const voltarBtn = document.createElement('button');
+                voltarBtn.className = 'alert-btn';
+                voltarBtn.textContent = 'Voltar para este nível';
+                voltarBtn.id = 'voltar-para-nivel-btn';
+                actions.appendChild(voltarBtn);
 
-            actions.appendChild(fecharBtn);
-            box.appendChild(actions);
-            document.body.appendChild(overlay);
-
-            // handlers
-            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-            fecharBtn.addEventListener('click', () => overlay.remove());
-
-            if (subirBtn) {
-                subirBtn.addEventListener('click', async () => {
+                voltarBtn.addEventListener('click', async () => {
                     try {
-                        const currentPoints = Number(charData.pontos_classe ?? 0);
-                        if (currentPoints <= 0) {
-                            alert('Você não tem pontos de classe suficientes para subir de nível.');
-                            return;
-                        }
-
-                        // decrementa ponto local e UI
-                        const newPoints = currentPoints - 1;
-                        charData.pontos_classe = newPoints;
-                        if (pontosClasseDom()) pontosClasseDom().textContent = String(newPoints);
-
-                        // atualiza caminho no charData e persiste
                         const currentCaminhoArr = Array.isArray(charData.caminho) ? charData.caminho.slice() : [];
                         if (currentCaminhoArr.length === 0) {
                             currentCaminhoArr[0] = {
@@ -1474,28 +1463,129 @@ document.addEventListener('DOMContentLoaded', async () => {
                             });
                         }
 
-                        // grava pontos_classe e caminho (usa seu helper)
-                        await saveCharacterField('pontos_classe', newPoints);
-                        await saveCharacterField('caminho', currentCaminhoArr);
+                        // atualiza local e persiste
+                        charData.caminho = currentCaminhoArr;
+                        await robustSaveCharacterField('caminho', currentCaminhoArr);
 
-                        // atualiza UI imediatamente: centro e classes das bolinhas
-                        const center = selectedCenter();
-                        if (center) center.textContent = String(levelIndex);
+                        // atualiza UI (re-render da view selecionada)
+                        try { renderSelectedPathView(path, levelIndex); } catch (e) { console.warn('renderSelectedPathView erro:', e); }
 
-                        // atualiza vertical nodes: todas <= levelIndex ficam .upada
-                        const vertical = selectedVertical();
-                        if (vertical) {
-                            vertical.querySelectorAll('.level-node').forEach(n => {
-                                const idx = Number(n.dataset.index || 0);
-                                if (idx <= levelIndex) {
-                                    n.classList.remove('opaco');
-                                    n.classList.add('upada');
-                                } else {
-                                    n.classList.remove('upada');
-                                    n.classList.add('opaco');
-                                }
+                        alert('Nível ajustado.');
+                    } catch (err) {
+                        console.error('Erro ao ajustar nível:', err);
+                        alert('Falha ao ajustar nível.');
+                    } finally {
+                        overlay.remove();
+                    }
+                });
+            }
+
+            // Se o nível clicado for exatamente o nível atual, permitir "Desupar"
+            if (levelIndex === savedNivel) {
+                const desuparBtn = document.createElement('button');
+                desuparBtn.className = 'alert-btn';
+                desuparBtn.textContent = 'Desupar';
+                desuparBtn.id = 'desupar-nivel-btn';
+                actions.appendChild(desuparBtn);
+
+                desuparBtn.addEventListener('click', async () => {
+                    if (savedNivel <= 0) {
+                        alert('Não há nível anterior para reverter.');
+                        return;
+                    }
+                    try {
+                        // reembolsa 1 ponto
+                        const refundPoints = Number(charData.pontos_classe ?? 0) + 1;
+                        charData.pontos_classe = refundPoints;
+                        if (pontosClasseDom()) pontosClasseDom().textContent = String(refundPoints);
+
+                        // atualiza nivel_atual para savedNivel - 1
+                        const newNivel = savedNivel - 1;
+                        const currentCaminhoArr = Array.isArray(charData.caminho) ? charData.caminho.slice() : [];
+                        if (currentCaminhoArr.length === 0) {
+                            currentCaminhoArr[0] = {
+                                uid: path.uid,
+                                nivel_atual: newNivel,
+                                descricao_nivel: (Array.isArray(path.niveis) && path.niveis[newNivel]) ? path.niveis[newNivel].descricao_nivel || '' : ''
+                            };
+                        } else {
+                            currentCaminhoArr[0] = Object.assign({}, currentCaminhoArr[0], {
+                                nivel_atual: newNivel,
+                                descricao_nivel: (Array.isArray(path.niveis) && path.niveis[newNivel]) ? path.niveis[newNivel].descricao_nivel || '' : ''
                             });
                         }
+
+                        // persist ambos pontos_classe e caminho
+                        await robustSaveCharacterField('pontos_classe', refundPoints);
+                        await robustSaveCharacterField('caminho', currentCaminhoArr);
+
+                        // re-render
+                        try { renderSelectedPathView(path, newNivel); } catch (e) { console.warn('renderSelectedPathView erro:', e); }
+
+                        alert('Nível reduzido e ponto reembolsado.');
+                    } catch (err) {
+                        console.error('Erro no desupar:', err);
+                        alert('Falha ao desupar nível.');
+                    } finally {
+                        overlay.remove();
+                    }
+                });
+            }
+
+            // botão Subir (somente se levelIndex > savedNivel)
+            let subirBtn = null;
+            if (levelIndex > savedNivel) {
+                subirBtn = document.createElement('button');
+                subirBtn.className = 'alert-btn';
+                subirBtn.id = 'subir-nivel-btn';
+                subirBtn.textContent = 'Subir de nível';
+                actions.appendChild(subirBtn);
+            }
+
+            // Fechar sempre no fim
+            actions.appendChild(fecharBtn);
+            box.appendChild(actions);
+            document.body.appendChild(overlay);
+
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+            fecharBtn.addEventListener('click', () => overlay.remove());
+
+            // Handler subir (usa robustSaveCharacterField)
+            if (subirBtn) {
+                subirBtn.addEventListener('click', async () => {
+                    try {
+                        const currentPoints = Number(charData.pontos_classe ?? 0);
+                        if (currentPoints <= 0) {
+                            alert('Você não tem pontos de classe suficientes para subir de nível.');
+                            return;
+                        }
+
+                        const newPoints = currentPoints - 1;
+                        charData.pontos_classe = newPoints;
+                        if (pontosClasseDom()) pontosClasseDom().textContent = String(newPoints);
+
+                        const currentCaminhoArr = Array.isArray(charData.caminho) ? charData.caminho.slice() : [];
+                        if (currentCaminhoArr.length === 0) {
+                            currentCaminhoArr[0] = {
+                                uid: path.uid,
+                                descricao_geral: path.descricao_geral || '',
+                                nivel_atual: levelIndex,
+                                descricao_nivel: nivel.descricao_nivel || ''
+                            };
+                        } else {
+                            currentCaminhoArr[0] = Object.assign({}, currentCaminhoArr[0], {
+                                nivel_atual: levelIndex,
+                                descricao_nivel: nivel.descricao_nivel || ''
+                            });
+                        }
+
+                        // grava pontos_classe e caminho usando o helper robusto
+                        await robustSaveCharacterField('pontos_classe', newPoints);
+                        await robustSaveCharacterField('caminho', currentCaminhoArr);
+
+                        // atualiza center node se existir
+                        const center = selectedCenter();
+                        if (center) center.textContent = String(levelIndex);
 
                         alert('Nível atualizado!');
                     } catch (err) {
@@ -2971,6 +3061,70 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // ----------------- Helper robusto para salvar campos do personagem -----------------
+    async function robustSaveCharacterField(field, value) {
+        // 1) se a função saveCharacterField existir, tenta usá-la (compatibilidade)
+        if (typeof saveCharacterField === 'function') {
+            try {
+                return await saveCharacterField(field, value);
+            } catch (err) {
+                console.warn('saveCharacterField falhou (robustSave) — tentando fallback:', err);
+                // continua para fallback
+            }
+        }
+
+        // 2) caso de pontos_classe: usar persistPontosClasse se existir
+        if (field === 'pontos_classe' && typeof persistPontosClasse === 'function') {
+            try {
+                return await persistPontosClasse(Number(value));
+            } catch (err) {
+                console.warn('persistPontosClasse falhou (robustSave):', err);
+                // continua para fallback
+            }
+        }
+
+        // 3) fallback genérico: atualiza o array `personagens` do doc do usuário
+        try {
+            if (!window.firebaseauth?.currentUser || !window.firestoredb || typeof window.doc !== 'function') {
+                throw new Error('Firebase não inicializado (robustSaveCharacterField).');
+            }
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', window.firebaseauth.currentUser.uid);
+            const snap = await window.getDoc(userDocRef);
+            if (!snap || !snap.exists()) throw new Error('Documento de usuário não encontrado (robustSave).');
+
+            const data = snap.data() || {};
+            const characters = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+
+            // tenta resolver o uid do personagem atual (usa charData.uid ou charUid se existir)
+            const resolvedUid = (typeof charUid !== 'undefined' ? charUid : (charData && charData.uid) ? charData.uid : null);
+            if (!resolvedUid) {
+                // se não houver como associar, joga erro para facilitar debug
+                throw new Error('Não foi possível resolver uid do personagem (robustSave).');
+            }
+
+            const idx = characters.findIndex(c => c && String(c.uid) === String(resolvedUid));
+            if (idx >= 0) {
+                characters[idx] = Object.assign({}, characters[idx], { [field]: value });
+            } else {
+                // cria mapa mínimo
+                const newMap = { uid: String(resolvedUid) };
+                newMap[field] = value;
+                characters.push(newMap);
+            }
+
+            await window.updateDoc(userDocRef, { personagens: characters });
+
+            // atualiza charData local para consistência imediata
+            if (typeof charData !== 'undefined' && charData) {
+                charData[field] = value;
+            }
+            console.log(`robustSaveCharacterField: salvo ${field} =`, value);
+            return;
+        } catch (err) {
+            console.error('robustSaveCharacterField -> erro no fallback:', err);
+            throw err;
+        }
+    }
 
     /* ---------- EXP: limite por nível ---------- */
     function expLimitForLevel(level) {
@@ -3076,11 +3230,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
 
             // dispara persistência (não bloqueante)
+            // dispara persistência (não bloqueante)
             safePersist(pontos).catch(e => console.warn('safePersist pontos_classe erro (não crítico):', e));
-        } catch (e) {
-            console.warn('updatePontosClasse erro:', e);
+        } catch (err) {
+            console.error('updatePontosClasse -> erro:', err);
         }
     }
+
+    // --- Garantia: atualiza o DOM assim que o DOM estiver pronto (caso não tenha sido atualizado ainda) ---
+    try {
+        // se o DOM já estiver pronto, atualiza imediatamente; caso contrário, aguarda o evento
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            updatePontosClasse();
+        } else {
+            document.addEventListener('DOMContentLoaded', () => {
+                try { updatePontosClasse(); } catch (e) { console.warn('init updatePontosClasse erro:', e); }
+            });
+        }
+    } catch (e) {
+        console.warn('Erro ao inicializar updatePontosClasse:', e);
+    }
+
 
     /* <<< ADICIONADO: slots de batalha, modal e integração com Firestore >>> */
     (function setupBattleSlotsAndModal() {

@@ -1142,124 +1142,61 @@ document.addEventListener('DOMContentLoaded', async () => {
             tree.addEventListener('mouseleave', () => { tree.style.transform = ''; });
         }
 
-        // ----------------------- PANNING (camera-like) -----------------------
+        // ----------------------- PANNING (drag to move the skill-tree) -----------------------
         (() => {
             const treeEl = document.getElementById('skill-tree');
-            const nCont = document.getElementById('nodes-container');
-            if (!treeEl || !nCont) return;
+            const nodesEl = document.getElementById('nodes-container');
+            if (!treeEl || !nodesEl) return;
 
-            // cria o scene se não existir (mantém compatibilidade com renderInitialNodes)
-            let scene = nCont.querySelector('.nodes-scene');
-            if (!scene) {
-                scene = document.createElement('div');
-                scene.className = 'nodes-scene';
-                nCont.appendChild(scene);
-            }
+            // evita comportamento nativo doloroso em touch
+            nodesEl.style.touchAction = 'none';
 
-            // Ensure the tree shows appropriate cursor
-            treeEl.classList.remove('grabbing');
-
-            // pan state
             let isPanning = false;
             let startX = 0, startY = 0;
-            let panX = 0, panY = 0; // current committed pan values (in px)
-            let tempX = 0, tempY = 0; // temporary during pointermove
+            let panX = 0, panY = 0;
 
-            function sceneSize() {
-                // read from computed style to allow CSS changes
-                const w = scene.offsetWidth;
-                const h = scene.offsetHeight;
-                return { w, h };
-            }
-            function viewportSize() {
-                return { w: nCont.clientWidth, h: nCont.clientHeight };
-            }
-
-            function clampPan(x, y) {
-                const { w: sw, h: sh } = sceneSize();
-                const { w: vw, h: vh } = viewportSize();
-                // Limits: panX range [vw - sw, 0], panY range [vh - sh, 0]
-                const minX = Math.min(vw - sw, 0);
-                const maxX = 0;
-                const minY = Math.min(vh - sh, 0);
-                const maxY = 0;
-                return {
-                    x: Math.max(minX, Math.min(maxX, x)),
-                    y: Math.max(minY, Math.min(maxY, y))
-                };
-            }
-
-            function applySceneTransform(x, y) {
-                scene.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
-            }
-
-            // center scene initially (so center of scene matches center of viewport)
-            function centerScene() {
-                const { w: sw, h: sh } = sceneSize();
-                const { w: vw, h: vh } = viewportSize();
-                const initialX = Math.round((vw - sw) / 2);
-                const initialY = Math.round((vh - sh) / 2);
-                const clamped = clampPan(initialX, initialY);
-                panX = clamped.x; panY = clamped.y;
-                applySceneTransform(panX, panY);
-            }
-
-            // call when viewport/resizes or after nodes rendered
-            window.addEventListener('resize', () => { centerScene(); });
-
-            // start panning only when clicking outside a node (so nodes clicks still work)
+            // Inicia panning somente se clicar/arrastar em área que NÃO é um nó
             treeEl.addEventListener('pointerdown', (ev) => {
-                // left button only
+                // Somente botão esquerdo
                 if (ev.button !== 0) return;
-                // if clicked on a node, don't start camera pan
+                // não iniciar pan se clicou em um node (ct-node ou level-node)
                 if (ev.target.closest('.ct-node') || ev.target.closest('.level-node')) return;
                 isPanning = true;
                 startX = ev.clientX;
                 startY = ev.clientY;
-                tempX = panX;
-                tempY = panY;
-                treeEl.classList.add('grabbing');
                 if (treeEl.setPointerCapture) treeEl.setPointerCapture(ev.pointerId);
-                ev.preventDefault();
-            }, { passive: false });
+            });
 
             treeEl.addEventListener('pointermove', (ev) => {
                 if (!isPanning) return;
                 const dx = ev.clientX - startX;
                 const dy = ev.clientY - startY;
-                const newX = tempX + dx;
-                const newY = tempY + dy;
-                const clamped = clampPan(newX, newY);
-                // apply immediately (no commit yet)
-                applySceneTransform(clamped.x, clamped.y);
+                // aplica transform temporário (não grava panX/panY ainda)
+                nodesEl.style.transform = `translate(${panX + dx}px, ${panY + dy}px)`;
             });
 
-            const endPan = (ev) => {
+            const stopPan = (ev) => {
                 if (!isPanning) return;
                 const dx = ev.clientX - startX;
                 const dy = ev.clientY - startY;
-                const newX = tempX + dx;
-                const newY = tempY + dy;
-                const clamped = clampPan(newX, newY);
-                panX = clamped.x; panY = clamped.y;
-                applySceneTransform(panX, panY);
+                panX += dx;
+                panY += dy;
                 isPanning = false;
-                treeEl.classList.remove('grabbing');
-                try { if (treeEl.releasePointerCapture) treeEl.releasePointerCapture(ev.pointerId); } catch (e) { }
+                if (treeEl.releasePointerCapture) {
+                    try { treeEl.releasePointerCapture(ev.pointerId); } catch (e) { /* silent */ }
+                }
+                // se quiser limitar pan, aqui é o lugar (clamp panX/panY)
             };
 
-            treeEl.addEventListener('pointerup', endPan);
-            treeEl.addEventListener('pointercancel', endPan);
-            // double click resets to center
-            treeEl.addEventListener('dblclick', (e) => { centerScene(); });
+            treeEl.addEventListener('pointerup', stopPan);
+            treeEl.addEventListener('pointercancel', stopPan);
 
-            // expose helper for renderInitialNodes to call center after nodes are added
-            window.__skilltree_centerScene = centerScene;
-
-            // initially center
-            setTimeout(() => { centerScene(); }, 40);
+            // duplo clique pra reset do pan (opcional)
+            treeEl.addEventListener('dblclick', () => {
+                panX = 0; panY = 0;
+                nodesEl.style.transform = '';
+            });
         })();
-
 
 
         // clamp helper
@@ -1289,75 +1226,44 @@ document.addEventListener('DOMContentLoaded', async () => {
             // se painel está oculto, não redesenhar (evita efeitos visuais)
             const tab = nCont.closest('.tab-content');
             if (tab && tab.style.display === 'none') return;
+            nCont.innerHTML = '';
 
-            // garante que exista .nodes-scene (o panning IIFE também cria se necessário)
-            let scene = nCont.querySelector('.nodes-scene');
-            if (!scene) {
-                scene = document.createElement('div');
-                scene.className = 'nodes-scene';
-                nCont.appendChild(scene);
-            }
-            // limpa cena
-            scene.innerHTML = '';
-
+            // carrega caminhos e loga para debug
             const caminhos = await fetchCaminhosForClass();
             console.log('renderInitialNodes -> caminhos carregados:', caminhos.length, caminhos);
 
             if (!caminhos.length) {
-                // se sem caminhos, mostra mensagem centralizada dentro do viewport (nodes-container)
                 nCont.innerHTML = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#ccc">Nenhum caminho disponível para sua classe.</div>`;
                 return;
             }
 
-            // obter dimensões da cena (de CSS)
-            const sceneW = scene.offsetWidth || 1600;
-            const sceneH = scene.offsetHeight || 1000;
-
-            // layout: coloca os nodes distribuídos pelo centro da cena (pode ajustar)
-            const centerX = sceneW / 2;
-            const centerY = sceneH / 2;
-            const radius = Math.min(sceneW, sceneH) * 0.18;
-
+            // layout: place nodes in a small circular cluster or grid centered
+            const centerX = nCont.clientWidth / 2 || 400;
+            const centerY = nCont.clientHeight / 2 || 200;
+            const radius = Math.min(centerX, centerY) * 0.28;
             caminhos.forEach((cam, i) => {
-                // distribuir em círculo + variação randômica
                 const angle = (i / caminhos.length) * Math.PI * 2;
-                const rx = Math.round((Math.cos(angle) * radius) + (Math.random() * 120 - 60));
-                const ry = Math.round((Math.sin(angle) * radius) + (Math.random() * 80 - 40));
-                const x = Math.round(centerX + rx - 76 / 2); // 76 é largura do node
-                const y = Math.round(centerY + ry - 76 / 2);
-
+                // slight randomization to cluster near center
+                const rx = (Math.cos(angle) * radius) + (Math.random() * 24 - 12);
+                const ry = (Math.sin(angle) * radius) + (Math.random() * 20 - 10);
                 const el = document.createElement('div');
                 el.className = 'ct-node';
-                el.style.left = `${x}px`;
-                el.style.top = `${y}px`;
+                el.style.left = `calc(50% + ${rx}px)`;
+                el.style.top = `calc(50% + ${ry}px)`;
                 el.dataset.uid = cam.uid;
-
+                // image inside circle
                 const img = document.createElement('img');
                 img.src = cam.img || './imgs/placeholder.png';
                 img.alt = cam.nome || '';
-                img.style.width = '60%';
-                img.style.height = '60%';
-                img.style.objectFit = 'contain';
                 el.appendChild(img);
-
+                // click opens path modal
                 el.addEventListener('click', (ev) => {
                     ev.stopPropagation();
                     showPathModal(cam);
                 });
-
-                scene.appendChild(el);
+                nCont.appendChild(el);
             });
-
-            // centraliza a cena no viewport (usa helper exposto)
-            try {
-                if (typeof window.__skilltree_centerScene === 'function') window.__skilltree_centerScene();
-                else {
-                    // fallback: small timeout then try center
-                    setTimeout(() => { if (typeof window.__skilltree_centerScene === 'function') window.__skilltree_centerScene(); }, 80);
-                }
-            } catch (e) { console.warn('centerScene falhou:', e); }
         }
-
 
         // Show modal for a path (with carousel for niveis)
         function showPathModal(path) {
@@ -1451,7 +1357,41 @@ document.addEventListener('DOMContentLoaded', async () => {
             const nivelAtual = (savedNivel !== null && !Number.isNaN(savedNivel)) ? savedNivel : Number(currentIndex || 0);
 
             // centro mostra o nível atual (index)
-            if (center) center.textContent = String(nivelAtual || 0);
+            // --- mostrar imagem do caminho dentro do centro (usa campo 'img' do doc caminhos) ---
+            if (center) {
+                // imagem do caminho (fallback para placeholder)
+                const imgSrc = (path && (path.img || (Array.isArray(path.img) && path.img[0]))) ?
+                    (Array.isArray(path.img) ? path.img[0] : path.img) :
+                    './imgs/placeholder.png';
+
+                // inserir imagem + badge do nível
+                center.innerHTML = `
+                <img src="${imgSrc.replace(/"/g, '&quot;')}" alt="${(path && path.nome) ? path.nome.replace(/"/g, '&quot;') : ''}" />
+                <span class="selected-center-level">${nivelAtual || 0}</span>
+            `;
+            }
+
+            // --- garantir que o selected-footer acompanhe o skill-tree (ficando filho direto de #skill-tree) ---
+            (function ensureFooterAttachedToSkillTree() {
+                try {
+                    const skillTree = document.getElementById('skill-tree') || document.querySelector('.skill-tree');
+                    const footer = document.querySelector('.selected-footer');
+                    if (!skillTree || !footer) return;
+
+                    // se já estiver onde deve, não faz nada
+                    if (footer.parentElement === skillTree) return;
+
+                    // move o footer para ser filho direto do skill-tree,
+                    // preservando o conteúdo e listeners existentes
+                    skillTree.appendChild(footer);
+
+                    // (opcional) garantir que o footer esteja visível depois da movimentação
+                    footer.style.display = ''; // remove inline none se houver
+                } catch (e) {
+                    console.warn('Não foi possível anexar selected-footer ao skill-tree:', e);
+                }
+            })();
+
 
             vertical.innerHTML = ''; // cria nós: assumimos niveis length
             const niveis = Array.isArray(path.niveis) ? path.niveis : [];
@@ -1507,7 +1447,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   `;
             overlay.appendChild(box);
 
-            // actions (montamos dinamicamente para poder omitir o botão quando já upado)
+            // monta ações dinamicamente
             const actions = document.createElement('div');
             actions.className = 'modal-actions';
 
@@ -1516,43 +1456,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             fecharBtn.id = 'fechar-nivel-btn';
             fecharBtn.textContent = 'Fechar';
 
-            // determinar if upado
+            // estado salvo do caminho no personagem
             const charCaminho = Array.isArray(charData.caminho) && charData.caminho.length ? charData.caminho[0] : null;
             const savedNivel = charCaminho ? Number(charCaminho.nivel_atual || 0) : 0;
 
-            // só adiciona botão Subir se esse nível for > savedNivel
-            let subirBtn = null;
-            if (levelIndex > savedNivel) {
-                subirBtn = document.createElement('button');
-                subirBtn.className = 'alert-btn';
-                subirBtn.id = 'subir-nivel-btn';
-                subirBtn.textContent = 'Subir de nível';
-                actions.appendChild(subirBtn);
-            }
+            // Se o nível clicado for <= savedNivel (já upado ou igual), mostrar botão "Voltar para este nível"
+            if (levelIndex <= savedNivel) {
+                const voltarBtn = document.createElement('button');
+                voltarBtn.className = 'alert-btn';
+                voltarBtn.textContent = 'Voltar para este nível';
+                voltarBtn.id = 'voltar-para-nivel-btn';
+                actions.appendChild(voltarBtn);
 
-            actions.appendChild(fecharBtn);
-            box.appendChild(actions);
-            document.body.appendChild(overlay);
-
-            // handlers
-            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-            fecharBtn.addEventListener('click', () => overlay.remove());
-
-            if (subirBtn) {
-                subirBtn.addEventListener('click', async () => {
+                voltarBtn.addEventListener('click', async () => {
                     try {
-                        const currentPoints = Number(charData.pontos_classe ?? 0);
-                        if (currentPoints <= 0) {
-                            alert('Você não tem pontos de classe suficientes para subir de nível.');
-                            return;
-                        }
-
-                        // decrementa ponto local e UI
-                        const newPoints = currentPoints - 1;
-                        charData.pontos_classe = newPoints;
-                        if (pontosClasseDom()) pontosClasseDom().textContent = String(newPoints);
-
-                        // atualiza caminho no charData e persiste
                         const currentCaminhoArr = Array.isArray(charData.caminho) ? charData.caminho.slice() : [];
                         if (currentCaminhoArr.length === 0) {
                             currentCaminhoArr[0] = {
@@ -1568,28 +1485,129 @@ document.addEventListener('DOMContentLoaded', async () => {
                             });
                         }
 
-                        // grava pontos_classe e caminho (usa seu helper)
-                        await saveCharacterField('pontos_classe', newPoints);
-                        await saveCharacterField('caminho', currentCaminhoArr);
+                        // atualiza local e persiste
+                        charData.caminho = currentCaminhoArr;
+                        await robustSaveCharacterField('caminho', currentCaminhoArr);
 
-                        // atualiza UI imediatamente: centro e classes das bolinhas
-                        const center = selectedCenter();
-                        if (center) center.textContent = String(levelIndex);
+                        // atualiza UI (re-render da view selecionada)
+                        try { renderSelectedPathView(path, levelIndex); } catch (e) { console.warn('renderSelectedPathView erro:', e); }
 
-                        // atualiza vertical nodes: todas <= levelIndex ficam .upada
-                        const vertical = selectedVertical();
-                        if (vertical) {
-                            vertical.querySelectorAll('.level-node').forEach(n => {
-                                const idx = Number(n.dataset.index || 0);
-                                if (idx <= levelIndex) {
-                                    n.classList.remove('opaco');
-                                    n.classList.add('upada');
-                                } else {
-                                    n.classList.remove('upada');
-                                    n.classList.add('opaco');
-                                }
+                        alert('Nível ajustado.');
+                    } catch (err) {
+                        console.error('Erro ao ajustar nível:', err);
+                        alert('Falha ao ajustar nível.');
+                    } finally {
+                        overlay.remove();
+                    }
+                });
+            }
+
+            // Se o nível clicado for exatamente o nível atual, permitir "Desupar"
+            if (levelIndex === savedNivel) {
+                const desuparBtn = document.createElement('button');
+                desuparBtn.className = 'alert-btn';
+                desuparBtn.textContent = 'Desupar';
+                desuparBtn.id = 'desupar-nivel-btn';
+                actions.appendChild(desuparBtn);
+
+                desuparBtn.addEventListener('click', async () => {
+                    if (savedNivel <= 0) {
+                        alert('Não há nível anterior para reverter.');
+                        return;
+                    }
+                    try {
+                        // reembolsa 1 ponto
+                        const refundPoints = Number(charData.pontos_classe ?? 0) + 1;
+                        charData.pontos_classe = refundPoints;
+                        if (pontosClasseDom()) pontosClasseDom().textContent = String(refundPoints);
+
+                        // atualiza nivel_atual para savedNivel - 1
+                        const newNivel = savedNivel - 1;
+                        const currentCaminhoArr = Array.isArray(charData.caminho) ? charData.caminho.slice() : [];
+                        if (currentCaminhoArr.length === 0) {
+                            currentCaminhoArr[0] = {
+                                uid: path.uid,
+                                nivel_atual: newNivel,
+                                descricao_nivel: (Array.isArray(path.niveis) && path.niveis[newNivel]) ? path.niveis[newNivel].descricao_nivel || '' : ''
+                            };
+                        } else {
+                            currentCaminhoArr[0] = Object.assign({}, currentCaminhoArr[0], {
+                                nivel_atual: newNivel,
+                                descricao_nivel: (Array.isArray(path.niveis) && path.niveis[newNivel]) ? path.niveis[newNivel].descricao_nivel || '' : ''
                             });
                         }
+
+                        // persist ambos pontos_classe e caminho
+                        await robustSaveCharacterField('pontos_classe', refundPoints);
+                        await robustSaveCharacterField('caminho', currentCaminhoArr);
+
+                        // re-render
+                        try { renderSelectedPathView(path, newNivel); } catch (e) { console.warn('renderSelectedPathView erro:', e); }
+
+                        alert('Nível reduzido e ponto reembolsado.');
+                    } catch (err) {
+                        console.error('Erro no desupar:', err);
+                        alert('Falha ao desupar nível.');
+                    } finally {
+                        overlay.remove();
+                    }
+                });
+            }
+
+            // botão Subir (somente se levelIndex > savedNivel)
+            let subirBtn = null;
+            if (levelIndex > savedNivel) {
+                subirBtn = document.createElement('button');
+                subirBtn.className = 'alert-btn';
+                subirBtn.id = 'subir-nivel-btn';
+                subirBtn.textContent = 'Subir de nível';
+                actions.appendChild(subirBtn);
+            }
+
+            // Fechar sempre no fim
+            actions.appendChild(fecharBtn);
+            box.appendChild(actions);
+            document.body.appendChild(overlay);
+
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+            fecharBtn.addEventListener('click', () => overlay.remove());
+
+            // Handler subir (usa robustSaveCharacterField)
+            if (subirBtn) {
+                subirBtn.addEventListener('click', async () => {
+                    try {
+                        const currentPoints = Number(charData.pontos_classe ?? 0);
+                        if (currentPoints <= 0) {
+                            alert('Você não tem pontos de classe suficientes para subir de nível.');
+                            return;
+                        }
+
+                        const newPoints = currentPoints - 1;
+                        charData.pontos_classe = newPoints;
+                        if (pontosClasseDom()) pontosClasseDom().textContent = String(newPoints);
+
+                        const currentCaminhoArr = Array.isArray(charData.caminho) ? charData.caminho.slice() : [];
+                        if (currentCaminhoArr.length === 0) {
+                            currentCaminhoArr[0] = {
+                                uid: path.uid,
+                                descricao_geral: path.descricao_geral || '',
+                                nivel_atual: levelIndex,
+                                descricao_nivel: nivel.descricao_nivel || ''
+                            };
+                        } else {
+                            currentCaminhoArr[0] = Object.assign({}, currentCaminhoArr[0], {
+                                nivel_atual: levelIndex,
+                                descricao_nivel: nivel.descricao_nivel || ''
+                            });
+                        }
+
+                        // grava pontos_classe e caminho usando o helper robusto
+                        await robustSaveCharacterField('pontos_classe', newPoints);
+                        await robustSaveCharacterField('caminho', currentCaminhoArr);
+
+                        // atualiza center node se existir
+                        const center = selectedCenter();
+                        if (center) center.textContent = String(levelIndex);
 
                         alert('Nível atualizado!');
                     } catch (err) {
@@ -3065,6 +3083,70 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // ----------------- Helper robusto para salvar campos do personagem -----------------
+    async function robustSaveCharacterField(field, value) {
+        // 1) se a função saveCharacterField existir, tenta usá-la (compatibilidade)
+        if (typeof saveCharacterField === 'function') {
+            try {
+                return await saveCharacterField(field, value);
+            } catch (err) {
+                console.warn('saveCharacterField falhou (robustSave) — tentando fallback:', err);
+                // continua para fallback
+            }
+        }
+
+        // 2) caso de pontos_classe: usar persistPontosClasse se existir
+        if (field === 'pontos_classe' && typeof persistPontosClasse === 'function') {
+            try {
+                return await persistPontosClasse(Number(value));
+            } catch (err) {
+                console.warn('persistPontosClasse falhou (robustSave):', err);
+                // continua para fallback
+            }
+        }
+
+        // 3) fallback genérico: atualiza o array `personagens` do doc do usuário
+        try {
+            if (!window.firebaseauth?.currentUser || !window.firestoredb || typeof window.doc !== 'function') {
+                throw new Error('Firebase não inicializado (robustSaveCharacterField).');
+            }
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', window.firebaseauth.currentUser.uid);
+            const snap = await window.getDoc(userDocRef);
+            if (!snap || !snap.exists()) throw new Error('Documento de usuário não encontrado (robustSave).');
+
+            const data = snap.data() || {};
+            const characters = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+
+            // tenta resolver o uid do personagem atual (usa charData.uid ou charUid se existir)
+            const resolvedUid = (typeof charUid !== 'undefined' ? charUid : (charData && charData.uid) ? charData.uid : null);
+            if (!resolvedUid) {
+                // se não houver como associar, joga erro para facilitar debug
+                throw new Error('Não foi possível resolver uid do personagem (robustSave).');
+            }
+
+            const idx = characters.findIndex(c => c && String(c.uid) === String(resolvedUid));
+            if (idx >= 0) {
+                characters[idx] = Object.assign({}, characters[idx], { [field]: value });
+            } else {
+                // cria mapa mínimo
+                const newMap = { uid: String(resolvedUid) };
+                newMap[field] = value;
+                characters.push(newMap);
+            }
+
+            await window.updateDoc(userDocRef, { personagens: characters });
+
+            // atualiza charData local para consistência imediata
+            if (typeof charData !== 'undefined' && charData) {
+                charData[field] = value;
+            }
+            console.log(`robustSaveCharacterField: salvo ${field} =`, value);
+            return;
+        } catch (err) {
+            console.error('robustSaveCharacterField -> erro no fallback:', err);
+            throw err;
+        }
+    }
 
     /* ---------- EXP: limite por nível ---------- */
     function expLimitForLevel(level) {
@@ -3170,11 +3252,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
 
             // dispara persistência (não bloqueante)
+            // dispara persistência (não bloqueante)
             safePersist(pontos).catch(e => console.warn('safePersist pontos_classe erro (não crítico):', e));
-        } catch (e) {
-            console.warn('updatePontosClasse erro:', e);
+        } catch (err) {
+            console.error('updatePontosClasse -> erro:', err);
         }
     }
+
+    // --- Garantia: atualiza o DOM assim que o DOM estiver pronto (caso não tenha sido atualizado ainda) ---
+    try {
+        // se o DOM já estiver pronto, atualiza imediatamente; caso contrário, aguarda o evento
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            updatePontosClasse();
+        } else {
+            document.addEventListener('DOMContentLoaded', () => {
+                try { updatePontosClasse(); } catch (e) { console.warn('init updatePontosClasse erro:', e); }
+            });
+        }
+    } catch (e) {
+        console.warn('Erro ao inicializar updatePontosClasse:', e);
+    }
+
 
     /* <<< ADICIONADO: slots de batalha, modal e integração com Firestore >>> */
     (function setupBattleSlotsAndModal() {

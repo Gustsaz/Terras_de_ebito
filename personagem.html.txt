@@ -31,7 +31,9 @@
             <div class="card-tabs" role="tablist" aria-label="Abas da ficha">
                 <button class="card-tab active" data-tab="general" role="tab" aria-selected="true">Geral</button>
                 <button class="card-tab" data-tab="description" role="tab" aria-selected="false">Descrição</button>
-                <button class="card-tab" data-tab="battle" role="tab" aria-selected="false">Batalha</button>
+                <button class="card-tab" data-tab="battle" role="tab" aria-selected="false">Equipáveis</button>
+                <button class="card-tab" data-tab="caminhos" role="tab" aria-selected="false">Caminhos</button>
+
             </div>
 
             <!-- corpo do cartão (conteúdo trocável) -->
@@ -45,9 +47,34 @@
                         </div>
                         <div class="char-basic">
                             <div class="char-name">
-                                <h2>Nome: <span id="char-name">Herói Sem Nome</span></h2>
-                                <p>Classe: <span id="char-class">—</span></p>
+                                <h2 style="display:inline-block; margin:0;">
+                                    Nome: <span id="char-name">Herói Sem Nome</span>
+                                </h2>
+
+                                <!-- container para mostrar as condições (pills) e o botão de abrir modal -->
+                                <div class="char-conditions-wrapper"
+                                    style="display:inline-flex; align-items:center; gap:8px; margin-left:12px;">
+                                    <!-- as condições serão renderizadas aqui dinamicamente -->
+                                    <div id="char-conditions" class="char-conditions" aria-live="polite"></div>
+
+                                    <!-- botão sem borda com ícone de tontura (Font Awesome) -->
+                                    <button id="open-cond-modal" class="icon-cond-btn" title="Adicionar condição"
+                                        aria-label="Adicionar condição"
+                                        style="border:none; background:transparent; padding:6px; cursor:pointer; color:inherit;">
+                                        <i class="fas fa-dizzy" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+
+                                <p style="margin-top:6px;">Classe: <span id="char-class">—</span></p>
                                 <p class="subraca" id="char-race">—</p>
+
+                                <!-- PONTOS DE CLASSE (AGORA ABAIXO DO subraca) -->
+                                <div id="char-pontos-classe"
+                                    style="margin-top:6px; font-weight:700; font-size:0.95rem; color:#efe6e2;">
+                                    Pontos de classe: <span id="char-pontos-classe-value">0</span>
+                                </div>
+
+
                             </div>
 
                             <!-- barras PV / MN / STA -->
@@ -209,7 +236,7 @@
 
                 <!-- ======= Painel BATALHA (com slots e modal) ======= -->
                 <div class="tab-content tab-battle" data-tab="battle" style="display:none;">
-                    <h2>Batalha</h2>
+                    <h2>Equipáveis</h2>
 
 
                     <div class="battle-equip">
@@ -267,17 +294,46 @@
                                     </div>
                                     <div class="item-detail-content" style="display:none;">
                                         <h4 id="detail-name"></h4>
+
+                                        <!-- IMAGEM DO ITEM (adicionada) -->
+                                        <img id="detail-icon" class="detail-icon" src="./imgs/placeholder.png"
+                                            alt="Ícone do item" style="display:none;" />
+
                                         <div id="detail-fields"></div>
                                         <div class="item-detail-actions">
                                             <button id="confirm-equip" class="btn-confirm">Confirmar</button>
                                             <button id="cancel-equip" class="btn-cancel">Cancelar</button>
                                         </div>
                                     </div>
+
                                 </section>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Cole isto dentro de .left-card-body como um novo painel -->
+                <div class="tab-content tab-caminhos" data-tab="caminhos" style="display:none;">
+                    <h2 style="text-align:center;margin:6px 0 12px 0;">Caminhos</h2>
+
+                    <div class="skill-tree-wrap">
+                        <div class="skill-tree" id="skill-tree">
+                            <!-- nodes serão renderizados aqui dinamicamente -->
+                            <div id="nodes-container" class="nodes-container"></div>
+
+                            <!-- view após escolher caminho (inicialmente escondida) -->
+                            <div id="selected-path-view" class="selected-path-view" style="display:none;">
+                                <div class="selected-center" id="selected-center"></div>
+                                <div class="selected-vertical" id="selected-vertical"></div>
+                                <div class="selected-footer">
+                                    <div class="pontos-classe-value" id="skilltree-pontos-classe">0</div>
+                                    <div class="pontos-classe-label">Quantidade de pontos de classe</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
 
             </div><!-- /.left-card-body -->
         </div><!-- /.left-card -->
@@ -370,6 +426,14 @@
                             style="width:100%;padding:10px;border-radius:8px;border:2px solid rgba(90,22,22,0.6);background:transparent;color:#efe6e2;font-family:inherit;" />
                         <textarea id="create-item-descricao" placeholder="Descrição (curta)" rows="3"
                             style="width:100%;padding:10px;border-radius:8px;border:2px solid rgba(90,22,22,0.6);background:transparent;color:#efe6e2;font-family:inherit;"></textarea>
+                        <!-- Adicione abaixo de #create-item-descricao -->
+                        <div class="form-row create-item-peso-row" style="margin-top:10px;">
+                            <label for="create-item-peso"
+                                style="display:block; font-size:0.9rem; color:#efe6e2; margin-bottom:6px;">Peso
+                                (kg)</label>
+                            <input id="create-item-peso" type="number" step="0.1" placeholder="Ex: 1.5" />
+                        </div>
+
                     </div>
 
                     <div class="alert-actions" style="width:100%;margin-top:6px;">
