@@ -32,6 +32,8 @@
                 <button class="card-tab active" data-tab="general" role="tab" aria-selected="true">Geral</button>
                 <button class="card-tab" data-tab="description" role="tab" aria-selected="false">Descrição</button>
                 <button class="card-tab" data-tab="battle" role="tab" aria-selected="false">Equipáveis</button>
+                <button class="card-tab" data-tab="caminhos" role="tab" aria-selected="false">Caminhos</button>
+
             </div>
 
             <!-- corpo do cartão (conteúdo trocável) -->
@@ -309,6 +311,29 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Cole isto dentro de .left-card-body como um novo painel -->
+                <div class="tab-content tab-caminhos" data-tab="caminhos" style="display:none;">
+                    <h2 style="text-align:center;margin:6px 0 12px 0;">Caminhos</h2>
+
+                    <div class="skill-tree-wrap">
+                        <div class="skill-tree" id="skill-tree">
+                            <!-- nodes serão renderizados aqui dinamicamente -->
+                            <div id="nodes-container" class="nodes-container"></div>
+
+                            <!-- view após escolher caminho (inicialmente escondida) -->
+                            <div id="selected-path-view" class="selected-path-view" style="display:none;">
+                                <div class="selected-center" id="selected-center"></div>
+                                <div class="selected-vertical" id="selected-vertical"></div>
+                                <div class="selected-footer">
+                                    <div class="pontos-classe-value" id="skilltree-pontos-classe">0</div>
+                                    <div class="pontos-classe-label">Quantidade de pontos de classe</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
 
             </div><!-- /.left-card-body -->
         </div><!-- /.left-card -->

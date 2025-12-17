@@ -1096,6 +1096,544 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     /* =========================
+   Caminhos (Skill Tree)
+   Cole AFTER saveCharacterField(...) - dentro do mesmo DOMContentLoaded
+   ========================= */
+
+    (function initCaminhosFeature() {
+        // safe-refs
+        const tabBtn = document.querySelector('.card-tab[data-tab="caminhos"]');
+        const tabContent = document.querySelector('.tab-content.tab-caminhos');
+        const nodesContainer = () => document.getElementById('nodes-container');
+        const selectedViewEl = () => document.getElementById('selected-path-view');
+        const selectedCenter = () => document.getElementById('selected-center');
+        const selectedVertical = () => document.getElementById('selected-vertical');
+        const pontosClasseDom = () => document.getElementById('skilltree-pontos-classe');
+
+        // helper: change tab (reuse your existing tab switching if any)
+        // Não mexemos no controle do setActiveTab() (já feito por setupCardTabs).
+        // Só usamos o clique na aba 'caminhos' para garantir que os nodes sejam (re)renderizados.
+        if (tabBtn) {
+            tabBtn.addEventListener('click', async (e) => {
+                try {
+                    // renderiza (ou re-renderiza) os nodes quando o usuário abre a aba
+                    await renderInitialNodes();
+                } catch (err) {
+                    console.warn('Erro ao renderizar caminhos ao abrir aba:', err);
+                }
+            });
+        }
+
+
+
+        // small mouse move 3D effect for .skill-tree
+        const tree = document.getElementById('skill-tree');
+        if (tree) {
+            tree.addEventListener('mousemove', (ev) => {
+                const r = tree.getBoundingClientRect();
+                const cx = r.left + r.width / 2;
+                const cy = r.top + r.height / 2;
+                const dx = ev.clientX - cx;
+                const dy = ev.clientY - cy;
+                const rx = clamp(-dy / 40, -8, 8);
+                const ry = clamp(dx / 40, -8, 8);
+                tree.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+            });
+            tree.addEventListener('mouseleave', () => { tree.style.transform = ''; });
+        }
+
+        // ----------------------- PANNING (camera-like) -----------------------
+        (() => {
+            const treeEl = document.getElementById('skill-tree');
+            const nCont = document.getElementById('nodes-container');
+            if (!treeEl || !nCont) return;
+
+            // cria o scene se não existir (mantém compatibilidade com renderInitialNodes)
+            let scene = nCont.querySelector('.nodes-scene');
+            if (!scene) {
+                scene = document.createElement('div');
+                scene.className = 'nodes-scene';
+                nCont.appendChild(scene);
+            }
+
+            // Ensure the tree shows appropriate cursor
+            treeEl.classList.remove('grabbing');
+
+            // pan state
+            let isPanning = false;
+            let startX = 0, startY = 0;
+            let panX = 0, panY = 0; // current committed pan values (in px)
+            let tempX = 0, tempY = 0; // temporary during pointermove
+
+            function sceneSize() {
+                // read from computed style to allow CSS changes
+                const w = scene.offsetWidth;
+                const h = scene.offsetHeight;
+                return { w, h };
+            }
+            function viewportSize() {
+                return { w: nCont.clientWidth, h: nCont.clientHeight };
+            }
+
+            function clampPan(x, y) {
+                const { w: sw, h: sh } = sceneSize();
+                const { w: vw, h: vh } = viewportSize();
+                // Limits: panX range [vw - sw, 0], panY range [vh - sh, 0]
+                const minX = Math.min(vw - sw, 0);
+                const maxX = 0;
+                const minY = Math.min(vh - sh, 0);
+                const maxY = 0;
+                return {
+                    x: Math.max(minX, Math.min(maxX, x)),
+                    y: Math.max(minY, Math.min(maxY, y))
+                };
+            }
+
+            function applySceneTransform(x, y) {
+                scene.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
+            }
+
+            // center scene initially (so center of scene matches center of viewport)
+            function centerScene() {
+                const { w: sw, h: sh } = sceneSize();
+                const { w: vw, h: vh } = viewportSize();
+                const initialX = Math.round((vw - sw) / 2);
+                const initialY = Math.round((vh - sh) / 2);
+                const clamped = clampPan(initialX, initialY);
+                panX = clamped.x; panY = clamped.y;
+                applySceneTransform(panX, panY);
+            }
+
+            // call when viewport/resizes or after nodes rendered
+            window.addEventListener('resize', () => { centerScene(); });
+
+            // start panning only when clicking outside a node (so nodes clicks still work)
+            treeEl.addEventListener('pointerdown', (ev) => {
+                // left button only
+                if (ev.button !== 0) return;
+                // if clicked on a node, don't start camera pan
+                if (ev.target.closest('.ct-node') || ev.target.closest('.level-node')) return;
+                isPanning = true;
+                startX = ev.clientX;
+                startY = ev.clientY;
+                tempX = panX;
+                tempY = panY;
+                treeEl.classList.add('grabbing');
+                if (treeEl.setPointerCapture) treeEl.setPointerCapture(ev.pointerId);
+                ev.preventDefault();
+            }, { passive: false });
+
+            treeEl.addEventListener('pointermove', (ev) => {
+                if (!isPanning) return;
+                const dx = ev.clientX - startX;
+                const dy = ev.clientY - startY;
+                const newX = tempX + dx;
+                const newY = tempY + dy;
+                const clamped = clampPan(newX, newY);
+                // apply immediately (no commit yet)
+                applySceneTransform(clamped.x, clamped.y);
+            });
+
+            const endPan = (ev) => {
+                if (!isPanning) return;
+                const dx = ev.clientX - startX;
+                const dy = ev.clientY - startY;
+                const newX = tempX + dx;
+                const newY = tempY + dy;
+                const clamped = clampPan(newX, newY);
+                panX = clamped.x; panY = clamped.y;
+                applySceneTransform(panX, panY);
+                isPanning = false;
+                treeEl.classList.remove('grabbing');
+                try { if (treeEl.releasePointerCapture) treeEl.releasePointerCapture(ev.pointerId); } catch (e) { }
+            };
+
+            treeEl.addEventListener('pointerup', endPan);
+            treeEl.addEventListener('pointercancel', endPan);
+            // double click resets to center
+            treeEl.addEventListener('dblclick', (e) => { centerScene(); });
+
+            // expose helper for renderInitialNodes to call center after nodes are added
+            window.__skilltree_centerScene = centerScene;
+
+            // initially center
+            setTimeout(() => { centerScene(); }, 40);
+        })();
+
+
+
+        // clamp helper
+        function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+        // fetch caminhos for this class
+        async function fetchCaminhosForClass() {
+            try {
+                // carrega todos os docs da coleção 'caminhos'
+                const snap = await window.getDocs(window.collection(window.firestoredb, 'caminhos'));
+                // monta array com uid + dados (spread corretamente)
+                const all = snap.docs.map(d => ({ uid: d.id, ...(d.data() || {}) }));
+                // filtra pelos caminhos que correspondem à classe do personagem atual
+                const filtered = all.filter(c => String(c.classe || '').trim() === String(charData.classe || '').trim());
+                console.log('fetchCaminhosForClass -> encontrados caminhos para classe', charData?.classe, filtered.length);
+                return filtered;
+            } catch (e) {
+                console.error('Erro ao carregar caminhos:', e);
+                return [];
+            }
+        }
+
+        // render inicial nodes (circles distributed near center)
+        async function renderInitialNodes() {
+            const nCont = nodesContainer();
+            if (!nCont) return;
+            // se painel está oculto, não redesenhar (evita efeitos visuais)
+            const tab = nCont.closest('.tab-content');
+            if (tab && tab.style.display === 'none') return;
+
+            // garante que exista .nodes-scene (o panning IIFE também cria se necessário)
+            let scene = nCont.querySelector('.nodes-scene');
+            if (!scene) {
+                scene = document.createElement('div');
+                scene.className = 'nodes-scene';
+                nCont.appendChild(scene);
+            }
+            // limpa cena
+            scene.innerHTML = '';
+
+            const caminhos = await fetchCaminhosForClass();
+            console.log('renderInitialNodes -> caminhos carregados:', caminhos.length, caminhos);
+
+            if (!caminhos.length) {
+                // se sem caminhos, mostra mensagem centralizada dentro do viewport (nodes-container)
+                nCont.innerHTML = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#ccc">Nenhum caminho disponível para sua classe.</div>`;
+                return;
+            }
+
+            // obter dimensões da cena (de CSS)
+            const sceneW = scene.offsetWidth || 1600;
+            const sceneH = scene.offsetHeight || 1000;
+
+            // layout: coloca os nodes distribuídos pelo centro da cena (pode ajustar)
+            const centerX = sceneW / 2;
+            const centerY = sceneH / 2;
+            const radius = Math.min(sceneW, sceneH) * 0.18;
+
+            caminhos.forEach((cam, i) => {
+                // distribuir em círculo + variação randômica
+                const angle = (i / caminhos.length) * Math.PI * 2;
+                const rx = Math.round((Math.cos(angle) * radius) + (Math.random() * 120 - 60));
+                const ry = Math.round((Math.sin(angle) * radius) + (Math.random() * 80 - 40));
+                const x = Math.round(centerX + rx - 76 / 2); // 76 é largura do node
+                const y = Math.round(centerY + ry - 76 / 2);
+
+                const el = document.createElement('div');
+                el.className = 'ct-node';
+                el.style.left = `${x}px`;
+                el.style.top = `${y}px`;
+                el.dataset.uid = cam.uid;
+
+                const img = document.createElement('img');
+                img.src = cam.img || './imgs/placeholder.png';
+                img.alt = cam.nome || '';
+                img.style.width = '60%';
+                img.style.height = '60%';
+                img.style.objectFit = 'contain';
+                el.appendChild(img);
+
+                el.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    showPathModal(cam);
+                });
+
+                scene.appendChild(el);
+            });
+
+            // centraliza a cena no viewport (usa helper exposto)
+            try {
+                if (typeof window.__skilltree_centerScene === 'function') window.__skilltree_centerScene();
+                else {
+                    // fallback: small timeout then try center
+                    setTimeout(() => { if (typeof window.__skilltree_centerScene === 'function') window.__skilltree_centerScene(); }, 80);
+                }
+            } catch (e) { console.warn('centerScene falhou:', e); }
+        }
+
+
+        // Show modal for a path (with carousel for niveis)
+        function showPathModal(path) {
+            if (!path) return;
+            if (document.getElementById('path-modal-overlay')) return; // avoid duplicates
+            const overlay = document.createElement('div');
+            overlay.id = 'path-modal-overlay';
+            overlay.className = 'path-modal-overlay';
+
+            const box = document.createElement('div');
+            box.className = 'path-modal';
+            box.innerHTML = `
+      <div class="modal-header"><div style="font-size:1.15rem">${path.nome || 'Caminho'}</div></div>
+      <div class="modal-body">
+        <div class="path-desc">${path.descricao_geral || '—'}</div>
+        <div class="levels-carousel" id="levels-carousel"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="alert-btn" id="choose-path-btn">Escolher caminho</button>
+        <button class="alert-btn" id="close-path-btn">Fechar</button>
+      </div>
+    `;
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+
+            // build carousel - simple one-card show with prev/next
+            const carousel = box.querySelector('#levels-carousel');
+            const niveis = Array.isArray(path.niveis) ? path.niveis : [];
+            let carouselIndex = 0;
+
+            function renderCarousel() {
+                carousel.innerHTML = '';
+                const prev = document.createElement('button'); prev.className = 'alert-btn'; prev.textContent = '◀';
+                const next = document.createElement('button'); next.className = 'alert-btn'; next.textContent = '▶';
+                const slot = document.createElement('div'); slot.className = 'carousel-slot';
+                const nivel = niveis[carouselIndex] || {};
+                slot.innerHTML = `<div style="font-weight:800;margin-bottom:8px;">${nivel.nome || ('Nível ' + carouselIndex)}</div>
+                        <div style="font-size:0.95rem;color:#eee">${nivel.descricao_nivel || '—'}</div>`;
+                prev.addEventListener('click', (e) => { e.stopPropagation(); carouselIndex = (carouselIndex - 1 + niveis.length) % Math.max(1, niveis.length); renderCarousel(); });
+                next.addEventListener('click', (e) => { e.stopPropagation(); carouselIndex = (carouselIndex + 1) % Math.max(1, niveis.length); renderCarousel(); });
+
+                carousel.appendChild(prev);
+                carousel.appendChild(slot);
+                carousel.appendChild(next);
+            }
+            renderCarousel();
+
+            // handlers
+            box.querySelector('#close-path-btn').addEventListener('click', () => overlay.remove());
+            overlay.addEventListener('click', (ev) => { if (ev.target === overlay) overlay.remove(); });
+
+            // Choose path button action
+            box.querySelector('#choose-path-btn').addEventListener('click', async () => {
+                try {
+                    // build caminho object to save in character
+                    const roteiro = {
+                        uid: path.uid,
+                        descricao_geral: path.descricao_geral || '',
+                        nivel_atual: 0,
+                        descricao_nivel: (Array.isArray(path.niveis) && path.niveis[0]) ? path.niveis[0].descricao_nivel || '' : ''
+                    };
+
+                    // save using your helper (saveCharacterField) as array
+                    await saveCharacterField('caminho', [roteiro]);
+                    charData.caminho = [roteiro]; // sync local
+                    // update UI: hide nodes and show selected view
+                    const nCont = nodesContainer();
+                    if (nCont) nCont.classList.add('hidden');
+                    renderSelectedPathView(path, roteiro.nivel_atual);
+                } catch (e) {
+                    console.error('Falha ao escolher caminho:', e);
+                    alert('Erro ao escolher caminho.');
+                } finally {
+                    overlay.remove();
+                }
+            });
+        }
+
+        // Render selected path view (center + vertical nodes)
+        // Render selected path view (center + vertical nodes) - substitua a função existente
+        function renderSelectedPathView(path, currentIndex = 0) {
+            const sel = selectedViewEl();
+            if (!sel) return;
+            sel.style.display = '';
+            const center = selectedCenter();
+            const vertical = selectedVertical();
+
+            // determinar nível atual salvo no personagem (preferência)
+            const charCaminho = Array.isArray(charData.caminho) && charData.caminho.length ? charData.caminho[0] : null;
+            const savedNivel = charCaminho ? Number(charCaminho.nivel_atual || 0) : null;
+            const nivelAtual = (savedNivel !== null && !Number.isNaN(savedNivel)) ? savedNivel : Number(currentIndex || 0);
+
+            // centro mostra o nível atual (index)
+            if (center) center.textContent = String(nivelAtual || 0);
+
+            vertical.innerHTML = ''; // cria nós: assumimos niveis length
+            const niveis = Array.isArray(path.niveis) ? path.niveis : [];
+            const total = Math.max(1, niveis.length);
+
+            // criamos do topo (index maior) ao 1 (center é 0)
+            for (let idx = total - 1; idx >= 1; idx--) {
+                const node = document.createElement('div');
+                node.className = 'level-node';
+                node.dataset.index = String(idx);
+                node.textContent = String(idx);
+                node.title = niveis[idx]?.nome || ('Nível ' + idx);
+
+                // se o índice for <= nivelAtual, marca como upada (ativas), senão deixa opaca
+                if (idx <= nivelAtual) {
+                    node.classList.add('upada');
+                } else {
+                    node.classList.add('opaco');
+                }
+
+                node.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    showLevelModal(path, idx);
+                });
+
+                vertical.appendChild(node);
+            }
+
+            // atualiza display de pontos de classe
+            try { if (pontosClasseDom()) pontosClasseDom().textContent = String(Number(charData.pontos_classe || 0)); } catch (e) {/*silent*/ }
+        }
+
+
+        // Show modal for a given level index (with button to subir de nivel) - substitui a versão existente
+        function showLevelModal(path, levelIndex) {
+            if (!path) return;
+            const overlayId = 'path-level-modal-overlay';
+            if (document.getElementById(overlayId)) return;
+            const overlay = document.createElement('div');
+            overlay.id = overlayId;
+            overlay.className = 'path-modal-overlay';
+
+            const box = document.createElement('div');
+            box.className = 'path-modal';
+            const niveis = Array.isArray(path.niveis) ? path.niveis : [];
+            const nivel = niveis[levelIndex] || {};
+
+            box.innerHTML = `
+    <div class="modal-header"><div>${nivel.nome || ('Nível ' + levelIndex)}</div></div>
+    <div class="modal-body">
+      <div style="text-align:center;">${nivel.descricao_nivel || '—'}</div>
+    </div>
+  `;
+            overlay.appendChild(box);
+
+            // actions (montamos dinamicamente para poder omitir o botão quando já upado)
+            const actions = document.createElement('div');
+            actions.className = 'modal-actions';
+
+            const fecharBtn = document.createElement('button');
+            fecharBtn.className = 'alert-btn';
+            fecharBtn.id = 'fechar-nivel-btn';
+            fecharBtn.textContent = 'Fechar';
+
+            // determinar if upado
+            const charCaminho = Array.isArray(charData.caminho) && charData.caminho.length ? charData.caminho[0] : null;
+            const savedNivel = charCaminho ? Number(charCaminho.nivel_atual || 0) : 0;
+
+            // só adiciona botão Subir se esse nível for > savedNivel
+            let subirBtn = null;
+            if (levelIndex > savedNivel) {
+                subirBtn = document.createElement('button');
+                subirBtn.className = 'alert-btn';
+                subirBtn.id = 'subir-nivel-btn';
+                subirBtn.textContent = 'Subir de nível';
+                actions.appendChild(subirBtn);
+            }
+
+            actions.appendChild(fecharBtn);
+            box.appendChild(actions);
+            document.body.appendChild(overlay);
+
+            // handlers
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+            fecharBtn.addEventListener('click', () => overlay.remove());
+
+            if (subirBtn) {
+                subirBtn.addEventListener('click', async () => {
+                    try {
+                        const currentPoints = Number(charData.pontos_classe ?? 0);
+                        if (currentPoints <= 0) {
+                            alert('Você não tem pontos de classe suficientes para subir de nível.');
+                            return;
+                        }
+
+                        // decrementa ponto local e UI
+                        const newPoints = currentPoints - 1;
+                        charData.pontos_classe = newPoints;
+                        if (pontosClasseDom()) pontosClasseDom().textContent = String(newPoints);
+
+                        // atualiza caminho no charData e persiste
+                        const currentCaminhoArr = Array.isArray(charData.caminho) ? charData.caminho.slice() : [];
+                        if (currentCaminhoArr.length === 0) {
+                            currentCaminhoArr[0] = {
+                                uid: path.uid,
+                                descricao_geral: path.descricao_geral || '',
+                                nivel_atual: levelIndex,
+                                descricao_nivel: nivel.descricao_nivel || ''
+                            };
+                        } else {
+                            currentCaminhoArr[0] = Object.assign({}, currentCaminhoArr[0], {
+                                nivel_atual: levelIndex,
+                                descricao_nivel: nivel.descricao_nivel || ''
+                            });
+                        }
+
+                        // grava pontos_classe e caminho (usa seu helper)
+                        await saveCharacterField('pontos_classe', newPoints);
+                        await saveCharacterField('caminho', currentCaminhoArr);
+
+                        // atualiza UI imediatamente: centro e classes das bolinhas
+                        const center = selectedCenter();
+                        if (center) center.textContent = String(levelIndex);
+
+                        // atualiza vertical nodes: todas <= levelIndex ficam .upada
+                        const vertical = selectedVertical();
+                        if (vertical) {
+                            vertical.querySelectorAll('.level-node').forEach(n => {
+                                const idx = Number(n.dataset.index || 0);
+                                if (idx <= levelIndex) {
+                                    n.classList.remove('opaco');
+                                    n.classList.add('upada');
+                                } else {
+                                    n.classList.remove('upada');
+                                    n.classList.add('opaco');
+                                }
+                            });
+                        }
+
+                        alert('Nível atualizado!');
+                    } catch (err) {
+                        console.error('Erro ao subir nível:', err);
+                        alert('Falha ao subir nível.');
+                    } finally {
+                        overlay.remove();
+                    }
+                });
+            }
+        }
+
+        // init: if already has chosen caminho in charData, show selected view directly
+        (async function bootstrap() {
+            try {
+                // initial render of starting nodes
+                await renderInitialNodes();
+
+                // if charData already has caminho, load that path and render selected view
+                if (Array.isArray(charData.caminho) && charData.caminho.length > 0) {
+                    const chosen = charData.caminho[0];
+                    // fetch path doc from Firestore to get full info
+                    try {
+                        const docRef = window.doc(window.firestoredb, 'caminhos', chosen.uid);
+                        const snap = await window.getDoc(docRef);
+                        if (snap && snap.exists()) {
+                            const path = snap.data(); path.uid = snap.id;
+                            // hide initial nodes
+                            const nCont = nodesContainer(); if (nCont) nCont.classList.add('hidden');
+                            renderSelectedPathView(path, Number(chosen.nivel_atual || 0));
+                        }
+                    } catch (e) {
+                        console.warn('Falha ao carregar caminho escolhido:', e);
+                    }
+                }
+            } catch (e) {
+                console.warn('bootstrap caminhos erro:', e);
+            }
+        })();
+
+    })();
+
+
+    /* =========================
    Condições: UI + Modal + Firestore
    Cole após saveCharacterField(...) dentro do mesmo escopo (DOMContentLoaded).
    ========================= */
