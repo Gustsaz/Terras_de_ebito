@@ -547,6 +547,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 charData.pontos_restantes = Number(newChar.pontos_restantes ?? 0);
             }
 
+            // 6.5) Atualiza pontos_classe local e no display
+            if (typeof newChar.pontos_classe !== 'undefined') {
+                charData.pontos_classe = Number(newChar.pontos_classe ?? 0);
+            }
+
             // 7) Atualiza as barras e textos na UI sem salvar (usar applyBar em vez de updateAllBars para evitar re-save)
             try {
                 applyBar('pv-bar-fill', 'pv-bar-text', curPV, totPV, 'pv');
@@ -6005,5 +6010,3 @@ document.addEventListener('DOMContentLoaded', async () => {
     })();
 
 })();
-
-

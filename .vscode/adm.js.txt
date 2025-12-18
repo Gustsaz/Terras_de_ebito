@@ -1,0 +1,255 @@
+// adm.js - Admin panel to list users and their characters
+
+document.addEventListener("DOMContentLoaded", async () => {
+    console.log('Loading adm.js');
+
+    // Check if admin is logged in (password check, but since we came from modal with password, assume ok)
+    // Load all users from 'usuarios' collection
+
+    const usersList = document.getElementById('users-list');
+    const charactersSection = document.getElementById('characters-section');
+    const charactersList = document.getElementById('characters-list');
+    const userNameSpan = document.getElementById('user-name');
+
+    let currentUserId = null;
+
+    // Function to load all users
+    async function loadUsers() {
+        try {
+            const usuariosCol = window.collection(window.firestoredb, 'usuarios');
+            const snapshot = await window.getDocs(usuariosCol);
+            usersList.innerHTML = '';
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const name = data.name || 'Nome não definido';
+                const email = data.email || 'Email não definido';
+                const uid = doc.id;
+
+                const userItem = document.createElement('div');
+                userItem.className = 'user-item';
+                userItem.innerHTML = `
+                    <div class="user-info">
+                        <h3>${name}</h3>
+                        <p>Email: ${email}</p>
+                        <p>UID: ${uid}</p>
+                    </div>
+                `;
+                userItem.addEventListener('click', () => {
+                    document.querySelectorAll('.user-item').forEach(it => it.classList.remove('active'));
+                    userItem.classList.add('active');
+                    loadUserCharacters(uid, name);
+                });
+                usersList.appendChild(userItem);
+            });
+        } catch (error) {
+            console.error('Error loading users:', error);
+            usersList.innerHTML = '<p>Erro ao carregar usuários.</p>';
+        }
+    }
+
+    // Function to load characters of a user
+    async function loadUserCharacters(uid, name) {
+        currentUserId = uid;
+        userNameSpan.textContent = name;
+        charactersSection.style.display = 'block';
+
+        // Hide other user active
+        document.querySelectorAll('.user-item').forEach(item => item.classList.remove('active'));
+        const items = usersList.querySelectorAll('.user-item');
+        // Find the item with uid
+        // Since we don't have uid in the item, perhaps set active based on clicked
+
+        try {
+            const docRef = window.doc(window.firestoredb, 'usuarios', uid);
+            const docSnap = await window.getDoc(docRef);
+            if (!docSnap.exists()) {
+                charactersList.innerHTML = '<p>Usuário não encontrado.</p>';
+                return;
+            }
+            const data = docSnap.data();
+            const characters = data.personagens || [];
+            charactersList.innerHTML = '';
+
+            if (characters.length === 0) {
+                charactersList.innerHTML = '<p>Nenhum personagem criado.</p>';
+                return;
+            }
+
+            characters.forEach(char => {
+                const imgSrc = (char.img && Array.isArray(char.img) && char.img.length > 0)
+                    ? char.img[0]
+                    : `./imgs/${char.classe.toLowerCase()}.png`;
+
+                const charId = char.uid;
+                const charCard = document.createElement('div');
+                charCard.className = 'character-card';
+                charCard.innerHTML = `
+                    <img src="${imgSrc}" alt="Character ${char.nome}" onerror="this.src='./imgs/placeholder.png'">
+                    <h4>${char.nome}</h4>
+                    <p>Classe: ${char.classe}</p>
+                    <p>Raça: ${char.raca}${char.subraca ? ` (${char.subraca})` : ''}</p>
+                    <p>Nível: ${char.LVL}</p>
+                `;
+                charCard.addEventListener('click', () => {
+                    window.location.href = 'personagemadm.html?uid=' + encodeURIComponent(charId);
+                });
+                charactersList.appendChild(charCard);
+            });
+        } catch (error) {
+            console.error('Error loading characters:', error);
+            charactersList.innerHTML = '<p>Erro ao carregar personagens.</p>';
+        }
+    }
+
+    // Load users on load
+    await loadUsers();
+
+    // Add back button
+    const backBtn = document.createElement('button');
+    backBtn.className = 'back-to-users';
+    backBtn.textContent = 'Voltar para Usuários';
+    backBtn.addEventListener('click', () => {
+        charactersSection.style.display = 'none';
+        document.querySelectorAll('.user-item').forEach(item => item.classList.remove('active'));
+    });
+
+    charactersSection.querySelector('h2').appendChild(backBtn);
+});
+
+/* === ADD CAMINHO UI + Firestore save === */
+(function () {
+    // elementos
+    const openBtn = document.getElementById('open-add-caminho');
+    const panel = document.getElementById('add-caminho-panel');
+    const closeBtn = panel?.querySelector('.close-add-caminho');
+    const form = document.getElementById('add-caminho-form');
+    const niveisContainer = document.getElementById('niveis-container');
+    const addNivelBtn = document.getElementById('add-nivel-btn');
+    const cancelBtn = document.getElementById('cancel-add-caminho');
+    const loadExampleBtn = document.getElementById('load-example-btn');
+
+    if (!openBtn || !panel || !form) return; // segurança
+
+    // abrir painel
+    openBtn.addEventListener('click', () => {
+        panel.style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // fechar
+    closeBtn?.addEventListener('click', () => panel.style.display = 'none');
+    cancelBtn?.addEventListener('click', () => panel.style.display = 'none');
+
+    // função para criar um bloco de nivel
+    function createNivelItem(nome = '', descricao = '') {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'nivel-item';
+        wrapper.innerHTML = `
+      <div class="nivel-row">
+        <div style="flex:1;">
+          <label>Nome do Nível
+            <input type="text" class="nivel-nome" value="${escapeHtml(nome)}" required />
+          </label>
+        </div>
+        <button type="button" class="remove-nivel" title="Remover Nível">✕</button>
+      </div>
+      <label>Descrição do Nível
+        <textarea class="nivel-desc" rows="3" required>${escapeHtml(descricao)}</textarea>
+      </label>
+    `;
+        // remover
+        wrapper.querySelector('.remove-nivel').addEventListener('click', () => {
+            wrapper.remove();
+        });
+        return wrapper;
+    }
+
+    // helper escape
+    function escapeHtml(s) {
+        if (!s) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // adicionar nível
+    addNivelBtn?.addEventListener('click', () => {
+        niveisContainer.appendChild(createNivelItem('', ''));
+    });
+
+    // permitir adicionar 1 nível inicial se vazio
+    if (niveisContainer && niveisContainer.children.length === 0) {
+        niveisContainer.appendChild(createNivelItem('', ''));
+    }
+
+    // Carregar exemplo (preenche o formulário com os dados que você mandou)
+    loadExampleBtn?.addEventListener('click', () => {
+        document.getElementById('c_classe').value = 'Arcanista';
+        document.getElementById('c_nome').value = 'Conjurador Elemental';
+        document.getElementById('c_descricao_geral').value = 'O Conjurador Elemental domina os quatro pilares do mundo físico Fogo, Água, Ar e Terra e os canaliza como extensão do próprio corpo. É o poder bruto da natureza moldado pela mente.';
+        document.getElementById('c_img').value = './imgs/Conjurador_elemental.png';
+
+        // limpar niveis atuais
+        niveisContainer.innerHTML = '';
+        // exemplo de niveis (copiados do seu conteúdo)
+        const niveisEx = [
+            { nome: 'Fonte elementar', descricao: 'O Conjurador Elemental domina os quatro pilares do mundo físico Fogo, Água, Ar e Terra e os canaliza como extensão do próprio corpo. É o poder bruto da natureza moldado pela mente.' },
+            { nome: 'Fonte elementar I', descricao: 'Você aprende 2 feitiços elementais de sua escolha (ex.: Bola de Fogo, Rajada de Vento, Armadura Líquida). Ao conjurar um feitiço elemental, ganha +1 no dano ou +1 na duração do efeito.' },
+            { nome: 'Fonte elementar I', descricao: 'Quando conjura um feitiço de um elemento, pode combinar efeitos leves de outro (ex.: fogo + vento = chamas explosivas; água + ar = neblina móvel). Isso adiciona +1d4 de dano misto ou um efeito narrativo menor (como empurrar, cegar, ou reduzir velocidade).' },
+            { nome: 'Fonte elementar III', descricao: 'Você se envolve em energia bruta, ganhando resistência de 10 a um tipo de dano elemental à sua escolha(Fogo, água, vento ou terra) por 1d4 turnos. Custa 6 MN' },
+            { nome: 'Fonte elementar IV', descricao: 'Uma vez por combate, você pode gastar 10 MN para invocar um Espírito Elemental (2d8 PV, 1d6 + Arc de dano). Dura 1d6 turnos e age sob seu comando.' },
+            { nome: 'Fonte elementar VI', descricao: 'Ao atingir este nível, o Arcanista se torna um foco vivo de energia. Quando conjura magias elementais em sequência (duas ou mais no mesmo combate), à segunda e as seguintes ganham +2 de dano e ignoram metade da resistência elemental do alvo.' },
+            { nome: 'Fonte Elementar VI', descricao: 'Você canaliza a essência dos elementos, tornando-se temporariamente um Avatar por 3 turnos. Durante esse tempo: • +2 em Arcana e Fôlego • Dano de feitiços elementais +3 • Resistência total a um tipo de dano elemental Após o efeito, sofre 1 turno de exaustão.' }
+        ];
+        niveisEx.forEach(n => niveisContainer.appendChild(createNivelItem(n.nome, n.descricao)));
+    });
+
+    // Form submit -> montar objeto e enviar para Firestore
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        try {
+            const classe = document.getElementById('c_classe').value.trim();
+            const nome = document.getElementById('c_nome').value.trim();
+            const descricao_geral = document.getElementById('c_descricao_geral').value.trim();
+            const img = document.getElementById('c_img').value.trim() || './imgs/placeholder.png';
+
+            // montar array niveis
+            const niveisNodes = Array.from(niveisContainer.querySelectorAll('.nivel-item'));
+            const niveis = niveisNodes.map((node) => {
+                const nomeN = node.querySelector('.nivel-nome').value.trim();
+                const descN = node.querySelector('.nivel-desc').value.trim();
+                return { nome: nomeN, descricao_nivel: descN };
+            });
+
+            // validações simples
+            if (!classe || !nome || !descricao_geral) {
+                alert('Preencha: classe, nome e descrição geral.');
+                return;
+            }
+            // objeto final
+            const newCaminho = {
+                classe,
+                nome,
+                descricao_geral,
+                img,
+                niveis
+            };
+
+            // salva no firestore (coleção 'caminho')
+            const colRef = window.collection(window.firestoredb, 'caminho');
+            await window.addDoc(colRef, newCaminho); // usa addDoc para criar id automático
+
+            alert('Caminho salvo com sucesso!');
+            // limpar form
+            form.reset();
+            niveisContainer.innerHTML = '';
+            niveisContainer.appendChild(createNivelItem('', ''));
+            panel.style.display = 'none';
+
+            // opcional: recarregar lista/atualizar UI administrativa — se tiver função para isso, chame aqui.
+
+        } catch (err) {
+            console.error('Erro ao criar caminho:', err);
+            alert('Erro ao salvar no Firestore. Veja console para detalhes.');
+        }
+    });
+})();
