@@ -449,7 +449,7 @@ body {
     justify-content: flex-end;
 }
 
-.condicao-card button {
+.condicao-card button, .form-actions button, .filter-actions button {
     cursor: pointer;
     border-radius: 6px;
     padding: 6px 8px;

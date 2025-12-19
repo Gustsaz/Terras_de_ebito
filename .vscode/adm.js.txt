@@ -1987,12 +1987,33 @@ async function getDocRefSafe(collectionName, docId) {
         }
     }
 
+    // --- wiring correto: passar o painel DOM para as funções ---
     toggles.forEach(btn => {
         btn.addEventListener('click', (e) => {
             const target = btn.dataset.target;
-            togglePanel(target);
+            const pid = panelIdFor(target);
+            const panel = document.getElementById(pid);
+            if (!panel) return;
+
+            // usa a toggle que espera o elemento do painel + container
+            if (panel.classList.contains('open')) {
+                // fechar via função closePanel (mantém comportamento anterior)
+                panel.classList.remove('open');
+                panel.setAttribute('hidden', '');
+                // atualizar estado do toggle
+                btn.classList.remove('active');
+            } else {
+                // abrir: garante que apenas um painel fique aberto
+                // usa a função openPanel que fecha os outros filhos e abre este
+                openPanel(panel, panelsContainer);
+                // marca o botão ativo
+                toggles.forEach(t => t.classList.toggle('active', t === btn));
+                // remove atributo hidden do painel
+                panel.removeAttribute('hidden');
+            }
         });
     });
+
 
     // Accessibility: allow keyboard open via Enter when toggle focused
     toggles.forEach(btn => {

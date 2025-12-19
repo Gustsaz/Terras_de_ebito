@@ -1214,3 +1214,162 @@ body {
         min-width: 100%;
     }
 }
+
+/* =========================
+   RESPONSIVE FIXES FOR ADM
+   ========================= */
+
+/* keep desktop layout safe: reserve space para a sidebar */
+@media (min-width: 769px) {
+  .admin-container {
+    margin-left: 80px; /* evita sobreposição pela sidebar fixa de 60px */
+  }
+}
+
+/* ===== Tablet / small desktop / large mobile (<= 768px) ===== */
+@media (max-width: 768px) {
+
+  /* transforme a sidebar lateral em um topo horizontal simples */
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border-right: none;
+    border-bottom: 4px solid rgba(92,34,34,0.95);
+    z-index: 1400;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .admin-side-nav {
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    overflow-x: auto;
+    width: 100%;
+    padding-left: 6px;
+  }
+
+  .side-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .side-btn .side-label { display: none; }
+
+  /* empurra conteúdo pra baixo para não ficar abaixo do topo */
+  .admin-container {
+    margin-left: 0;
+    padding-top: 82px; /* altura da sidebar topo + espaçamento */
+    max-width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  /* header reduzido */
+  .admin-header {
+    padding: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .admin-header h1 { font-size: 1.5rem; }
+
+  /* coluna principal vira stack */
+  .admin-content { flex-direction: column; gap: 18px; }
+
+  /* ajuste listas / grids para 1 coluna */
+  .characters-list,
+  .caminhos-list,
+  .condicoes-list,
+  .itens-list,
+  .feiticos-list,
+  .milagres-list {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* elementos column passa a ser full width e aparece antes das panels */
+  .elementos-column { width: 100%; order: 2; position: relative; top: 0; }
+  .elementos-section { flex-direction: row; gap: 8px; flex-wrap: wrap; }
+  .elemento-row { width: auto; display:flex; gap:6px; align-items:center; }
+
+  /* panels: ocupar full width (substitui, um por vez) */
+  .elementos-panels { padding-top: 8px; }
+  .elementos-panels > div { width: 100%; min-width: unset; }
+
+  /* painéis / modais: encaixar dentro da viewport */
+  .add-caminho-panel,
+  .add-condicao-panel,
+  .add-item-panel,
+  .add-feitico-panel,
+  .add-milagre-panel {
+    left: 12px;
+    right: 12px;
+    top: 70px;
+    width: calc(100% - 24px);
+    max-height: calc(100vh - 92px);
+  }
+
+  /* histórico dropdowns e search filter */
+  .history-dropdown { left: 6px; right: 6px; min-width: unset; max-width: calc(100% - 24px); }
+  .search-filter-dropdown { left: 12px; right: 12px; width: auto; top: 64px; }
+
+  /* reduzir paddings e fontes em itens */
+  .caminho-card, .condicao-card, .item-card {
+    padding: 10px;
+  }
+
+  /* esconder pequenas decorações que atrapalham no mobile */
+  .user-item .user-info p { font-size: 0.85rem; }
+
+  /* garantir botões acessíveis por touch */
+  .small-action, .history-btn { width: 36px; height: 36px; }
+}
+
+/* ===== Very small phones (<= 420px) ===== */
+@media (max-width: 420px) {
+
+  .admin-sidebar { height: 56px; padding: 6px; gap: 6px; }
+  .side-btn { width: 40px; height: 40px; }
+
+  .admin-header h1 { font-size: 1.15rem; }
+  .back-link { font-size: 0.95rem; }
+
+  .admin-container { padding-left: 10px; padding-right: 10px; padding-top: 72px; }
+
+  /* ainda mais compactação de formulários */
+  .add-caminho-panel, .add-item-panel, .add-feitico-panel,
+  .add-condicao-panel, .add-milagre-panel {
+    padding: 10px;
+    top: 64px;
+  }
+
+  .niveis-header { flex-direction: column; gap:6px; align-items: flex-start; }
+
+  .characters-list { gap: 10px; grid-template-columns: 1fr; }
+  .character-card img { max-width: 120px; }
+
+  /* garantir que os history-dropdowns não ultrapassem a tela */
+  .history-dropdown { max-width: calc(100vw - 20px); left:10px; right:10px; }
+
+  /* botões menores */
+  .modal-btn { padding: 8px 10px; font-size: 0.95rem; }
+
+  /* evitar overflow horizontal em quase todos os painéis */
+  body, .admin-container, .admin-content { overflow-x: hidden; }
+
+  /* listas com cards: reduzir espaçamento e fonte */
+  .caminho-card h4, .item-card h4, .condicao-card h4 { font-size: 1rem; }
+  .caminho-card p, .item-card p, .condicao-card p { font-size: 0.86rem; }
+}
+
+/* small accessibility tweak to make inputs/tappable elements bigger on tiny screens */
+@media (max-width: 420px) {
+  .side-btn, .small-action, .history-btn { touch-action: manipulation; }
+}
