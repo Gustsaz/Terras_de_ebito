@@ -192,6 +192,25 @@ async function getCollectionRefSafe(collectionName) {
     return collectionFn(window.firestoredb, collectionName);
 }
 
+// --- helper: aguarda Firestore + funções de firestore ficarem disponíveis ---
+async function waitForFirestoreReady(timeout = 5000, interval = 120) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+        try {
+            // tenta resolver as funções (importará se precisar)
+            const fns = await resolveFirestoreFunctions();
+            const haveCollectionFn = (typeof fns.collection === 'function') || (typeof window.collection === 'function');
+            if (haveCollectionFn && window.firestoredb) {
+                return; // pronto
+            }
+        } catch (err) {
+            // ignora e tenta novamente
+        }
+        await new Promise(r => setTimeout(r, interval));
+    }
+    throw new Error('waitForFirestoreReady: Firestore não ficou pronto no tempo esperado.');
+}
+
 async function getDocRefSafe(collectionName, docId) {
     const fns = await resolveFirestoreFunctions();
     if (!window.firestoredb) {
@@ -354,7 +373,7 @@ async function getDocRefSafe(collectionName, docId) {
                             await fns.setDoc(docRef, { _deleted: true }, { merge: true });
                         }
                         alert('Excluído.');
-                        loadCaminhos();
+                        //loadCaminhos();
                         refreshFeiticoHistoryCache(); // atualizar cache (pode ser sem await)
 
                     } catch (err) {
@@ -464,7 +483,7 @@ async function getDocRefSafe(collectionName, docId) {
             for (let i = 0; i < TARGET_NIVEIS; i++) niveisContainer.appendChild(createNivelItem('', ''));
             panel.style.display = 'none';
             // recarregar lista
-            loadCaminhos();
+            //loadCaminhos();
         } catch (err) {
             console.error('Erro no submit do caminho:', err);
             alert('Erro inesperado (veja console).');
@@ -472,7 +491,7 @@ async function getDocRefSafe(collectionName, docId) {
     });
 
     // carrega lista inicialmente
-    loadCaminhos();
+    //loadCaminhos();
 })();
 
 /* === CONDIÇÕES: list / edit / create === */
@@ -552,7 +571,7 @@ async function getDocRefSafe(collectionName, docId) {
                         else if (typeof window.deleteDoc === 'function') await window.deleteDoc(docRef);
                         else await fns.setDoc(docRef, { _deleted: true }, { merge: true });
                         alert('Excluído.');
-                        loadCondicoes();
+                        //loadCondicoes();
                     } catch (err) {
                         console.error('Erro excluindo condicao:', err);
                         alert('Erro ao excluir (veja console).');
@@ -638,7 +657,7 @@ async function getDocRefSafe(collectionName, docId) {
 
             form.reset();
             panel.style.display = 'none';
-            loadCondicoes();
+            //loadCondicoes();
         } catch (err) {
             console.error('Erro ao salvar condicao:', err);
             alert('Erro ao salvar condição (veja console).');
@@ -646,7 +665,7 @@ async function getDocRefSafe(collectionName, docId) {
     });
 
     // inicial
-    loadCondicoes();
+    //loadCondicoes();
 })();
 
 /* === ITENS: list / edit / create / delete + Histórico por campo === */
@@ -842,7 +861,7 @@ async function getDocRefSafe(collectionName, docId) {
                         else if (typeof window.deleteDoc === 'function') await window.deleteDoc(docRef);
                         else await fns.setDoc(docRef, { _deleted: true }, { merge: true });
                         alert('Excluído.');
-                        loadItens();
+                        //loadItens();
                         refreshHistoryCacheForFields(); // atualizar histórico pois item removido pode afetar lista
                     } catch (err) {
                         console.error('Erro excluindo item:', err);
@@ -948,7 +967,7 @@ async function getDocRefSafe(collectionName, docId) {
 
             form.reset();
             panel.style.display = 'none';
-            loadItens();
+            //loadItens();
         } catch (err) {
             console.error('Erro ao salvar item:', err);
             alert('Erro ao salvar item (veja console).');
@@ -956,9 +975,9 @@ async function getDocRefSafe(collectionName, docId) {
     });
 
     // inicial
-    loadItens();
+    //loadItens();
     // também carrega cache inicial do histórico já na inicialização (opcional)
-    refreshHistoryCacheForFields();
+    //refreshHistoryCacheForFields();
 })();
 
 /* === FEITIÇOS: list / edit / create / delete === */
@@ -1151,7 +1170,7 @@ async function getDocRefSafe(collectionName, docId) {
                         else if (typeof window.deleteDoc === 'function') await window.deleteDoc(docRef);
                         else await fns.setDoc(docRef, { _deleted: true }, { merge: true });
                         alert('Excluído.');
-                        loadFeiticos();
+                        //loadFeiticos();
                     } catch (err) {
                         console.error('Erro excluindo feitiço:', err);
                         alert('Erro ao excluir (veja console).');
@@ -1239,7 +1258,7 @@ async function getDocRefSafe(collectionName, docId) {
 
             form.reset();
             panel.style.display = 'none';
-            loadFeiticos();
+            //loadFeiticos();
         } catch (err) {
             console.error('Erro ao salvar feitiço:', err);
             alert('Erro ao salvar feitiço (veja console).');
@@ -1247,7 +1266,7 @@ async function getDocRefSafe(collectionName, docId) {
     });
 
     // inicial
-    loadFeiticos();
+    //loadFeiticos();
 })();
 
 
@@ -1441,7 +1460,7 @@ async function getDocRefSafe(collectionName, docId) {
                         else if (typeof window.deleteDoc === 'function') await window.deleteDoc(docRef);
                         else await fns.setDoc(docRef, { _deleted: true }, { merge: true });
                         alert('Excluído.');
-                        loadMilagres();
+                        //loadMilagres();
                         refreshMilagreHistoryCache(); // não precisa await aqui
                     } catch (err) {
                         console.error('Erro excluindo milagre:', err);
@@ -1536,7 +1555,7 @@ async function getDocRefSafe(collectionName, docId) {
 
             form.reset();
             panel.style.display = 'none';
-            loadMilagres();
+            //loadMilagres();
         } catch (err) {
             console.error('Erro ao salvar milagre:', err);
             alert('Erro ao salvar milagre (veja console).');
@@ -1544,7 +1563,7 @@ async function getDocRefSafe(collectionName, docId) {
     });
 
     // inicial
-    loadMilagres();
+    //loadMilagres();
 })();
 
 /* === Global search + filtros (adicionado) === */
@@ -1951,72 +1970,111 @@ async function getDocRefSafe(collectionName, docId) {
 
 })();
 
-/* === controle de Elementos: abre apenas 1 painel por vez (substitui) === */
+/* === controle de Elementos: abre apenas 1 painel por vez (substituir por este bloco) === */
 (function () {
     const toggles = document.querySelectorAll('.elemento-toggle');
     const panelsContainer = document.getElementById('elementos-panels');
-
     if (!panelsContainer || !toggles.length) return;
 
-    function panelIdFor(target) {
-        return `${target}-list`;
+    function panelIdFor(target) { return `${target}-list`; }
+
+    function closeAllPanels() {
+        // usar children (selector '> div.open' quebrou antes)
+        const openPanels = Array.from(panelsContainer.children).filter(ch => ch && ch.classList && ch.classList.contains('open'));
+        openPanels.forEach(p => {
+            p.classList.remove('open');
+            p.setAttribute('hidden', '');
+        });
+        toggles.forEach(t => t.classList.remove('active'));
     }
 
-    // --- fix: fechar/abrir painéis sem usar selector inválido '> div.open' ---
-    function closeAllPanels(panelsContainer) {
-        if (!panelsContainer) return;
-        // pega apenas filhos diretos e fecha os que tiverem classe 'open'
-        const openChildren = Array.from(panelsContainer.children).filter(ch => ch.classList && ch.classList.contains('open'));
-        openChildren.forEach(ch => ch.classList.remove('open'));
+    // tenta acionar o botão de refresh correspondente no DOM
+    function tryClickRefreshFor(target) {
+        try {
+            // tenta achar qualquer id que contenha 'refresh' e o nome do target
+            const allRefresh = Array.from(document.querySelectorAll('[id^="refresh-"]'));
+            const found = allRefresh.find(el => el.id && el.id.includes(target));
+            if (found) {
+                // console.debug('triggering refresh button for', target, found.id);
+                found.click();
+                return true;
+            }
+            // nomes alternativos (compatibilidade): refresh-caminhos-btn etc.
+            const alt = document.getElementById(`refresh-${target}-btn`) || document.getElementById(`refresh-${target}s-btn`) || document.getElementById(`refresh-${target}es-btn`);
+            if (alt) { alt.click(); return true; }
+        } catch (e) {
+            console.warn('tryClickRefreshFor error', e);
+        }
+        return false;
     }
 
-    function openPanel(panelEl, panelsContainer) {
-        if (!panelEl || !panelsContainer) return;
-        closeAllPanels(panelsContainer);
-        panelEl.classList.add('open');
-        // se quiser rolar:
-        panelEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    // fallback: tenta chamar funções globais se existirem (rare, mas segura)
+    async function tryCallLoaderFallback(target) {
+        try {
+            const map = {
+                caminhos: 'loadCaminhos',
+                condicoes: 'loadCondicoes',
+                itens: 'loadItens',
+                feiticos: 'loadFeiticos',
+                milagres: 'loadMilagres'
+            };
+            const fnName = map[target];
+            if (fnName && typeof window[fnName] === 'function') {
+                await window[fnName]();
+                return true;
+            }
+        } catch (e) {
+            console.warn('tryCallLoaderFallback error', e);
+        }
+        return false;
     }
 
-    function togglePanel(panelEl, panelsContainer) {
-        if (!panelEl || !panelsContainer) return;
-        if (panelEl.classList.contains('open')) {
-            panelEl.classList.remove('open');
+    async function openPanel(target) {
+        const pid = panelIdFor(target);
+        const panel = document.getElementById(pid);
+        if (!panel) return;
+
+        closeAllPanels();
+        panel.classList.add('open');
+        panel.removeAttribute('hidden');
+
+        // marca o toggle
+        const myToggle = Array.from(toggles).find(t => t.dataset && t.dataset.target === target);
+        if (myToggle) myToggle.classList.add('active');
+
+        // primeiramente tente acionar o botão de refresh (que já está ligado ao loader dentro do IIFE)
+        const triggered = tryClickRefreshFor(target);
+        if (!triggered) {
+            // se não encontrou o botão, tenta chamar a função global (fallback)
+            await tryCallLoaderFallback(target);
+        }
+
+        // scroll suave para o painel
+        setTimeout(() => { try { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { } }, 60);
+    }
+
+    function togglePanel(target) {
+        const pid = panelIdFor(target);
+        const panel = document.getElementById(pid);
+        if (!panel) return;
+        if (panel.classList.contains('open')) {
+            // fechar
+            panel.classList.remove('open');
+            panel.setAttribute('hidden', '');
+            document.querySelectorAll(`.elemento-toggle[data-target="${target}"]`).forEach(t => t.classList.remove('active'));
         } else {
-            openPanel(panelEl, panelsContainer);
+            openPanel(target);
         }
     }
 
-    // --- wiring correto: passar o painel DOM para as funções ---
     toggles.forEach(btn => {
         btn.addEventListener('click', (e) => {
+            e.preventDefault();
             const target = btn.dataset.target;
-            const pid = panelIdFor(target);
-            const panel = document.getElementById(pid);
-            if (!panel) return;
-
-            // usa a toggle que espera o elemento do painel + container
-            if (panel.classList.contains('open')) {
-                // fechar via função closePanel (mantém comportamento anterior)
-                panel.classList.remove('open');
-                panel.setAttribute('hidden', '');
-                // atualizar estado do toggle
-                btn.classList.remove('active');
-            } else {
-                // abrir: garante que apenas um painel fique aberto
-                // usa a função openPanel que fecha os outros filhos e abre este
-                openPanel(panel, panelsContainer);
-                // marca o botão ativo
-                toggles.forEach(t => t.classList.toggle('active', t === btn));
-                // remove atributo hidden do painel
-                panel.removeAttribute('hidden');
-            }
+            if (!target) return;
+            togglePanel(target);
         });
-    });
-
-
-    // Accessibility: allow keyboard open via Enter when toggle focused
-    toggles.forEach(btn => {
+        // keyboard accessibility
         btn.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
@@ -2024,5 +2082,13 @@ async function getDocRefSafe(collectionName, docId) {
             }
         });
     });
+
+    // mantém compatibilidade: ligar os refresh handlers a chamadas diretas se alguém chamar window.loadX
+    // (não sobrescreve handlers já existentes; apenas evita que nada funcione caso o refresh button não exista)
+    document.getElementById('refresh-caminhos-btn')?.addEventListener('click', () => { /* delega para o handler já atrelado dentro do IIFE */ });
+    document.getElementById('refresh-condicoes-btn')?.addEventListener('click', () => { });
+    document.getElementById('refresh-itens-btn')?.addEventListener('click', () => { });
+    document.getElementById('refresh-feiticos-btn')?.addEventListener('click', () => { });
+    document.getElementById('refresh-milagres-btn')?.addEventListener('click', () => { });
 
 })();
