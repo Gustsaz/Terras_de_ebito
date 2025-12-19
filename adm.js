@@ -178,6 +178,32 @@ async function resolveFirestoreFunctions() {
     }
 }
 
+// --- helpers seguros para Firestore (cole após resolveFirestoreFunctions) ---
+async function getCollectionRefSafe(collectionName) {
+    const fns = await resolveFirestoreFunctions();
+    // espera/valida que o db exista
+    if (!window.firestoredb) {
+        // espera curto para garantir inicialização (se não inicializou, lança)
+        await new Promise(r => setTimeout(r, 200));
+        if (!window.firestoredb) throw new Error('Firestore não disponível (window.firestoredb indefinido).');
+    }
+    const collectionFn = (typeof fns.collection === 'function') ? fns.collection : (typeof window.collection === 'function' ? window.collection : null);
+    if (!collectionFn) throw new Error('Função collection não encontrada (fns.collection / window.collection).');
+    return collectionFn(window.firestoredb, collectionName);
+}
+
+async function getDocRefSafe(collectionName, docId) {
+    const fns = await resolveFirestoreFunctions();
+    if (!window.firestoredb) {
+        await new Promise(r => setTimeout(r, 200));
+        if (!window.firestoredb) throw new Error('Firestore não disponível (window.firestoredb indefinido).');
+    }
+    const docFn = (typeof fns.doc === 'function') ? fns.doc : (typeof window.doc === 'function' ? window.doc : null);
+    if (!docFn) throw new Error('Função doc não encontrada (fns.doc / window.doc).');
+    return docFn(window.firestoredb, collectionName, docId);
+}
+
+
 /* === CAMINHOS: list / edit / create com niveis fixos === */
 (function () {
     const CAMINHOS_COLLECTION = 'caminhos'; // <- nome da coleção conforme você descreveu
@@ -544,8 +570,9 @@ async function resolveFirestoreFunctions() {
         form.removeAttribute('data-doc-id');
         form.reset();
         // valores exemplo (pode remover)
-        if (colorInput) colorInput.value = '#696565';
-        if (colorHexInput) colorHexInput.value = '#696565';
+        if (typeof colorInput !== 'undefined' && colorInput) colorInput.value = '#696565';
+        if (typeof colorHexInput !== 'undefined' && colorHexInput) colorHexInput.value = '#696565';
+
         document.getElementById('cond_tipo').value = 'positiva';
         document.getElementById('cond_duracao').value = '1d4 turnos.';
         document.getElementById('cond_efeito').value = '+1 a +3 Defesa ou -25% a -50% de dano recebido.';
@@ -1221,4 +1248,781 @@ async function resolveFirestoreFunctions() {
 
     // inicial
     loadFeiticos();
+})();
+
+
+/* === MILAGRES: list / edit / create / delete === */
+(function () {
+    const MILAGRES_COLLECTION = 'milagres';
+
+    const openBtn = document.getElementById('open-add-milagre');
+    const panel = document.getElementById('add-milagre-panel');
+    const closeBtn = panel?.querySelector('.close-add-milagre');
+    const form = document.getElementById('add-milagre-form');
+
+    const milagresListEl = document.getElementById('milagres-list');
+    const novoMilagreBtn = document.getElementById('novo-milagre-btn');
+    const refreshMilagresBtn = document.getElementById('refresh-milagres-btn');
+    const cancelBtn = document.getElementById('cancel-add-milagre');
+
+    if (!form) return;
+    /* ===== Histórico inline para campos tipo / funcao / tomo (milagres) ===== */
+    const _milagreHistoryCache = {};
+
+    async function fetchMilagreHistoryValues(field) {
+        if (_milagreHistoryCache[field]) return _milagreHistoryCache[field];
+        try {
+            const fns = await resolveFirestoreFunctions();
+            const colRef = fns.collection(window.firestoredb, MILAGRES_COLLECTION);
+            const snap = await fns.getDocs(colRef);
+            const set = new Set();
+            snap.forEach(doc => {
+                const val = doc.data()[field];
+                if (val !== undefined && val !== null) {
+                    const s = String(val).trim();
+                    if (s) set.add(s);
+                }
+            });
+            const arr = Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+            _milagreHistoryCache[field] = arr;
+            return arr;
+        } catch (err) {
+            console.error('fetchMilagreHistoryValues error', err);
+            return [];
+        }
+    }
+
+    function buildMilagreHistoryDropdown(field, targetDropdown, items) {
+        targetDropdown.innerHTML = '';
+        if (!items || items.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'history-item';
+            empty.textContent = 'Nenhum histórico';
+            targetDropdown.appendChild(empty);
+        } else {
+            items.forEach(val => {
+                const it = document.createElement('div');
+                it.className = 'history-item';
+                it.tabIndex = 0;
+                it.textContent = val;
+                it.addEventListener('click', () => {
+                    const input = document.getElementById('milagre_' + field);
+                    if (input) input.value = val;
+                    hideAllMilagreDropdowns();
+                    input.focus();
+                });
+                it.addEventListener('keydown', (e) => { if (e.key === 'Enter') it.click(); });
+                targetDropdown.appendChild(it);
+            });
+        }
+
+        const footer = document.createElement('div');
+        footer.className = 'history-footer';
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.textContent = 'Limpar';
+        clearBtn.addEventListener('click', () => {
+            const input = document.getElementById('milagre_' + field);
+            if (input) input.value = '';
+            hideAllMilagreDropdowns();
+            input.focus();
+        });
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.textContent = 'Fechar';
+        closeBtn.addEventListener('click', hideAllMilagreDropdowns);
+        footer.appendChild(clearBtn);
+        footer.appendChild(closeBtn);
+        targetDropdown.appendChild(footer);
+    }
+
+    function hideAllMilagreDropdowns() {
+        panel.querySelectorAll('.history-dropdown').forEach(d => d.setAttribute('hidden', ''));
+    }
+
+    function toggleMilagreDropdownFor(button) {
+        const field = button.dataset.field;
+        const dropdown = panel.querySelector(`.history-dropdown[data-field="${field}"]`);
+        if (!dropdown) return;
+        const isHidden = dropdown.hasAttribute('hidden');
+        hideAllMilagreDropdowns();
+        if (isHidden) {
+            fetchMilagreHistoryValues(field).then(items => {
+                buildMilagreHistoryDropdown(field, dropdown, items);
+                dropdown.removeAttribute('hidden');
+                dropdown.scrollIntoView({ block: 'nearest' });
+            }).catch(err => {
+                console.error('Erro ao popular histórico (milagres)', err);
+                dropdown.removeAttribute('hidden');
+            });
+        } else {
+            dropdown.setAttribute('hidden', '');
+        }
+    }
+
+    function attachMilagreHistoryButtonsHandlers() {
+        if (!panel) return;
+        const buttons = panel.querySelectorAll('.history-btn');
+        buttons.forEach(btn => {
+            btn.removeEventListener('click', btn._historyClickHandler);
+            const handler = (e) => {
+                e.stopPropagation();
+                toggleMilagreDropdownFor(btn);
+            };
+            btn._historyClickHandler = handler;
+            btn.addEventListener('click', handler);
+        });
+
+        // fecha dropdown ao clicar fora (quando o painel está aberto)
+        document.addEventListener('click', function _milagreOutsideClick(e) {
+            if (!panel || panel.style.display === 'none') return;
+            const isBtn = e.target.closest && e.target.closest('.history-btn');
+            const isDropdown = e.target.closest && e.target.closest('.history-dropdown');
+            if (!isBtn && !isDropdown) hideAllMilagreDropdowns();
+        });
+    }
+
+    async function refreshMilagreHistoryCache(fields = ['tipo', 'funcao', 'tomo']) {
+        try {
+            for (const f of fields) {
+                _milagreHistoryCache[f] = null; // invalida
+                await fetchMilagreHistoryValues(f);
+            }
+        } catch (e) { /* silent */ }
+    }
+
+
+    function escapeHtml(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+    async function loadMilagres() {
+        try {
+            milagresListEl.innerHTML = '<p>Carregando...</p>';
+            const fns = await resolveFirestoreFunctions();
+            const colRef = fns.collection(window.firestoredb, MILAGRES_COLLECTION);
+            const snap = await fns.getDocs(colRef);
+            milagresListEl.innerHTML = '';
+
+            if (!snap || snap.size === 0) {
+                milagresListEl.innerHTML = '<p>Nenhum milagre cadastrado.</p>';
+                return;
+            }
+
+            snap.forEach(doc => {
+                const data = doc.data();
+                const id = doc.id;
+                const card = document.createElement('div');
+                card.className = 'milagre-card';
+                card.innerHTML = `
+          <h4>${escapeHtml(data.nome || 'Sem nome')}</h4>
+          <p><strong>Tipo:</strong> ${escapeHtml(data.tipo || '-')}</p>
+          <p><strong>Função:</strong> ${escapeHtml(data.funcao || '-')}</p>
+          <p><strong>Custo:</strong> ${escapeHtml(String(data.custo || '-'))}</p>
+          <p>${escapeHtml((data.descricao || '').slice(0, 120))}${(data.descricao && data.descricao.length > 120) ? '...' : ''}</p>
+          <div class="card-actions">
+            <button data-edit-id="${id}" class="edit-milagre-btn">Editar</button>
+            <button data-delete-id="${id}" class="del-milagre-btn">Excluir</button>
+          </div>
+        `;
+                milagresListEl.appendChild(card);
+            });
+
+            // bind events
+            milagresListEl.querySelectorAll('.edit-milagre-btn').forEach(btn => {
+                btn.addEventListener('click', () => openFormForEdit(btn.dataset.editId));
+            });
+            milagresListEl.querySelectorAll('.del-milagre-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.deleteId;
+                    if (!confirm('Confirma excluir este milagre?')) return;
+                    try {
+                        const fns = await resolveFirestoreFunctions();
+                        const docRef = fns.doc(window.firestoredb, MILAGRES_COLLECTION, id);
+                        if (typeof fns.deleteDoc === 'function') await fns.deleteDoc(docRef);
+                        else if (typeof window.deleteDoc === 'function') await window.deleteDoc(docRef);
+                        else await fns.setDoc(docRef, { _deleted: true }, { merge: true });
+                        alert('Excluído.');
+                        loadMilagres();
+                        refreshMilagreHistoryCache(); // não precisa await aqui
+                    } catch (err) {
+                        console.error('Erro excluindo milagre:', err);
+                        alert('Erro ao excluir (veja console).');
+                    }
+                });
+            });
+
+        } catch (err) {
+            console.error('Erro ao carregar milagres:', err);
+            milagresListEl.innerHTML = '<p>Erro ao carregar milagres.</p>';
+        }
+    }
+
+    function openFormForNew() {
+        form.removeAttribute('data-doc-id');
+        form.reset();
+        // valores padrão
+        document.getElementById('milagre_custo').value = '3/15';
+        document.getElementById('milagre_tipo').value = 'Divino';
+        document.getElementById('milagre_funcao').value = 'Defensivo';
+        document.getElementById('milagre_tomo').value = 'Solyn';
+        document.getElementById('milagre_efeito').value = 'Nenhum';
+        document.getElementById('milagre_descricao').value = 'Cria uma aura que regenera 4d4 PV por turno em aliados dentro de 3 m, por 2 turnos';
+        panel.style.display = 'block';
+        attachMilagreHistoryButtonsHandlers();
+
+    }
+
+    async function openFormForEdit(docId) {
+        try {
+            const fns = await resolveFirestoreFunctions();
+            const docRef = fns.doc(window.firestoredb, MILAGRES_COLLECTION, docId);
+            const snap = await fns.getDoc(docRef);
+            if (!snap.exists()) { alert('Documento não encontrado.'); return; }
+            const data = snap.data();
+
+            document.getElementById('milagre_nome').value = data.nome || '';
+            document.getElementById('milagre_custo').value = data.custo || '';
+            document.getElementById('milagre_tipo').value = data.tipo || '';
+            document.getElementById('milagre_funcao').value = data.funcao || '';
+            document.getElementById('milagre_tomo').value = data.tomo || '';
+            document.getElementById('milagre_efeito').value = data.efeito || '';
+            document.getElementById('milagre_descricao').value = data.descricao || '';
+
+            form.setAttribute('data-doc-id', docId);
+            panel.style.display = 'block';
+            attachMilagreHistoryButtonsHandlers();
+
+        } catch (err) {
+            console.error('Erro ao abrir milagre para editar:', err);
+            alert('Erro ao carregar milagre.');
+        }
+    }
+
+    // eventos / bindings
+    novoMilagreBtn?.addEventListener('click', openFormForNew);
+    refreshMilagresBtn?.addEventListener('click', loadMilagres);
+    openBtn?.addEventListener('click', openFormForNew);
+    closeBtn?.addEventListener('click', () => panel.style.display = 'none');
+    cancelBtn?.addEventListener('click', () => panel.style.display = 'none');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            const nome = document.getElementById('milagre_nome').value.trim();
+            const custo = document.getElementById('milagre_custo').value.trim();
+            const tipo = document.getElementById('milagre_tipo').value.trim();
+            const funcao = document.getElementById('milagre_funcao').value.trim();
+            const tomo = document.getElementById('milagre_tomo').value.trim();
+            const efeito = document.getElementById('milagre_efeito').value.trim();
+            const descricao = document.getElementById('milagre_descricao').value.trim();
+
+            if (!nome) { alert('Nome é obrigatório.'); return; }
+
+            const payload = { nome, custo, tipo, funcao, tomo, efeito, descricao };
+
+            const docId = form.getAttribute('data-doc-id');
+            const fns = await resolveFirestoreFunctions();
+            if (docId) {
+                const docRef = fns.doc(window.firestoredb, MILAGRES_COLLECTION, docId);
+                if (typeof fns.setDoc === 'function') await fns.setDoc(docRef, payload, { merge: true });
+                else if (typeof fns.updateDoc === 'function') await fns.updateDoc(docRef, payload);
+                else await fns.addDoc(fns.collection(window.firestoredb, MILAGRES_COLLECTION), payload);
+                alert('Milagre atualizado.');
+                await refreshMilagreHistoryCache();
+            } else {
+                await fns.addDoc(fns.collection(window.firestoredb, MILAGRES_COLLECTION), payload);
+                alert('Milagre criado.');
+                await refreshMilagreHistoryCache();
+            }
+
+            form.reset();
+            panel.style.display = 'none';
+            loadMilagres();
+        } catch (err) {
+            console.error('Erro ao salvar milagre:', err);
+            alert('Erro ao salvar milagre (veja console).');
+        }
+    });
+
+    // inicial
+    loadMilagres();
+})();
+
+/* === Global search + filtros (adicionado) === */
+(function () {
+    const SEARCH_COLLECTIONS = ['caminhos', 'condicoes', 'itens', 'feitiços', 'milagres', 'usuarios'];
+
+    const input = document.getElementById('global-search-input');
+    const clearBtn = document.getElementById('clear-search-btn');
+    const openFiltersBtn = document.getElementById('open-search-filters');
+    const filterDropdown = document.getElementById('search-filter-dropdown');
+    const applyFiltersBtn = document.getElementById('apply-filters-btn');
+    const resetFiltersBtn = document.getElementById('reset-filters-btn');
+    const searchResultsEl = document.getElementById('search-results');
+
+    // small debounce util
+    function debounce(fn, wait = 500) {
+        let t = null;
+        return (...args) => {
+            clearTimeout(t);
+            t = setTimeout(() => fn.apply(this, args), wait);
+        };
+    }
+
+    // helper: flatten doc data to array of strings
+    function flattenStrings(value, out = []) {
+        if (value == null) return out;
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            out.push(String(value));
+            return out;
+        }
+        if (Array.isArray(value)) {
+            for (const v of value) flattenStrings(v, out);
+            return out;
+        }
+        if (typeof value === 'object') {
+            for (const k of Object.keys(value)) flattenStrings(value[k], out);
+            return out;
+        }
+        return out;
+    }
+
+    // fetch distinct values for a collection+field
+    async function getDistinctValues(collection, field) {
+        try {
+            const fns = await resolveFirestoreFunctions();
+            const colRef = fns.collection(window.firestoredb, collection);
+            const snap = await fns.getDocs(colRef);
+            const s = new Set();
+            snap.forEach(d => {
+                const v = d.data()[field];
+                if (v !== undefined && v !== null) s.add(String(v));
+            });
+            return Array.from(s).sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+        } catch (e) {
+            console.error('getDistinctValues', collection, field, e);
+            return [];
+        }
+    }
+
+    // populate subfilter buttons (calls once on init)
+    async function populateAllSubfilters() {
+        const mapping = {
+            'caminhos': ['classe'],
+            'condicoes': ['tipo'],
+            'itens': ['categoria', 'tipo_item', 'tipo_dano'],
+            'feitiços': ['elemento'],
+            'milagres': ['tipo', 'tomo', 'funcao']
+        };
+
+        for (const coll of Object.keys(mapping)) {
+            for (const field of mapping[coll]) {
+                const container = filterDropdown.querySelector(`.filter-values[data-field="${field}"]`);
+                if (!container) continue;
+                container.innerHTML = '<div style="color:#cfc0bb;padding:6px 0">Carregando...</div>';
+                const vals = await getDistinctValues(coll, field);
+                container.innerHTML = '';
+                if (!vals.length) {
+                    container.innerHTML = '<div style="color:#9c8a86;padding:6px 0">Nenhum</div>';
+                    continue;
+                }
+                for (const v of vals) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.textContent = v;
+                    btn.dataset.field = field;
+                    btn.dataset.value = v;
+                    btn.addEventListener('click', () => {
+                        btn.classList.toggle('active');
+                    });
+                    container.appendChild(btn);
+                }
+            }
+        }
+    }
+
+    // open/close filter dropdown
+    openFiltersBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = filterDropdown.hasAttribute('hidden');
+        if (isHidden) {
+            filterDropdown.removeAttribute('hidden');
+        } else {
+            filterDropdown.setAttribute('hidden', '');
+        }
+    });
+    // close when click outside
+    document.addEventListener('click', (e) => {
+        if (!filterDropdown) return;
+        if (!filterDropdown.contains(e.target) && e.target !== openFiltersBtn) {
+            filterDropdown.setAttribute('hidden', '');
+        }
+    });
+
+    // show/hide nested filters when collection checkbox toggles
+    filterDropdown.querySelectorAll('.filter-coll').forEach(chk => {
+        chk.addEventListener('change', (e) => {
+            const coll = chk.dataset.coll;
+            const nested = filterDropdown.querySelector(`.nested-filters[data-coll="${coll}"]`);
+            if (chk.checked) nested?.removeAttribute('hidden');
+            else nested?.setAttribute('hidden', '');
+        });
+    });
+
+    resetFiltersBtn?.addEventListener('click', () => {
+        filterDropdown.querySelectorAll('.filter-coll').forEach(c => { c.checked = false; });
+        filterDropdown.querySelectorAll('.nested-filters').forEach(n => n.setAttribute('hidden', ''));
+        filterDropdown.querySelectorAll('.filter-values button.active').forEach(b => b.classList.remove('active'));
+        // optional: trigger search with no filters
+        doSearch();
+    });
+
+    applyFiltersBtn?.addEventListener('click', () => {
+        filterDropdown.setAttribute('hidden', '');
+        doSearch();
+    });
+
+    clearBtn?.addEventListener('click', () => {
+        input.value = '';
+        doSearch();
+    });
+
+    // build filter criteria object from UI
+    function readActiveFilters() {
+        const collChecks = Array.from(filterDropdown.querySelectorAll('.filter-coll'));
+        const activeColls = collChecks.filter(c => c.checked).map(c => c.dataset.coll);
+        // if none selected -> search all
+        const collections = activeColls.length ? activeColls : SEARCH_COLLECTIONS;
+        const details = {};
+        // gather selected values per field
+        filterDropdown.querySelectorAll('.filter-values').forEach(container => {
+            const field = container.dataset.field;
+            const selected = Array.from(container.querySelectorAll('button.active')).map(b => b.dataset.value);
+            if (selected.length) details[field] = selected;
+        });
+        return { collections, details };
+    }
+
+    // main search function
+    async function runSearch(term, collections, details) {
+        const results = [];
+        const t = String(term || '').trim().toLowerCase();
+
+        // fast path: empty term => return empty results (or you could show recently added)
+        if (!t) return results;
+
+        const fns = await resolveFirestoreFunctions();
+
+        for (const coll of collections) {
+            try {
+                const colRef = fns.collection(window.firestoredb, coll);
+                const snap = await fns.getDocs(colRef);
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    // apply per-field filter if present (ex: class matching for caminhos)
+                    let passesFieldFilters = true;
+                    // details keys correspond to field names, apply only when field exists in doc
+                    for (const fieldName of Object.keys(details || {})) {
+                        const allowed = details[fieldName]; // array
+                        if (!allowed || !allowed.length) continue;
+                        // doc may have field (string or array)
+                        const val = data[fieldName];
+                        if (val === undefined || val === null) { passesFieldFilters = false; break; }
+                        // if val is array, require any intersection
+                        if (Array.isArray(val)) {
+                            const any = val.some(v => allowed.includes(String(v)));
+                            if (!any) { passesFieldFilters = false; break; }
+                        } else {
+                            if (!allowed.includes(String(val))) { passesFieldFilters = false; break; }
+                        }
+                    }
+                    if (!passesFieldFilters) return;
+
+                    // flatten fields to strings
+                    const flat = flattenStrings(data).map(s => s.toLowerCase());
+                    // also include id
+                    flat.push(doc.id.toLowerCase());
+                    // also for usuarios we want to include nested personagens.nome etc (already flattened)
+                    const matched = flat.some(s => s.includes(t));
+                    if (matched) {
+                        results.push({ collection: coll, id: doc.id, data });
+                    }
+                });
+            } catch (e) {
+                console.error('search fail', coll, e);
+            }
+        }
+        return results;
+    }
+
+    // render results
+    function renderResults(results) {
+        if (!searchResultsEl) return;
+        if (!results || !results.length) {
+            searchResultsEl.innerHTML = '<div style="color:#cfc0bb;padding:8px">Nenhum resultado.</div>';
+            searchResultsEl.removeAttribute('hidden');
+            return;
+        }
+        // group by collection
+        const frag = document.createDocumentFragment();
+        for (const r of results) {
+            const row = document.createElement('div');
+            row.className = 'search-result-item';
+            const left = document.createElement('div');
+            left.innerHTML = `<div><strong>${r.data.nome || '(Sem nome)'}</strong></div>
+                        <div class="meta">${r.collection} — id: ${r.id}</div>
+                        <div style="color:#d6c9c6;margin-top:6px;">${(r.data.descricao || r.data.descricao_geral || '').slice(0, 140)}</div>`;
+            const right = document.createElement('div');
+            right.className = 'btns';
+            const previewBtn = document.createElement('button');
+            previewBtn.type = 'button';
+            previewBtn.textContent = 'Visualizar';
+            previewBtn.addEventListener('click', () => openPreviewModal(r));
+            const editBtn = document.createElement('button');
+            editBtn.type = 'button';
+            editBtn.textContent = 'Editar';
+            editBtn.addEventListener('click', () => openEditorForCollection(r.collection, r.id, r.data));
+            right.appendChild(previewBtn);
+            right.appendChild(editBtn);
+
+            row.appendChild(left);
+            row.appendChild(right);
+            frag.appendChild(row);
+        }
+
+        searchResultsEl.innerHTML = '';
+        searchResultsEl.appendChild(frag);
+        searchResultsEl.removeAttribute('hidden');
+        // scroll to results
+        searchResultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Generic preview modal (simple): reuse alert for simplicity (or implement a small modal)
+    function openPreviewModal(result) {
+        const txt = JSON.stringify({ id: result.id, collection: result.collection, data: result.data }, null, 2);
+        // show in a window.open-like pre
+        const w = window.open('', '_blank', 'width=700,height=600');
+        w.document.write(`<pre style="white-space:pre-wrap;font-family:monospace;padding:12px;background:#0d0d0d;color:#efe6e2;">${escapeHtml(txt)}</pre>`);
+    }
+
+    // try to open the proper editor panel and populate the form (best-effort)
+    async function openEditorForCollection(collection, id, data) {
+        // map collection -> panel ids & field mapping (best-effort)
+        if (collection === 'itens') {
+            // open item panel
+            const form = document.getElementById('add-item-form');
+            if (!form) return alert('Painel de itens não encontrado.');
+            document.getElementById('item_nome').value = data.nome || '';
+            document.getElementById('item_categoria').value = data.categoria || '';
+            document.getElementById('item_tipo_item').value = data.tipo_item || '';
+            document.getElementById('item_descricao').value = data.descricao || '';
+            document.getElementById('item_efeito').value = data.efeito || '';
+            document.getElementById('item_dano').value = data.dano || '';
+            document.getElementById('item_tipo_dano').value = data.tipo_dano || '';
+            document.getElementById('item_critico').value = data.critico || '';
+            document.getElementById('item_habilidade').value = data.habilidade || '';
+            document.getElementById('item_requisito').value = data.requisito || '';
+            document.getElementById('item_peso').value = (typeof data.peso === 'number') ? data.peso : 0;
+            form.setAttribute('data-doc-id', id);
+            document.getElementById('add-item-panel').style.display = 'block';
+            // attach history handlers if exist
+            if (typeof attachHistoryButtonsHandlers === 'function') attachHistoryButtonsHandlers();
+            return;
+        }
+
+        if (collection === 'caminhos') {
+            const form = document.getElementById('add-caminho-form');
+            if (!form) return alert('Painel de caminhos não encontrado.');
+            document.getElementById('c_classe').value = data.classe || '';
+            document.getElementById('c_nome').value = data.nome || '';
+            document.getElementById('c_descricao_geral').value = data.descricao_geral || '';
+            document.getElementById('c_img').value = data.img || '';
+            // niveis: replace DOM niveis
+            const nc = document.getElementById('niveis-container');
+            if (nc) {
+                nc.innerHTML = '';
+                const arr = Array.isArray(data.niveis) ? data.niveis : [];
+                for (let i = 0; i < Math.max(1, arr.length); i++) {
+                    const it = document.createElement('div');
+                    it.className = 'nivel-item';
+                    const nome = (arr[i] && arr[i].nome) ? arr[i].nome : '';
+                    const desc = (arr[i] && (arr[i].descricao_nivel || arr[i].descricao)) ? (arr[i].descricao_nivel || arr[i].descricao) : '';
+                    it.innerHTML = `<div class="nivel-row"><div style="flex:1;"><label>Nome do Nível<input type="text" class="nivel-nome" value="${escapeHtml(nome)}" required /></label></div><button type="button" class="remove-nivel">✕</button></div><label>Descrição do Nível<textarea class="nivel-desc" rows="3" required>${escapeHtml(desc)}</textarea></label>`;
+                    nc.appendChild(it);
+                    it.querySelector('.remove-nivel')?.addEventListener('click', () => it.remove());
+                }
+            }
+            form.setAttribute('data-doc-id', id);
+            document.getElementById('add-caminho-panel').style.display = 'block';
+            return;
+        }
+
+        if (collection === 'condicoes') {
+            const form = document.getElementById('add-condicao-form');
+            if (!form) return alert('Painel de condições não encontrado.');
+            document.getElementById('cond_nome').value = data.nome || '';
+            document.getElementById('cond_tipo').value = data.tipo || '';
+            if (document.getElementById('cond_cor')) document.getElementById('cond_cor').value = data.cor || '#696565';
+            if (document.getElementById('cond_cor_hex')) document.getElementById('cond_cor_hex').value = data.cor || '#696565';
+            document.getElementById('cond_duracao').value = data.duracao || '';
+            document.getElementById('cond_efeito').value = data.efeito || '';
+            document.getElementById('cond_descricao').value = data.descricao || '';
+            form.setAttribute('data-doc-id', id);
+            document.getElementById('add-condicao-panel').style.display = 'block';
+            return;
+        }
+
+        if (collection === 'feitiços' || collection === 'feiticos' || collection === 'feitico') {
+            const form = document.getElementById('add-feitico-form');
+            if (!form) return alert('Painel de feitiços não encontrado.');
+            document.getElementById('feitico_nome').value = data.nome || '';
+            document.getElementById('feitico_custo').value = data.custo || '';
+            document.getElementById('feitico_elemento').value = data.elemento || '';
+            document.getElementById('feitico_img').value = data.img || '';
+            document.getElementById('feitico_descricao').value = data.descricao || '';
+            form.setAttribute('data-doc-id', id);
+            document.getElementById('add-feitico-panel').style.display = 'block';
+            // attach handlers if exist
+            if (typeof attachFeiticoHistoryButtonsHandlers === 'function') attachFeiticoHistoryButtonsHandlers();
+            return;
+        }
+
+        if (collection === 'milagres') {
+            const form = document.getElementById('add-milagre-form');
+            if (!form) return alert('Painel de milagres não encontrado.');
+            document.getElementById('milagre_nome').value = data.nome || '';
+            document.getElementById('milagre_custo').value = data.custo || '';
+            document.getElementById('milagre_tipo').value = data.tipo || '';
+            document.getElementById('milagre_funcao').value = data.funcao || '';
+            document.getElementById('milagre_tomo').value = data.tomo || '';
+            document.getElementById('milagre_efeito').value = data.efeito || '';
+            document.getElementById('milagre_descricao').value = data.descricao || '';
+            form.setAttribute('data-doc-id', id);
+            document.getElementById('add-milagre-panel').style.display = 'block';
+            if (typeof attachMilagreHistoryButtonsHandlers === 'function') attachMilagreHistoryButtonsHandlers();
+            return;
+        }
+
+        if (collection === 'usuarios') {
+            // abrir lista de usuarios e selecionar o adequado (best-effort)
+            try {
+                // find user item by uid and simulate click
+                const users = document.querySelectorAll('.user-item');
+                for (const u of users) {
+                    if (u.innerHTML.includes(id) || u.querySelector && u.querySelector('p') && u.querySelector('p').textContent.includes(id)) {
+                        u.click();
+                        return;
+                    }
+                }
+            } catch (e) { /* silent */ }
+            alert('Usuário/documento localizado — abra manualmente (função limitada).');
+            return;
+        }
+
+        alert('Editor automático não implementado para coleção: ' + collection);
+    }
+
+    // escape html for preview
+    function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    // top-level search runner
+    const doSearch = debounce(async function () {
+        const term = input.value || '';
+        const { collections, details } = readActiveFilters();
+        if (!term.trim()) {
+            // hide results
+            if (searchResultsEl) searchResultsEl.setAttribute('hidden', '');
+            return;
+        }
+        searchResultsEl.innerHTML = '<div style="padding:8px;color:#cfc0bb">Pesquisando...</div>';
+        searchResultsEl.removeAttribute('hidden');
+        const results = await runSearch(term, collections, details);
+        renderResults(results);
+    }, 450);
+
+    // wire input
+    input?.addEventListener('input', doSearch);
+    input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+
+    // initialization
+    (async function init() {
+        // populate all subfilters once (they will fill the tiny pill lists)
+        await populateAllSubfilters();
+    })();
+
+})();
+
+/* === controle de Elementos: abre apenas 1 painel por vez (substitui) === */
+(function () {
+    const toggles = document.querySelectorAll('.elemento-toggle');
+    const panelsContainer = document.getElementById('elementos-panels');
+
+    if (!panelsContainer || !toggles.length) return;
+
+    function panelIdFor(target) {
+        return `${target}-list`;
+    }
+
+    // --- fix: fechar/abrir painéis sem usar selector inválido '> div.open' ---
+    function closeAllPanels(panelsContainer) {
+        if (!panelsContainer) return;
+        // pega apenas filhos diretos e fecha os que tiverem classe 'open'
+        const openChildren = Array.from(panelsContainer.children).filter(ch => ch.classList && ch.classList.contains('open'));
+        openChildren.forEach(ch => ch.classList.remove('open'));
+    }
+
+    function openPanel(panelEl, panelsContainer) {
+        if (!panelEl || !panelsContainer) return;
+        closeAllPanels(panelsContainer);
+        panelEl.classList.add('open');
+        // se quiser rolar:
+        panelEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    function togglePanel(panelEl, panelsContainer) {
+        if (!panelEl || !panelsContainer) return;
+        if (panelEl.classList.contains('open')) {
+            panelEl.classList.remove('open');
+        } else {
+            openPanel(panelEl, panelsContainer);
+        }
+    }
+
+    // --- wiring correto: passar o painel DOM para as funções ---
+    toggles.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const target = btn.dataset.target;
+            const pid = panelIdFor(target);
+            const panel = document.getElementById(pid);
+            if (!panel) return;
+
+            // usa a toggle que espera o elemento do painel + container
+            if (panel.classList.contains('open')) {
+                // fechar via função closePanel (mantém comportamento anterior)
+                panel.classList.remove('open');
+                panel.setAttribute('hidden', '');
+                // atualizar estado do toggle
+                btn.classList.remove('active');
+            } else {
+                // abrir: garante que apenas um painel fique aberto
+                // usa a função openPanel que fecha os outros filhos e abre este
+                openPanel(panel, panelsContainer);
+                // marca o botão ativo
+                toggles.forEach(t => t.classList.toggle('active', t === btn));
+                // remove atributo hidden do painel
+                panel.removeAttribute('hidden');
+            }
+        });
+    });
+
+
+    // Accessibility: allow keyboard open via Enter when toggle focused
+    toggles.forEach(btn => {
+        btn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                btn.click();
+            }
+        });
+    });
+
 })();

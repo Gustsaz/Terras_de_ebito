@@ -449,7 +449,7 @@ body {
     justify-content: flex-end;
 }
 
-.condicao-card button {
+.condicao-card button, .form-actions button, .filter-actions button {
     cursor: pointer;
     border-radius: 6px;
     padding: 6px 8px;
@@ -779,4 +779,438 @@ body {
 .add-feitico-panel .history-dropdown {
     right: 0;
     top: calc(100% + 8px);
+}
+
+/* === Painel Milagre === */
+.add-milagre-panel {
+    position: fixed;
+    right: 20px;
+    top: 60px;
+    width: min(640px, 92%);
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    background: linear-gradient(180deg, #151010, #241616);
+    border: 3px solid rgba(92, 34, 34, 0.95);
+    border-radius: 12px;
+    z-index: 1360;
+    padding: 18px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+}
+
+/* Milagres list */
+.milagres-section {
+    margin-top: 24px;
+}
+
+.milagres-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.milagres-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.milagre-card {
+    background: rgba(40, 40, 40, 0.45);
+    border: 2px solid rgba(92, 34, 34, 0.25);
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.milagre-card h4 {
+    margin: 0;
+    color: #efe6e2;
+}
+
+.milagre-card p {
+    margin: 0;
+    font-size: 0.88rem;
+    color: #d6c9c6;
+}
+
+.milagre-card .card-actions {
+    margin-top: auto;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.milagre-card button {
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 6px 8px;
+    border: none;
+    background: rgba(0, 0, 0, 0.25);
+    color: #efe6e2;
+}
+
+/* inputs do painel - reutiliza estilo dos feitiços/itens */
+.add-milagre-panel input[type="text"],
+.add-milagre-panel textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 2px solid rgba(92, 34, 34, 0.6);
+    background: #120d0d;
+    color: #efe6e2;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+/* === Milagres: espaço para botão history dentro do input e posicionamento do dropdown === */
+.add-milagre-panel .input-with-history input[type="text"],
+.add-milagre-panel .input-with-history input[type="number"] {
+    padding-right: 40px;
+    /* espaço para o botão interno */
+    box-sizing: border-box;
+}
+
+.add-milagre-panel .history-btn {
+    right: 6px;
+}
+
+.add-milagre-panel .history-dropdown {
+    right: 0;
+    top: calc(100% + 8px);
+}
+
+/* === Search bar global === */
+.admin-search-wrap {
+    margin: 18px 0 12px 80px;
+    /* 80px p/ não ficar abaixo da sidebar fixa */
+    position: relative;
+    z-index: 1305;
+}
+
+.admin-search-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    max-width: calc(100% - 120px);
+}
+
+#global-search-input {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 2px solid rgba(92, 34, 34, 0.6);
+    background: #120d0d;
+    color: #efe6e2;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+#clear-search-btn,
+.filter-btn {
+    margin-left: 4px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: linear-gradient(145deg, #2a1616, #151010);
+    border: 2px solid rgba(92, 34, 34, 0.6);
+    color: #efe6e2;
+    cursor: pointer;
+}
+
+/* filter dropdown */
+.search-filter-dropdown {
+    position: absolute;
+    right: 20px;
+    top: 48px;
+    width: 420px;
+    max-height: 420px;
+    overflow-y: auto;
+    background: linear-gradient(180deg, #161010, #241616);
+    border: 2px solid rgba(92, 34, 34, 0.95);
+    border-radius: 10px;
+    padding: 12px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+    z-index: 1460;
+}
+
+/* rows + nested */
+.search-filter-dropdown .filter-row {
+    margin-bottom: 8px;
+}
+
+.search-filter-dropdown .nested-filters {
+    margin-left: 18px;
+    margin-top: 6px;
+    display: block;
+    gap: 6px;
+}
+
+.search-filter-dropdown .subtitle {
+    font-size: 0.85rem;
+    color: #cfc0bb;
+    margin: 6px 0 4px;
+}
+
+.search-filter-dropdown .filter-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* tiny selectable pills */
+.search-filter-dropdown .filter-values button {
+    background: transparent;
+    border: 1px solid rgba(197, 128, 93, 0.18);
+    color: #efe6e2;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.search-filter-dropdown .filter-values button.active {
+    background: rgba(197, 128, 93, 0.14);
+    border-color: rgba(197, 128, 93, 0.38);
+}
+
+/* filter actions */
+.search-filter-dropdown .filter-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+/* results */
+.search-results {
+    margin-top: 12px;
+    background: rgba(18, 13, 13, 0.6);
+    border: 2px solid rgba(92, 34, 34, 0.5);
+    border-radius: 10px;
+    padding: 10px;
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+.search-result-item {
+    border-bottom: 1px dashed rgba(197, 128, 93, 0.06);
+    padding: 8px 6px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.search-result-item .meta {
+    color: #cfc0bb;
+    font-size: 0.9rem;
+}
+
+.search-result-item .btns {
+    display: flex;
+    gap: 6px;
+}
+
+/* responsivo: encolher e ajustar posição perto do conteúdo no mobile */
+@media (max-width: 900px) {
+    .admin-search-wrap {
+        margin-left: 12px;
+        margin-right: 12px;
+    }
+
+    .search-filter-dropdown {
+        right: 12px;
+        left: 12px;
+        width: auto;
+    }
+}
+
+/* === Elementos vertical + painéis laterais === */
+.elementos-column {
+    width: 220px;
+    flex: 0 0 220px;
+}
+
+.elementos-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 24px;
+    position: sticky;
+    top: 90px;
+    /* fica fixo ao rolar, igual ao header */
+}
+
+.elementos-section .elemento-toggle {
+    display: block;
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(26, 18, 18, 0.6);
+    border: 2px solid rgba(92, 34, 34, 0.45);
+    color: #efe6e2;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.elementos-section .elemento-toggle.active {
+    background: rgba(197, 128, 93, 0.12);
+    border-color: rgba(197, 128, 93, 0.32);
+    transform: translateX(2px);
+}
+
+/* container dos painéis (à direita da coluna de elementos) */
+.elementos-panels {
+    flex: 1 1 auto;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    overflow-x: auto;
+    padding-top: 18px;
+    min-height: 180px;
+    /* mantém espaço mesmo com painéis ocultos */
+}
+
+/* cada painel (os próprios *-list) */
+.elementos-panels>div {
+    background: rgba(18, 13, 13, 0.45);
+    border: 2px solid rgba(92, 34, 34, 0.35);
+    border-radius: 10px;
+    padding: 10px;
+    min-width: 360px;
+    max-width: 520px;
+    box-sizing: border-box;
+    display: none;
+    /* oculto por padrão */
+}
+
+/* quando aberto */
+.elementos-panels>div.open {
+    display: block;
+}
+
+/* cabeçalho de painel (coloquei pequeno botão fechar via JS) */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.panel-header h4 {
+    margin: 0;
+    color: #efe6e2;
+    font-size: 1.05rem;
+}
+
+/* responsivo */
+@media (max-width: 980px) {
+    .admin-content {
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .elementos-column {
+        width: 100%;
+        order: 3;
+    }
+
+    .elementos-panels {
+        order: 4;
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .elementos-panels>div {
+        min-width: 92%;
+    }
+}
+
+/* ==== Estilos para elemento-toggle com ações ==== */
+.elementos-column {
+    width: 220px;
+    flex: 0 0 220px;
+}
+
+.elementos-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 24px;
+    position: sticky;
+    top: 90px;
+}
+
+.elemento-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.elemento-toggle {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(26, 18, 18, 0.6);
+    border: 2px solid rgba(92, 34, 34, 0.45);
+    color: #efe6e2;
+    cursor: pointer;
+    text-align: left;
+    font-weight: 600;
+}
+
+.elemento-toggle.active {
+    background: rgba(197, 128, 93, 0.12);
+    border-color: rgba(197, 128, 93, 0.32);
+    transform: translateX(2px);
+}
+
+.elemento-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.small-action {
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: linear-gradient(145deg, #2a1616, #151010);
+    border: 2px solid rgba(92, 34, 34, 0.6);
+    color: #efe6e2;
+    cursor: pointer;
+    width: 44px;
+    height: 36px;
+}
+
+/* Ensure only one panel visible — panels are blocks with same visual look as before */
+.elementos-panels {
+    flex: 1 1 auto;
+    display: block;
+    min-height: 200px;
+    padding-top: 18px;
+}
+
+.elementos-panels>div {
+    display: none;
+    background: rgba(18, 13, 13, 0.45);
+    border: 2px solid rgba(92, 34, 34, 0.35);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.elementos-panels>div.open {
+    display: block;
+}
+
+/* Small responsive tweak */
+@media (max-width:980px) {
+    .elementos-column {
+        width: 100%;
+        order: 3;
+    }
+
+    .elementos-panels>div {
+        min-width: 100%;
+    }
 }

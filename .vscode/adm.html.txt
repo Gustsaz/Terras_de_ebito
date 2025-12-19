@@ -50,6 +50,12 @@
                     <span class="side-label">Add Feitiço</span>
                 </button>
 
+                <!-- BOTÃO: Add Milagre -->
+                <button id="open-add-milagre" class="side-btn" title="Adicionar Milagre">
+                    <i class="fas fa-hands-praying"></i>
+                    <span class="side-label">Add Milagre</span>
+                </button>
+
             </nav>
         </aside>
 
@@ -267,79 +273,217 @@
         </section>
         <!-- === END === -->
 
+        <!-- === START: Painel Add / Edit Milagre === -->
+        <section id="add-milagre-panel" class="add-milagre-panel" style="display:none;">
+            <div class="add-caminho-inner">
+                <button class="close-add-milagre close-btn" title="Fechar">&times;</button>
+                <h2>Criar / Editar Milagre</h2>
 
+                <form id="add-milagre-form">
+                    <label>Nome
+                        <input type="text" id="milagre_nome" required />
+                    </label>
+
+                    <label>Custo
+                        <input type="text" id="milagre_custo" placeholder="3/15" />
+                    </label>
+
+                    <label>Tipo
+                        <div class="input-with-history">
+                            <input type="text" id="milagre_tipo" placeholder="Divino" />
+                            <button type="button" class="history-btn" data-field="tipo"
+                                aria-label="Mostrar histórico">▾</button>
+                            <div class="history-dropdown" data-field="tipo" hidden></div>
+                        </div>
+                    </label>
+
+                    <label>Função
+                        <div class="input-with-history">
+                            <input type="text" id="milagre_funcao" placeholder="Defensivo" />
+                            <button type="button" class="history-btn" data-field="funcao"
+                                aria-label="Mostrar histórico">▾</button>
+                            <div class="history-dropdown" data-field="funcao" hidden></div>
+                        </div>
+                    </label>
+
+                    <label>Tomo
+                        <div class="input-with-history">
+                            <input type="text" id="milagre_tomo" placeholder="Solyn" />
+                            <button type="button" class="history-btn" data-field="tomo"
+                                aria-label="Mostrar histórico">▾</button>
+                            <div class="history-dropdown" data-field="tomo" hidden></div>
+                        </div>
+                    </label>
+
+                    <label>Efeito
+                        <input type="text" id="milagre_efeito" placeholder="Nenhum" />
+                    </label>
+
+                    <label>Descrição
+                        <textarea id="milagre_descricao" rows="4"
+                            placeholder="Cria uma aura que regenera..."></textarea>
+                    </label>
+
+                    <div class="form-actions">
+                        <button type="button" id="cancel-add-milagre" class="modal-btn">Cancelar</button>
+                        <button type="submit" class="modal-btn">Salvar Milagre</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+        <!-- === END === -->
+
+        <!-- === START: Barra de pesquisa global (colocar ANTES de <div class="admin-content">) === -->
+        <div class="admin-search-wrap">
+            <div class="admin-search-bar">
+                <input id="global-search-input" type="search"
+                    placeholder="Pesquisar (qualquer coleção)... Ex: 'Arcanista', 'Martelo', 'Raio Arcano'">
+                <button id="clear-search-btn" title="Limpar pesquisa">✕</button>
+                <button id="open-search-filters" class="filter-btn" title="Filtros">⚙</button>
+            </div>
+
+            <div id="search-filter-dropdown" class="search-filter-dropdown" hidden>
+                <div class="filter-row">
+                    <label><input type="checkbox" data-coll="caminhos" class="filter-coll"> Caminho</label>
+                    <div class="nested-filters" data-coll="caminhos" hidden>
+                        <div class="subtitle">Classe</div>
+                        <div class="filter-values" data-field="classe"></div>
+                    </div>
+                </div>
+
+                <div class="filter-row">
+                    <label><input type="checkbox" data-coll="condicoes" class="filter-coll"> Condição</label>
+                    <div class="nested-filters" data-coll="condicoes" hidden>
+                        <div class="subtitle">Tipo</div>
+                        <div class="filter-values" data-field="tipo"></div>
+                    </div>
+                </div>
+
+                <div class="filter-row">
+                    <label><input type="checkbox" data-coll="itens" class="filter-coll"> Item</label>
+                    <div class="nested-filters" data-coll="itens" hidden>
+                        <div class="subtitle">Categoria</div>
+                        <div class="filter-values" data-field="categoria"></div>
+
+                        <div class="subtitle">Tipo do Item</div>
+                        <div class="filter-values" data-field="tipo_item"></div>
+
+                        <div class="subtitle">Tipo de Dano</div>
+                        <div class="filter-values" data-field="tipo_dano"></div>
+                    </div>
+                </div>
+
+                <div class="filter-row">
+                    <label><input type="checkbox" data-coll="feitiços" class="filter-coll"> Feitiço</label>
+                    <div class="nested-filters" data-coll="feitiços" hidden>
+                        <div class="subtitle">Elemento</div>
+                        <div class="filter-values" data-field="elemento"></div>
+                    </div>
+                </div>
+
+                <div class="filter-row">
+                    <label><input type="checkbox" data-coll="milagres" class="filter-coll"> Milagre</label>
+                    <div class="nested-filters" data-coll="milagres" hidden>
+                        <div class="subtitle">Tipo</div>
+                        <div class="filter-values" data-field="tipo"></div>
+
+                        <div class="subtitle">Tomo</div>
+                        <div class="filter-values" data-field="tomo"></div>
+
+                        <div class="subtitle">Função</div>
+                        <div class="filter-values" data-field="funcao"></div>
+                    </div>
+                </div>
+
+                <div class="filter-actions">
+                    <button id="apply-filters-btn" class="modal-btn">Aplicar</button>
+                    <button id="reset-filters-btn" class="modal-btn">Limpar filtros</button>
+                </div>
+            </div>
+
+            <div id="search-results" class="search-results" hidden>
+                <!-- resultados aparecerão aqui -->
+            </div>
+        </div>
+        <!-- === END: Barra de pesquisa global === -->
+
+        <!-- === INÍCIO: SUBSTITUIR admin-content por este bloco === -->
         <div class="admin-content">
+
+            <!-- usuários (mantém igual) -->
             <div class="users-section">
                 <h2>Usuários Cadastrados</h2>
-                <div id="users-list" class="users-list">
-                    <!-- Users will be populated here -->
-                </div>
+                <div id="users-list" class="users-list"><!-- preenchido por adm.js --></div>
             </div>
 
-            <div class="characters-section" id="characters-section" style="display: none;">
+            <!-- personagens (mantém igual) -->
+            <div class="characters-section" id="characters-section" style="display:none;">
                 <h2>Personagens de <span id="user-name"></span></h2>
-                <div id="characters-list" class="characters-list">
-                    <!-- Characters will be populated here -->
+                <div id="characters-list" class="characters-list"><!-- preenchido por adm.js --></div>
+            </div>
+
+            <!-- coluna lateral com os toggles + ações (novo / atualizar) -->
+            <div class="elementos-column">
+                <div class="elementos-section">
+                    <!-- Caminhos -->
+                    <div class="elemento-row">
+                        <button class="elemento-toggle" data-target="caminhos">Caminhos</button>
+                        <div class="elemento-actions">
+                            <button id="novo-caminho-btn" class="small-action">+ Novo</button>
+                            <button id="refresh-caminhos-btn" class="small-action">↻</button>
+                        </div>
+                    </div>
+
+                    <!-- Condições -->
+                    <div class="elemento-row">
+                        <button class="elemento-toggle" data-target="condicoes">Condições</button>
+                        <div class="elemento-actions">
+                            <button id="novo-condicao-btn" class="small-action">+ Novo</button>
+                            <button id="refresh-condicoes-btn" class="small-action">↻</button>
+                        </div>
+                    </div>
+
+                    <!-- Itens -->
+                    <div class="elemento-row">
+                        <button class="elemento-toggle" data-target="itens">Itens</button>
+                        <div class="elemento-actions">
+                            <button id="novo-item-btn" class="small-action">+ Novo</button>
+                            <button id="refresh-itens-btn" class="small-action">↻</button>
+                        </div>
+                    </div>
+
+                    <!-- Feitiços -->
+                    <div class="elemento-row">
+                        <button class="elemento-toggle" data-target="feiticos">Feitiços</button>
+                        <div class="elemento-actions">
+                            <button id="novo-feitico-btn" class="small-action">+ Novo</button>
+                            <button id="refresh-feiticos-btn" class="small-action">↻</button>
+                        </div>
+                    </div>
+
+                    <!-- Milagres -->
+                    <div class="elemento-row">
+                        <button class="elemento-toggle" data-target="milagres">Milagres</button>
+                        <div class="elemento-actions">
+                            <button id="novo-milagre-btn" class="small-action">+ Novo</button>
+                            <button id="refresh-milagres-btn" class="small-action">↻</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- === START: Caminhos administration === -->
-            <div class="caminhos-section" id="caminhos-section">
-                <h2>Caminhos</h2>
-                <div class="caminhos-actions">
-                    <button id="novo-caminho-btn" class="modal-btn">+ Novo Caminho</button>
-                    <button id="refresh-caminhos-btn" class="modal-btn">Atualizar Lista</button>
-                </div>
-
-                <div id="caminhos-list" class="caminhos-list">
-                    <!-- lista de documentos 'caminhos' será renderizada aqui -->
-                </div>
+            <!-- área de painéis à direita (cada div será substituída — apenas 1 visível por vez) -->
+            <div class="elementos-panels" id="elementos-panels">
+                <div id="caminhos-list" class="caminhos-list" data-panel="caminhos" hidden></div>
+                <div id="condicoes-list" class="condicoes-list" data-panel="condicoes" hidden></div>
+                <div id="itens-list" class="itens-list" data-panel="itens" hidden></div>
+                <div id="feiticos-list" class="feiticos-list" data-panel="feiticos" hidden></div>
+                <div id="milagres-list" class="milagres-list" data-panel="milagres" hidden></div>
             </div>
-
-            <!-- === START: Condições administration === -->
-            <div class="condicoes-section" id="condicoes-section">
-                <h2>Condições</h2>
-                <div class="condicoes-actions">
-                    <button id="novo-condicao-btn" class="modal-btn">+ Nova Condição</button>
-                    <button id="refresh-condicoes-btn" class="modal-btn">Atualizar Lista</button>
-                </div>
-
-                <div id="condicoes-list" class="condicoes-list">
-                    <!-- lista de documentos 'condicoes' será renderizada aqui -->
-                </div>
-            </div>
-            <!-- === END === -->
-
-            <!-- === START: Itens administration === -->
-            <div class="itens-section" id="itens-section">
-                <h2>Itens</h2>
-                <div class="itens-actions">
-                    <button id="novo-item-btn" class="modal-btn">+ Novo Item</button>
-                    <button id="refresh-itens-btn" class="modal-btn">Atualizar Lista</button>
-                </div>
-
-                <div id="itens-list" class="itens-list">
-                    <!-- cards de itens serão renderizados aqui -->
-                </div>
-            </div>
-            <!-- === END === -->
-
-            <!-- === START: Feitiços administration === -->
-            <div class="feiticos-section" id="feiticos-section">
-                <h2>Feitiços</h2>
-                <div class="feiticos-actions">
-                    <button id="novo-feitico-btn" class="modal-btn">+ Novo Feitiço</button>
-                    <button id="refresh-feiticos-btn" class="modal-btn">Atualizar Lista</button>
-                </div>
-
-                <div id="feiticos-list" class="feiticos-list">
-                    <!-- cards de feitiços serão renderizados aqui -->
-                </div>
-            </div>
-            <!-- === END === -->
-
 
         </div>
+        <!-- === FIM: SUBSTITUIR admin-content === -->
+
     </div>
 
     <script src="adm.js"></script>
