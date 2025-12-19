@@ -329,6 +329,8 @@ async function resolveFirestoreFunctions() {
                         }
                         alert('Excluído.');
                         loadCaminhos();
+                        refreshFeiticoHistoryCache(); // atualizar cache (pode ser sem await)
+
                     } catch (err) {
                         console.error('Erro excluindo:', err);
                         alert('Erro ao excluir (veja console).');
@@ -932,3 +934,291 @@ async function resolveFirestoreFunctions() {
     refreshHistoryCacheForFields();
 })();
 
+/* === FEITIÇOS: list / edit / create / delete === */
+(function () {
+    const FEITICOS_COLLECTION = 'feitiços'; // use exatamente o nome que você tem no Firestore
+
+    const openBtn = document.getElementById('open-add-feitico');
+    const panel = document.getElementById('add-feitico-panel');
+    const closeBtn = panel?.querySelector('.close-add-feitico');
+    const form = document.getElementById('add-feitico-form');
+
+    const feiticosListEl = document.getElementById('feiticos-list');
+    const novoFeiticoBtn = document.getElementById('novo-feitico-btn');
+    const refreshFeiticosBtn = document.getElementById('refresh-feiticos-btn');
+    const cancelBtn = document.getElementById('cancel-add-feitico');
+
+    if (!form) return;
+
+    /* ===== Histórico inline para campo 'elemento' (feitiços) ===== */
+    const _feiticoHistoryCache = {};
+
+    async function fetchFeiticoHistoryValues(field) {
+        if (_feiticoHistoryCache[field]) return _feiticoHistoryCache[field];
+        try {
+            const fns = await resolveFirestoreFunctions();
+            const colRef = fns.collection(window.firestoredb, FEITICOS_COLLECTION);
+            const snap = await fns.getDocs(colRef);
+            const set = new Set();
+            snap.forEach(doc => {
+                const val = doc.data()[field];
+                if (val !== undefined && val !== null) {
+                    const s = String(val).trim();
+                    if (s) set.add(s);
+                }
+            });
+            const arr = Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+            _feiticoHistoryCache[field] = arr;
+            return arr;
+        } catch (err) {
+            console.error('fetchFeiticoHistoryValues error', err);
+            return [];
+        }
+    }
+
+    function buildFeiticoHistoryDropdown(field, targetDropdown, items) {
+        targetDropdown.innerHTML = '';
+        if (!items || items.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'history-item';
+            empty.textContent = 'Nenhum histórico';
+            targetDropdown.appendChild(empty);
+        } else {
+            items.forEach(val => {
+                const it = document.createElement('div');
+                it.className = 'history-item';
+                it.tabIndex = 0;
+                it.textContent = val;
+                it.addEventListener('click', () => {
+                    const input = document.getElementById('feitico_' + field);
+                    if (input) input.value = val;
+                    hideAllFeiticoDropdowns();
+                    input.focus();
+                });
+                it.addEventListener('keydown', (e) => { if (e.key === 'Enter') it.click(); });
+                targetDropdown.appendChild(it);
+            });
+        }
+
+        const footer = document.createElement('div');
+        footer.className = 'history-footer';
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.textContent = 'Limpar';
+        clearBtn.addEventListener('click', () => {
+            const input = document.getElementById('feitico_' + field);
+            if (input) input.value = '';
+            hideAllFeiticoDropdowns();
+            input.focus();
+        });
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.textContent = 'Fechar';
+        closeBtn.addEventListener('click', hideAllFeiticoDropdowns);
+        footer.appendChild(clearBtn);
+        footer.appendChild(closeBtn);
+        targetDropdown.appendChild(footer);
+    }
+
+    function hideAllFeiticoDropdowns() {
+        panel.querySelectorAll('.history-dropdown').forEach(d => d.setAttribute('hidden', ''));
+    }
+
+    function toggleFeiticoDropdownFor(button) {
+        const field = button.dataset.field;
+        const dropdown = panel.querySelector(`.history-dropdown[data-field="${field}"]`);
+        if (!dropdown) return;
+        const isHidden = dropdown.hasAttribute('hidden');
+        hideAllFeiticoDropdowns();
+        if (isHidden) {
+            fetchFeiticoHistoryValues(field).then(items => {
+                buildFeiticoHistoryDropdown(field, dropdown, items);
+                dropdown.removeAttribute('hidden');
+                dropdown.scrollIntoView({ block: 'nearest' });
+            }).catch(err => {
+                console.error('Erro ao popular histórico (feiticos)', err);
+                dropdown.removeAttribute('hidden');
+            });
+        } else {
+            dropdown.setAttribute('hidden', '');
+        }
+    }
+
+    function attachFeiticoHistoryButtonsHandlers() {
+        if (!panel) return;
+        const buttons = panel.querySelectorAll('.history-btn[data-field="elemento"]');
+        buttons.forEach(btn => {
+            btn.removeEventListener('click', btn._historyClickHandler);
+            const handler = (e) => {
+                e.stopPropagation();
+                toggleFeiticoDropdownFor(btn);
+            };
+            btn._historyClickHandler = handler;
+            btn.addEventListener('click', handler);
+        });
+
+        // fechar quando clicar fora (apenas quando o painel estiver aberto)
+        document.addEventListener('click', function _feitiClickClose(e) {
+            if (!panel || panel.style.display === 'none') return;
+            const isBtn = e.target.closest && e.target.closest('.history-btn');
+            const isDropdown = e.target.closest && e.target.closest('.history-dropdown');
+            if (!isBtn && !isDropdown) hideAllFeiticoDropdowns();
+        });
+    }
+
+    async function refreshFeiticoHistoryCache(fields = ['elemento']) {
+        try {
+            for (const f of fields) {
+                _feiticoHistoryCache[f] = null;
+                await fetchFeiticoHistoryValues(f);
+            }
+        } catch (e) { /* silent */ }
+    }
+
+
+    function escapeHtml(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+    async function loadFeiticos() {
+        try {
+            feiticosListEl.innerHTML = '<p>Carregando...</p>';
+            const fns = await resolveFirestoreFunctions();
+            const colRef = fns.collection(window.firestoredb, FEITICOS_COLLECTION);
+            const snap = await fns.getDocs(colRef);
+            feiticosListEl.innerHTML = '';
+
+            if (!snap || snap.size === 0) {
+                feiticosListEl.innerHTML = '<p>Nenhum feitiço cadastrado.</p>';
+                return;
+            }
+
+            snap.forEach(doc => {
+                const data = doc.data();
+                const id = doc.id;
+                const card = document.createElement('div');
+                card.className = 'feitico-card';
+                card.innerHTML = `
+          <h4>${escapeHtml(data.nome || 'Sem nome')}</h4>
+          <p><strong>Elemento:</strong> ${escapeHtml(data.elemento || '-')}</p>
+          <p><strong>Custo:</strong> ${typeof data.custo === 'number' ? data.custo : '-'}</p>
+          <p>${escapeHtml((data.descricao || '').slice(0, 120))}${(data.descricao && data.descricao.length > 120) ? '...' : ''}</p>
+          <div class="card-actions">
+            <button data-edit-id="${id}" class="edit-feitico-btn">Editar</button>
+            <button data-delete-id="${id}" class="del-feitico-btn">Excluir</button>
+          </div>
+        `;
+                feiticosListEl.appendChild(card);
+            });
+
+            // bind events
+            feiticosListEl.querySelectorAll('.edit-feitico-btn').forEach(btn => {
+                btn.addEventListener('click', () => openFormForEdit(btn.dataset.editId));
+            });
+            feiticosListEl.querySelectorAll('.del-feitico-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.deleteId;
+                    if (!confirm('Confirma excluir este feitiço?')) return;
+                    try {
+                        const fns = await resolveFirestoreFunctions();
+                        const docRef = fns.doc(window.firestoredb, FEITICOS_COLLECTION, id);
+                        if (typeof fns.deleteDoc === 'function') await fns.deleteDoc(docRef);
+                        else if (typeof window.deleteDoc === 'function') await window.deleteDoc(docRef);
+                        else await fns.setDoc(docRef, { _deleted: true }, { merge: true });
+                        alert('Excluído.');
+                        loadFeiticos();
+                    } catch (err) {
+                        console.error('Erro excluindo feitiço:', err);
+                        alert('Erro ao excluir (veja console).');
+                    }
+                });
+            });
+
+        } catch (err) {
+            console.error('Erro ao carregar feitiços:', err);
+            feiticosListEl.innerHTML = '<p>Erro ao carregar feitiços.</p>';
+        }
+    }
+
+    function openFormForNew() {
+        form.removeAttribute('data-doc-id');
+        form.reset();
+        document.getElementById('feitico_custo').value = 3;
+        document.getElementById('feitico_elemento').value = 'Básico';
+        document.getElementById('feitico_img').value = '';
+        document.getElementById('feitico_descricao').value = 'Projeta energia pura em linha reta. 1d6 de dano, ignora armaduras.';
+        panel.style.display = 'block';
+        attachFeiticoHistoryButtonsHandlers();
+
+    }
+
+    async function openFormForEdit(docId) {
+        try {
+            const fns = await resolveFirestoreFunctions();
+            const docRef = fns.doc(window.firestoredb, FEITICOS_COLLECTION, docId);
+            const snap = await fns.getDoc(docRef);
+            if (!snap.exists()) { alert('Documento não encontrado.'); return; }
+            const data = snap.data();
+
+            document.getElementById('feitico_nome').value = data.nome || '';
+            document.getElementById('feitico_custo').value = (typeof data.custo === 'number') ? data.custo : 0;
+            document.getElementById('feitico_elemento').value = data.elemento || '';
+            document.getElementById('feitico_img').value = data.img || '';
+            document.getElementById('feitico_descricao').value = data.descricao || '';
+
+            form.setAttribute('data-doc-id', docId);
+            panel.style.display = 'block';
+            attachFeiticoHistoryButtonsHandlers();
+
+        } catch (err) {
+            console.error('Erro ao abrir feitiço para editar:', err);
+            alert('Erro ao carregar feitiço.');
+        }
+    }
+
+    // eventos / bindings
+    novoFeiticoBtn?.addEventListener('click', openFormForNew);
+    refreshFeiticosBtn?.addEventListener('click', loadFeiticos);
+    openBtn?.addEventListener('click', openFormForNew);
+    closeBtn?.addEventListener('click', () => panel.style.display = 'none');
+    cancelBtn?.addEventListener('click', () => panel.style.display = 'none');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            const nome = document.getElementById('feitico_nome').value.trim();
+            const custo = Number(document.getElementById('feitico_custo').value) || 0;
+            const elemento = document.getElementById('feitico_elemento').value.trim();
+            const img = document.getElementById('feitico_img').value.trim() || '';
+            const descricao = document.getElementById('feitico_descricao').value.trim();
+
+            if (!nome) { alert('Nome é obrigatório.'); return; }
+
+            const payload = { nome, custo, elemento, img, descricao };
+
+            const docId = form.getAttribute('data-doc-id');
+            const fns = await resolveFirestoreFunctions();
+            if (docId) {
+                const docRef = fns.doc(window.firestoredb, FEITICOS_COLLECTION, docId);
+                if (typeof fns.setDoc === 'function') await fns.setDoc(docRef, payload, { merge: true });
+                else if (typeof fns.updateDoc === 'function') await fns.updateDoc(docRef, payload);
+                else await fns.addDoc(fns.collection(window.firestoredb, FEITICOS_COLLECTION), payload);
+                alert('Feitiço atualizado.');
+                await refreshFeiticoHistoryCache(); // atualiza histórico com novo valor
+
+            } else {
+                await fns.addDoc(fns.collection(window.firestoredb, FEITICOS_COLLECTION), payload);
+                alert('Feitiço criado.');
+                await refreshFeiticoHistoryCache();
+            }
+
+            form.reset();
+            panel.style.display = 'none';
+            loadFeiticos();
+        } catch (err) {
+            console.error('Erro ao salvar feitiço:', err);
+            alert('Erro ao salvar feitiço (veja console).');
+        }
+    });
+
+    // inicial
+    loadFeiticos();
+})();

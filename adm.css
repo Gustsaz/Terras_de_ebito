@@ -666,3 +666,117 @@ body {
     cursor: pointer;
     font-size: 0.85rem;
 }
+
+/* === Painel Feitiço === */
+.add-feitico-panel {
+    position: fixed;
+    right: 20px;
+    top: 60px;
+    width: min(640px, 92%);
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    background: linear-gradient(180deg, #151010, #241616);
+    border: 3px solid rgba(92, 34, 34, 0.95);
+    border-radius: 12px;
+    z-index: 1360;
+    padding: 18px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+}
+
+/* Feitiços list */
+.feiticos-section {
+    margin-top: 24px;
+}
+
+.feiticos-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.feiticos-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.feitico-card {
+    background: rgba(40, 40, 40, 0.45);
+    border: 2px solid rgba(92, 34, 34, 0.25);
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.feitico-card h4 {
+    margin: 0;
+    color: #efe6e2;
+}
+
+.feitico-card p {
+    margin: 0;
+    font-size: 0.88rem;
+    color: #d6c9c6;
+}
+
+.feitico-card .card-actions {
+    margin-top: auto;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.feitico-card button {
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 6px 8px;
+    border: none;
+    background: rgba(0, 0, 0, 0.25);
+    color: #efe6e2;
+}
+
+.add-item-panel input[type="text"],
+.add-item-panel input[type="number"],
+.add-item-panel textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 2px solid rgba(92, 34, 34, 0.6);
+    background: #120d0d;
+    color: #efe6e2;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+/* === Feitiços: inputs com o mesmo estilo dos inputs de Item === */
+.add-feitico-panel input[type="text"],
+.add-feitico-panel input[type="number"],
+.add-feitico-panel textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 2px solid rgba(92, 34, 34, 0.6);
+    background: #120d0d;
+    color: #efe6e2;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+/* garante espaço para o botão history dentro dos inputs com histórico */
+.add-feitico-panel .input-with-history input[type="text"],
+.add-feitico-panel .input-with-history input[type="number"] {
+    padding-right: 40px;
+    /* mesmo comportamento do .add-item-panel */
+}
+
+/* (opcional) se quiser que o dropdown do histórico fique corretamente posicionado dentro do painel */
+.add-feitico-panel .history-btn {
+    right: 6px;
+}
+
+.add-feitico-panel .history-dropdown {
+    right: 0;
+    top: calc(100% + 8px);
+}

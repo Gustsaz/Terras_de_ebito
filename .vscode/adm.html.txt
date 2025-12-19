@@ -44,6 +44,12 @@
                     <span class="side-label">Add Item</span>
                 </button>
 
+                <!-- BOTÃO: Add Feitiço -->
+                <button id="open-add-feitico" class="side-btn" title="Adicionar Feitiço">
+                    <i class="fas fa-magic"></i>
+                    <span class="side-label">Add Feitiço</span>
+                </button>
+
             </nav>
         </aside>
 
@@ -219,6 +225,48 @@
         </section>
         <!-- === END === -->
 
+        <!-- === START: Painel Add / Edit Feitiço === -->
+        <section id="add-feitico-panel" class="add-feitico-panel" style="display:none;">
+            <div class="add-caminho-inner">
+                <button class="close-add-feitico close-btn" title="Fechar">&times;</button>
+                <h2>Criar / Editar Feitiço</h2>
+
+                <form id="add-feitico-form">
+                    <label>Nome
+                        <input type="text" id="feitico_nome" required />
+                    </label>
+                    <br>
+
+                    <label>Custo (number)
+                        <input type="number" id="feitico_custo" min="0" step="1" value="3" />
+                    </label>
+                    <br>
+                    <label>Elemento
+                        <div class="input-with-history">
+                            <input type="text" id="feitico_elemento" placeholder="Básico" />
+                            <button type="button" class="history-btn" data-field="elemento"
+                                aria-label="Mostrar histórico">▾</button>
+                            <div class="history-dropdown" data-field="elemento" hidden></div>
+                        </div>
+                    </label>
+
+                    <br>
+                    <label>Imagem (URL)
+                        <input type="text" id="feitico_img" placeholder="" />
+                    </label>
+                    <br>
+                    <label>Descrição
+                        <textarea id="feitico_descricao" rows="4" placeholder="Projeta energia pura..."></textarea>
+                    </label>
+                    <div class="form-actions">
+                        <button type="button" id="cancel-add-feitico" class="modal-btn">Cancelar</button>
+                        <button type="submit" class="modal-btn">Salvar Feitiço</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+        <!-- === END === -->
+
 
         <div class="admin-content">
             <div class="users-section">
@@ -272,6 +320,20 @@
 
                 <div id="itens-list" class="itens-list">
                     <!-- cards de itens serão renderizados aqui -->
+                </div>
+            </div>
+            <!-- === END === -->
+
+            <!-- === START: Feitiços administration === -->
+            <div class="feiticos-section" id="feiticos-section">
+                <h2>Feitiços</h2>
+                <div class="feiticos-actions">
+                    <button id="novo-feitico-btn" class="modal-btn">+ Novo Feitiço</button>
+                    <button id="refresh-feiticos-btn" class="modal-btn">Atualizar Lista</button>
+                </div>
+
+                <div id="feiticos-list" class="feiticos-list">
+                    <!-- cards de feitiços serão renderizados aqui -->
                 </div>
             </div>
             <!-- === END === -->
