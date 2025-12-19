@@ -37,6 +37,13 @@
                     <i class="fas fa-shield-alt"></i>
                     <span class="side-label">Add Condição</span>
                 </button>
+
+                <!-- BOTÃO: Add Item -->
+                <button id="open-add-item" class="side-btn" title="Adicionar Item">
+                    <i class="fas fa-box"></i>
+                    <span class="side-label">Add Item</span>
+                </button>
+
             </nav>
         </aside>
 
@@ -133,6 +140,85 @@
         </section>
         <!-- === END === -->
 
+        <!-- === START: Painel Add / Edit Item === -->
+        <section id="add-item-panel" class="add-item-panel" style="display:none;">
+            <div class="add-caminho-inner">
+                <button class="close-add-item close-btn" title="Fechar">&times;</button>
+                <h2>Criar / Editar Item</h2>
+
+                <form id="add-item-form">
+                    <label>Nome
+                        <input type="text" id="item_nome" required />
+                    </label>
+
+                    <label>Categoria
+                        <div class="input-with-history">
+                            <input type="text" id="item_categoria" placeholder="Utilitário" />
+                            <button type="button" class="history-btn" data-field="categoria"
+                                aria-label="Mostrar histórico">▾</button>
+                            <div class="history-dropdown" data-field="categoria" hidden></div>
+                        </div>
+                    </label>
+
+
+                    <label>Tipo do Item
+                        <div class="input-with-history">
+                            <input type="text" id="item_tipo_item" placeholder="Utilitário" />
+                            <button type="button" class="history-btn" data-field="tipo_item"
+                                aria-label="Mostrar histórico">▾</button>
+                            <div class="history-dropdown" data-field="tipo_item" hidden></div>
+                        </div>
+                    </label>
+
+
+                    <label>Descrição
+                        <textarea id="item_descricao" rows="3" placeholder="Um binóculos comum."></textarea>
+                    </label>
+
+                    <label>Efeito
+                        <textarea id="item_efeito" rows="2"
+                            placeholder="Permite enxergar a longas distâncias..."></textarea>
+                    </label>
+
+                    <label>Dano
+                        <input type="text" id="item_dano" value="Nenhum" />
+                    </label>
+
+                    <label>Tipo de Dano
+                        <div class="input-with-history">
+                            <input type="text" id="item_tipo_dano" value="Nenhum" />
+                            <button type="button" class="history-btn" data-field="tipo_dano"
+                                aria-label="Mostrar histórico">▾</button>
+                            <div class="history-dropdown" data-field="tipo_dano" hidden></div>
+                        </div>
+                    </label>
+
+
+                    <label>Crítico
+                        <input type="text" id="item_critico" value="Nenhum" />
+                    </label>
+
+                    <label>Habilidade
+                        <input type="text" id="item_habilidade" value="Nenhum" />
+                    </label>
+
+                    <label>Requisito
+                        <input type="text" id="item_requisito" placeholder="tecnica>=3" />
+                    </label>
+
+                    <label>Peso
+                        <input type="number" id="item_peso" min="0" step="0.1" value="1" />
+                    </label>
+
+                    <div class="form-actions">
+                        <button type="button" id="cancel-add-item" class="modal-btn">Cancelar</button>
+                        <button type="submit" class="modal-btn">Salvar Item</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+        <!-- === END === -->
+
 
         <div class="admin-content">
             <div class="users-section">
@@ -172,6 +258,20 @@
 
                 <div id="condicoes-list" class="condicoes-list">
                     <!-- lista de documentos 'condicoes' será renderizada aqui -->
+                </div>
+            </div>
+            <!-- === END === -->
+
+            <!-- === START: Itens administration === -->
+            <div class="itens-section" id="itens-section">
+                <h2>Itens</h2>
+                <div class="itens-actions">
+                    <button id="novo-item-btn" class="modal-btn">+ Novo Item</button>
+                    <button id="refresh-itens-btn" class="modal-btn">Atualizar Lista</button>
+                </div>
+
+                <div id="itens-list" class="itens-list">
+                    <!-- cards de itens serão renderizados aqui -->
                 </div>
             </div>
             <!-- === END === -->

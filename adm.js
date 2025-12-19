@@ -198,7 +198,6 @@ async function resolveFirestoreFunctions() {
 
     if (!form) return;
 
-    // --- helpers UI existentes (reaproveito createNivelItem / escapeHtml) ---
     function escapeHtml(s) {
         if (!s) return '';
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -469,10 +468,10 @@ async function resolveFirestoreFunctions() {
     const colorHexInput = document.getElementById('cond_cor_hex');
 
     if (colorInput) {
-      colorInput.addEventListener('input', () => {
-        if (colorHexInput) colorHexInput.value = colorInput.value.toUpperCase();
-      });
-      if (colorHexInput && colorInput.value) colorHexInput.value = colorInput.value.toUpperCase();
+        colorInput.addEventListener('input', () => {
+            if (colorHexInput) colorHexInput.value = colorInput.value.toUpperCase();
+        });
+        if (colorHexInput && colorInput.value) colorHexInput.value = colorInput.value.toUpperCase();
     }
 
     // helpers
@@ -620,3 +619,316 @@ async function resolveFirestoreFunctions() {
     // inicial
     loadCondicoes();
 })();
+
+/* === ITENS: list / edit / create / delete + Histórico por campo === */
+(function () {
+    const ITENS_COLLECTION = 'itens';
+
+    const openBtn = document.getElementById('open-add-item');
+    const panel = document.getElementById('add-item-panel');
+    const closeBtn = panel?.querySelector('.close-add-item');
+    const form = document.getElementById('add-item-form');
+
+    const itensListEl = document.getElementById('itens-list');
+    const novoItemBtn = document.getElementById('novo-item-btn');
+    const refreshItensBtn = document.getElementById('refresh-itens-btn');
+    const cancelBtn = document.getElementById('cancel-add-item');
+
+    if (!form) return;
+
+    /* ===== Histórico inline para campos categoria / tipo_item / tipo_dano ===== */
+    const _historyCache = {}; // cache por campo
+
+    async function fetchHistoryValues(field) {
+        if (_historyCache[field]) return _historyCache[field];
+        try {
+            const fns = await resolveFirestoreFunctions();
+            const colRef = fns.collection(window.firestoredb, ITENS_COLLECTION);
+            const snap = await fns.getDocs(colRef);
+            const set = new Set();
+            snap.forEach(doc => {
+                const val = doc.data()[field];
+                if (val !== undefined && val !== null) {
+                    const s = String(val).trim();
+                    if (s) set.add(s);
+                }
+            });
+            const arr = Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+            _historyCache[field] = arr;
+            return arr;
+        } catch (err) {
+            console.error('fetchHistoryValues error', err);
+            return [];
+        }
+    }
+
+    function buildHistoryDropdown(field, targetDropdown, items) {
+        targetDropdown.innerHTML = '';
+        if (!items || items.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'history-item';
+            empty.textContent = 'Nenhum histórico';
+            targetDropdown.appendChild(empty);
+        } else {
+            items.forEach(val => {
+                const it = document.createElement('div');
+                it.className = 'history-item';
+                it.tabIndex = 0;
+                it.textContent = val;
+                it.addEventListener('click', () => {
+                    const input = document.getElementById('item_' + field);
+                    if (input) input.value = val;
+                    hideAllDropdowns();
+                    input.focus();
+                });
+                it.addEventListener('keydown', (e) => { if (e.key === 'Enter') it.click(); });
+                targetDropdown.appendChild(it);
+            });
+        }
+
+        const footer = document.createElement('div');
+        footer.className = 'history-footer';
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.textContent = 'Limpar';
+        clearBtn.addEventListener('click', () => {
+            const input = document.getElementById('item_' + field);
+            if (input) input.value = '';
+            hideAllDropdowns();
+            input.focus();
+        });
+        const closeBtnF = document.createElement('button');
+        closeBtnF.type = 'button';
+        closeBtnF.textContent = 'Fechar';
+        closeBtnF.addEventListener('click', hideAllDropdowns);
+        footer.appendChild(clearBtn);
+        footer.appendChild(closeBtnF);
+        targetDropdown.appendChild(footer);
+    }
+
+    function hideAllDropdowns() {
+        panel.querySelectorAll('.history-dropdown').forEach(d => d.setAttribute('hidden', ''));
+    }
+
+    function toggleDropdownFor(button) {
+        const field = button.dataset.field;
+        const dropdown = panel.querySelector(`.history-dropdown[data-field="${field}"]`);
+        if (!dropdown) return;
+        const isHidden = dropdown.hasAttribute('hidden');
+        hideAllDropdowns();
+        if (isHidden) {
+            fetchHistoryValues(field).then(items => {
+                buildHistoryDropdown(field, dropdown, items);
+                dropdown.removeAttribute('hidden');
+                dropdown.scrollIntoView({ block: 'nearest' });
+            }).catch(err => {
+                console.error('Erro ao popular histórico', err);
+                dropdown.removeAttribute('hidden');
+            });
+        } else {
+            dropdown.setAttribute('hidden', '');
+        }
+    }
+
+    // Delegation: opened only within the item panel
+    function attachHistoryButtonsHandlers() {
+        // scope aos botões dentro do panel (evita conflitos)
+        const buttons = panel.querySelectorAll('.history-btn');
+        buttons.forEach(btn => {
+            // avoid duplicate listeners
+            btn.removeEventListener('click', btn._historyClickHandler);
+            const handler = (e) => {
+                e.stopPropagation();
+                toggleDropdownFor(btn);
+            };
+            btn._historyClickHandler = handler;
+            btn.addEventListener('click', handler);
+        });
+
+        // click fora fecha (apenas quando o panel está aberto)
+        document.addEventListener('click', function _outsideClick(e) {
+            if (!panel || panel.style.display === 'none') return;
+            const isBtn = e.target.closest && e.target.closest('.history-btn');
+            const isDropdown = e.target.closest && e.target.closest('.history-dropdown');
+            if (!isBtn && !isDropdown) hideAllDropdowns();
+        });
+    }
+
+    async function refreshHistoryCacheForFields(fields = ['categoria', 'tipo_item', 'tipo_dano']) {
+        try {
+            for (const f of fields) {
+                _historyCache[f] = null; // invalida
+                await fetchHistoryValues(f);
+            }
+        } catch (e) { /* silent */ }
+    }
+
+    /* ===== fim do histórico ===== */
+
+    function escapeHtml(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+    async function loadItens() {
+        try {
+            itensListEl.innerHTML = '<p>Carregando...</p>';
+            const fns = await resolveFirestoreFunctions();
+            const colRef = fns.collection(window.firestoredb, ITENS_COLLECTION);
+            const snap = await fns.getDocs(colRef);
+            itensListEl.innerHTML = '';
+
+            if (!snap || snap.size === 0) {
+                itensListEl.innerHTML = '<p>Nenhum item cadastrado.</p>';
+                return;
+            }
+
+            snap.forEach(doc => {
+                const data = doc.data();
+                const id = doc.id;
+                const card = document.createElement('div');
+                card.className = 'item-card';
+                card.innerHTML = `
+          <h4>${escapeHtml(data.nome || 'Sem nome')}</h4>
+          <p><strong>Categoria:</strong> ${escapeHtml(data.categoria || data.tipo_item || '-')}</p>
+          <p>${escapeHtml((data.descricao || '').slice(0, 120))}${(data.descricao && data.descricao.length > 120) ? '...' : ''}</p>
+          <p><strong>Peso:</strong> ${typeof data.peso === 'number' ? data.peso : '—'}</p>
+          <div class="card-actions">
+            <button data-edit-id="${id}" class="edit-item-btn">Editar</button>
+            <button data-delete-id="${id}" class="del-item-btn">Excluir</button>
+          </div>
+        `;
+                itensListEl.appendChild(card);
+            });
+
+            // bind events
+            itensListEl.querySelectorAll('.edit-item-btn').forEach(btn => {
+                btn.addEventListener('click', () => openFormForEdit(btn.dataset.editId));
+            });
+            itensListEl.querySelectorAll('.del-item-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.deleteId;
+                    if (!confirm('Confirma excluir este item?')) return;
+                    try {
+                        const fns = await resolveFirestoreFunctions();
+                        const docRef = fns.doc(window.firestoredb, ITENS_COLLECTION, id);
+                        if (typeof fns.deleteDoc === 'function') await fns.deleteDoc(docRef);
+                        else if (typeof window.deleteDoc === 'function') await window.deleteDoc(docRef);
+                        else await fns.setDoc(docRef, { _deleted: true }, { merge: true });
+                        alert('Excluído.');
+                        loadItens();
+                        refreshHistoryCacheForFields(); // atualizar histórico pois item removido pode afetar lista
+                    } catch (err) {
+                        console.error('Erro excluindo item:', err);
+                        alert('Erro ao excluir (veja console).');
+                    }
+                });
+            });
+
+        } catch (err) {
+            console.error('Erro ao carregar itens:', err);
+            itensListEl.innerHTML = '<p>Erro ao carregar itens.</p>';
+        }
+    }
+
+    function openFormForNew() {
+        form.removeAttribute('data-doc-id');
+        form.reset();
+        // valores padrão
+        document.getElementById('item_categoria').value = 'Utilitário';
+        document.getElementById('item_tipo_item').value = 'Utilitário';
+        document.getElementById('item_dano').value = 'Nenhum';
+        document.getElementById('item_tipo_dano').value = 'Nenhum';
+        document.getElementById('item_critico').value = 'Nenhum';
+        document.getElementById('item_habilidade').value = 'Nenhum';
+        document.getElementById('item_peso').value = 1;
+        panel.style.display = 'block';
+
+        // attach history handlers now that panel is visible
+        attachHistoryButtonsHandlers();
+    }
+
+    async function openFormForEdit(docId) {
+        try {
+            const fns = await resolveFirestoreFunctions();
+            const docRef = fns.doc(window.firestoredb, ITENS_COLLECTION, docId);
+            const snap = await fns.getDoc(docRef);
+            if (!snap.exists()) { alert('Documento não encontrado.'); return; }
+            const data = snap.data();
+
+            document.getElementById('item_nome').value = data.nome || '';
+            document.getElementById('item_categoria').value = data.categoria || '';
+            document.getElementById('item_tipo_item').value = data.tipo_item || '';
+            document.getElementById('item_descricao').value = data.descricao || '';
+            document.getElementById('item_efeito').value = data.efeito || '';
+            document.getElementById('item_dano').value = data.dano || '';
+            document.getElementById('item_tipo_dano').value = data.tipo_dano || '';
+            document.getElementById('item_critico').value = data.critico || '';
+            document.getElementById('item_habilidade').value = data.habilidade || '';
+            document.getElementById('item_requisito').value = data.requisito || '';
+            document.getElementById('item_peso').value = (typeof data.peso === 'number') ? data.peso : 0;
+
+            form.setAttribute('data-doc-id', docId);
+            panel.style.display = 'block';
+
+            // attach handlers
+            attachHistoryButtonsHandlers();
+        } catch (err) {
+            console.error('Erro ao abrir item para editar:', err);
+            alert('Erro ao carregar item.');
+        }
+    }
+
+    // eventos / bindings
+    novoItemBtn?.addEventListener('click', openFormForNew);
+    refreshItensBtn?.addEventListener('click', () => { loadItens(); refreshHistoryCacheForFields(); });
+    openBtn?.addEventListener('click', openFormForNew);
+    closeBtn?.addEventListener('click', () => panel.style.display = 'none');
+    cancelBtn?.addEventListener('click', () => panel.style.display = 'none');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            const nome = document.getElementById('item_nome').value.trim();
+            const categoria = document.getElementById('item_categoria').value.trim();
+            const tipo_item = document.getElementById('item_tipo_item').value.trim();
+            const descricao = document.getElementById('item_descricao').value.trim();
+            const efeito = document.getElementById('item_efeito').value.trim();
+            const dano = document.getElementById('item_dano').value.trim();
+            const tipo_dano = document.getElementById('item_tipo_dano').value.trim();
+            const critico = document.getElementById('item_critico').value.trim();
+            const habilidade = document.getElementById('item_habilidade').value.trim();
+            const requisito = document.getElementById('item_requisito').value.trim();
+            const peso = Number(document.getElementById('item_peso').value) || 0;
+
+            if (!nome) { alert('Nome é obrigatório.'); return; }
+
+            const payload = { nome, categoria, tipo_item, descricao, efeito, dano, tipo_dano, critico, habilidade, requisito, peso };
+
+            const docId = form.getAttribute('data-doc-id');
+            const fns = await resolveFirestoreFunctions();
+            if (docId) {
+                const docRef = fns.doc(window.firestoredb, ITENS_COLLECTION, docId);
+                if (typeof fns.setDoc === 'function') await fns.setDoc(docRef, payload, { merge: true });
+                else if (typeof fns.updateDoc === 'function') await fns.updateDoc(docRef, payload);
+                else await fns.addDoc(fns.collection(window.firestoredb, ITENS_COLLECTION), payload);
+                alert('Item atualizado.');
+                await refreshHistoryCacheForFields(); // atualiza histórico com possíveis novos valores
+            } else {
+                await fns.addDoc(fns.collection(window.firestoredb, ITENS_COLLECTION), payload);
+                alert('Item criado.');
+                await refreshHistoryCacheForFields(); // atualiza histórico com possíveis novos valores
+            }
+
+            form.reset();
+            panel.style.display = 'none';
+            loadItens();
+        } catch (err) {
+            console.error('Erro ao salvar item:', err);
+            alert('Erro ao salvar item (veja console).');
+        }
+    });
+
+    // inicial
+    loadItens();
+    // também carrega cache inicial do histórico já na inicialização (opcional)
+    refreshHistoryCacheForFields();
+})();
+
