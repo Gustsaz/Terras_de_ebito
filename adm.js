@@ -116,6 +116,68 @@ document.addEventListener("DOMContentLoaded", async () => {
     charactersSection.querySelector('h2').appendChild(backBtn);
 });
 
+/* helper: resolve firestore functions (uses window.* if available; otherwise dynamic import) */
+async function resolveFirestoreFunctions() {
+    // cache module on window to avoid multiple imports
+    if (window.__FS_MODULE__) {
+        const m = window.__FS_MODULE__;
+        return {
+            collection: m.collection || window.collection,
+            getDocs: m.getDocs || window.getDocs,
+            addDoc: m.addDoc || window.addDoc,
+            doc: m.doc || window.doc,
+            getDoc: m.getDoc || window.getDoc,
+            setDoc: m.setDoc || window.setDoc,
+            updateDoc: m.updateDoc || window.updateDoc,
+            deleteDoc: m.deleteDoc || window.deleteDoc
+        };
+    }
+
+    // prefer using existing window exports if they are functions
+    const haveWindowFns = (typeof window.collection === 'function') && (typeof window.getDocs === 'function');
+
+    if (haveWindowFns) {
+        return {
+            collection: window.collection,
+            getDocs: window.getDocs,
+            addDoc: window.addDoc,
+            doc: window.doc,
+            getDoc: window.getDoc,
+            setDoc: window.setDoc,
+            updateDoc: window.updateDoc,
+            deleteDoc: window.deleteDoc
+        };
+    }
+
+    // fallback: dynamic import from firebase CDN
+    try {
+        const mod = await import('https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js');
+        window.__FS_MODULE__ = mod;
+        return {
+            collection: mod.collection,
+            getDocs: mod.getDocs,
+            addDoc: mod.addDoc,
+            doc: mod.doc,
+            getDoc: mod.getDoc,
+            setDoc: mod.setDoc,
+            updateDoc: mod.updateDoc,
+            deleteDoc: mod.deleteDoc
+        };
+    } catch (err) {
+        console.warn('resolveFirestoreFunctions: import failed, falling back to window.* (may error):', err);
+        return {
+            collection: window.collection,
+            getDocs: window.getDocs,
+            addDoc: window.addDoc,
+            doc: window.doc,
+            getDoc: window.getDoc,
+            setDoc: window.setDoc,
+            updateDoc: window.updateDoc,
+            deleteDoc: window.deleteDoc
+        };
+    }
+}
+
 /* === CAMINHOS: list / edit / create com niveis fixos === */
 (function () {
     const CAMINHOS_COLLECTION = 'caminhos'; // <- nome da coleção conforme você descreveu
@@ -191,8 +253,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     // --- abrir painel modo editar: carrega doc do firestore ---
     async function openFormForEdit(docId) {
         try {
-            const docRef = window.doc(window.firestoredb, CAMINHOS_COLLECTION, docId);
-            const docSnap = await window.getDoc(docRef);
+            const fns = await resolveFirestoreFunctions();
+            const docRef = fns.doc(window.firestoredb, CAMINHOS_COLLECTION, docId);
+            const docSnap = await fns.getDoc(docRef);
             if (!docSnap.exists()) { alert('Documento não encontrado.'); return; }
             const data = docSnap.data();
 
@@ -220,8 +283,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function loadCaminhos() {
         try {
             caminhosListEl.innerHTML = '<p>Carregando...</p>';
-            const colRef = window.collection(window.firestoredb, CAMINHOS_COLLECTION);
-            const snap = await window.getDocs(colRef);
+            const fns = await resolveFirestoreFunctions();
+            const colRef = fns.collection(window.firestoredb, CAMINHOS_COLLECTION);
+            const snap = await fns.getDocs(colRef);
             caminhosListEl.innerHTML = '';
 
             if (!snap || snap.size === 0) {
@@ -255,12 +319,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const id = btn.dataset.deleteId;
                     if (!confirm('Confirma excluir este caminho?')) return;
                     try {
-                        const docRef = window.doc(window.firestoredb, CAMINHOS_COLLECTION, id);
-                        if (window.deleteDoc) {
+                        const fns = await resolveFirestoreFunctions();
+                        const docRef = fns.doc(window.firestoredb, CAMINHOS_COLLECTION, id);
+                        if (typeof fns.deleteDoc === 'function') {
+                            await fns.deleteDoc(docRef);
+                        } else if (typeof window.deleteDoc === 'function') {
                             await window.deleteDoc(docRef);
-                        } else {
-                            // fallback: set com flag (se preferir ajuste)
-                            await window.setDoc(docRef, { _deleted: true }, { merge: true });
+                        } else if (typeof fns.setDoc === 'function') {
+                            await fns.setDoc(docRef, { _deleted: true }, { merge: true });
                         }
                         alert('Excluído.');
                         loadCaminhos();
@@ -336,18 +402,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             const payload = { classe, nome, descricao_geral, img, niveis };
 
             const docId = form.getAttribute('data-doc-id');
+            const fns = await resolveFirestoreFunctions();
             if (docId) {
                 // atualizar documento existente
-                const docRef = window.doc(window.firestoredb, CAMINHOS_COLLECTION, docId);
+                const docRef = fns.doc(window.firestoredb, CAMINHOS_COLLECTION, docId);
                 try {
-                    if (window.setDoc) {
-                        await window.setDoc(docRef, payload, { merge: true });
-                    } else if (window.updateDoc) {
-                        await window.updateDoc(docRef, payload);
+                    if (typeof fns.setDoc === 'function') {
+                        await fns.setDoc(docRef, payload, { merge: true });
+                    } else if (typeof fns.updateDoc === 'function') {
+                        await fns.updateDoc(docRef, payload);
                     } else {
-                        // fallback: sobrescrever com set via addDoc (não ideal), log
                         console.warn('Nenhuma função setDoc/updateDoc disponível, usando addDoc fallback.');
-                        await window.addDoc(window.collection(window.firestoredb, CAMINHOS_COLLECTION), payload);
+                        await fns.addDoc(fns.collection(window.firestoredb, CAMINHOS_COLLECTION), payload);
                     }
                     alert('Caminho atualizado com sucesso.');
                 } catch (err) {
@@ -357,7 +423,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             } else {
                 // criar novo documento
                 try {
-                    await window.addDoc(window.collection(window.firestoredb, CAMINHOS_COLLECTION), payload);
+                    await fns.addDoc(fns.collection(window.firestoredb, CAMINHOS_COLLECTION), payload);
                     alert('Caminho criado com sucesso.');
                 } catch (err) {
                     console.error('Erro ao criar caminho:', err);
@@ -380,4 +446,177 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // carrega lista inicialmente
     loadCaminhos();
+})();
+
+/* === CONDIÇÕES: list / edit / create === */
+(function () {
+    const CONDICOES_COLLECTION = 'condicoes';
+
+    const openBtn = document.getElementById('open-add-condicao');
+    const panel = document.getElementById('add-condicao-panel');
+    const closeBtn = panel?.querySelector('.close-add-condicao');
+    const form = document.getElementById('add-condicao-form');
+
+    const condicoesListEl = document.getElementById('condicoes-list');
+    const novoCondBtn = document.getElementById('novo-condicao-btn');
+    const refreshCondBtn = document.getElementById('refresh-condicoes-btn');
+    const cancelBtn = document.getElementById('cancel-add-condicao');
+
+    if (!form) return;
+
+    // --- color picker sync (local à UI de Condições) ---
+    const colorInput = document.getElementById('cond_cor');
+    const colorHexInput = document.getElementById('cond_cor_hex');
+
+    if (colorInput) {
+      colorInput.addEventListener('input', () => {
+        if (colorHexInput) colorHexInput.value = colorInput.value.toUpperCase();
+      });
+      if (colorHexInput && colorInput.value) colorHexInput.value = colorInput.value.toUpperCase();
+    }
+
+    // helpers
+    function escapeHtml(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+    async function loadCondicoes() {
+        try {
+            condicoesListEl.innerHTML = '<p>Carregando...</p>';
+            const fns = await resolveFirestoreFunctions();
+            const colRef = fns.collection(window.firestoredb, CONDICOES_COLLECTION);
+            const snap = await fns.getDocs(colRef);
+            condicoesListEl.innerHTML = '';
+
+            if (!snap || snap.size === 0) {
+                condicoesListEl.innerHTML = '<p>Nenhuma condição cadastrada.</p>';
+                return;
+            }
+
+            snap.forEach(doc => {
+                const data = doc.data();
+                const id = doc.id;
+                const card = document.createElement('div');
+                card.className = 'condicao-card';
+                const badgeStyle = data.cor ? `style="background:${escapeHtml(data.cor)}"` : '';
+                card.innerHTML = `
+          <h4>${escapeHtml(data.nome || 'Sem nome')}</h4>
+          <p><span class="cond-badge" ${badgeStyle}>${escapeHtml(data.tipo || '')}</span></p>
+          <p>${escapeHtml((data.descricao || '').slice(0, 120))}${(data.descricao && data.descricao.length > 120) ? '...' : ''}</p>
+          <p><strong>Duração:</strong> ${escapeHtml(data.duracao || '')}</p>
+          <p><strong>Efeito:</strong> ${escapeHtml(data.efeito || '')}</p>
+          <div class="card-actions">
+            <button data-edit-id="${id}" class="edit-cond-btn">Editar</button>
+            <button data-delete-id="${id}" class="del-cond-btn">Excluir</button>
+          </div>
+        `;
+                condicoesListEl.appendChild(card);
+            });
+
+            condicoesListEl.querySelectorAll('.edit-cond-btn').forEach(btn => {
+                btn.addEventListener('click', () => openFormForEdit(btn.dataset.editId));
+            });
+            condicoesListEl.querySelectorAll('.del-cond-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.deleteId;
+                    if (!confirm('Confirma excluir esta condição?')) return;
+                    try {
+                        const fns = await resolveFirestoreFunctions();
+                        const docRef = fns.doc(window.firestoredb, CONDICOES_COLLECTION, id);
+                        if (typeof fns.deleteDoc === 'function') await fns.deleteDoc(docRef);
+                        else if (typeof window.deleteDoc === 'function') await window.deleteDoc(docRef);
+                        else await fns.setDoc(docRef, { _deleted: true }, { merge: true });
+                        alert('Excluído.');
+                        loadCondicoes();
+                    } catch (err) {
+                        console.error('Erro excluindo condicao:', err);
+                        alert('Erro ao excluir (veja console).');
+                    }
+                });
+            });
+
+        } catch (err) {
+            console.error('Erro ao carregar condicoes:', err);
+            condicoesListEl.innerHTML = '<p>Erro ao carregar condições.</p>';
+        }
+    }
+
+    function openFormForNew() {
+        form.removeAttribute('data-doc-id');
+        form.reset();
+        // valores exemplo (pode remover)
+        if (colorInput) colorInput.value = '#696565';
+        if (colorHexInput) colorHexInput.value = '#696565';
+        document.getElementById('cond_tipo').value = 'positiva';
+        document.getElementById('cond_duracao').value = '1d4 turnos.';
+        document.getElementById('cond_efeito').value = '+1 a +3 Defesa ou -25% a -50% de dano recebido.';
+        document.getElementById('cond_descricao').value = 'Energia mágica protege o corpo.';
+        panel.style.display = 'block';
+    }
+
+    async function openFormForEdit(docId) {
+        try {
+            const fns = await resolveFirestoreFunctions();
+            const docRef = fns.doc(window.firestoredb, CONDICOES_COLLECTION, docId);
+            const snap = await fns.getDoc(docRef);
+            if (!snap.exists()) { alert('Documento não encontrado.'); return; }
+            const data = snap.data();
+            document.getElementById('cond_nome').value = data.nome || '';
+            document.getElementById('cond_tipo').value = data.tipo || '';
+            if (colorInput) colorInput.value = (data.cor && data.cor !== '') ? data.cor : '#696565';
+            if (colorHexInput) colorHexInput.value = (data.cor && data.cor !== '') ? data.cor : '#696565';
+            document.getElementById('cond_duracao').value = data.duracao || '';
+            document.getElementById('cond_efeito').value = data.efeito || '';
+            document.getElementById('cond_descricao').value = data.descricao || '';
+            form.setAttribute('data-doc-id', docId);
+            panel.style.display = 'block';
+        } catch (err) {
+            console.error('Erro ao abrir condicao para editar:', err);
+            alert('Erro ao carregar condição.');
+        }
+    }
+
+    // eventos
+    novoCondBtn?.addEventListener('click', openFormForNew);
+    refreshCondBtn?.addEventListener('click', loadCondicoes);
+    openBtn?.addEventListener('click', openFormForNew);
+    closeBtn?.addEventListener('click', () => panel.style.display = 'none');
+    cancelBtn?.addEventListener('click', () => panel.style.display = 'none');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            const nome = document.getElementById('cond_nome').value.trim();
+            const tipo = document.getElementById('cond_tipo').value.trim();
+            const cor = document.getElementById('cond_cor').value.trim();
+            const duracao = document.getElementById('cond_duracao').value.trim();
+            const efeito = document.getElementById('cond_efeito').value.trim();
+            const descricao = document.getElementById('cond_descricao').value.trim();
+
+            if (!nome) { alert('Preencha ao menos o nome.'); return; }
+
+            const payload = { nome, tipo, cor, duracao, efeito, descricao };
+
+            const docId = form.getAttribute('data-doc-id');
+            const fns = await resolveFirestoreFunctions();
+            if (docId) {
+                const docRef = fns.doc(window.firestoredb, CONDICOES_COLLECTION, docId);
+                if (typeof fns.setDoc === 'function') await fns.setDoc(docRef, payload, { merge: true });
+                else if (typeof fns.updateDoc === 'function') await fns.updateDoc(docRef, payload);
+                else await fns.addDoc(fns.collection(window.firestoredb, CONDICOES_COLLECTION), payload);
+                alert('Condição atualizada.');
+            } else {
+                await fns.addDoc(fns.collection(window.firestoredb, CONDICOES_COLLECTION), payload);
+                alert('Condição criada.');
+            }
+
+            form.reset();
+            panel.style.display = 'none';
+            loadCondicoes();
+        } catch (err) {
+            console.error('Erro ao salvar condicao:', err);
+            alert('Erro ao salvar condição (veja console).');
+        }
+    });
+
+    // inicial
+    loadCondicoes();
 })();

@@ -32,6 +32,11 @@
                     <i class="fas fa-route"></i>
                     <span class="side-label">Add Caminho</span>
                 </button>
+
+                <button id="open-add-condicao" class="side-btn" title="Adicionar Condição">
+                    <i class="fas fa-shield-alt"></i>
+                    <span class="side-label">Add Condição</span>
+                </button>
             </nav>
         </aside>
 
@@ -79,6 +84,55 @@
         </section>
         <!-- === END === -->
 
+        <!-- === START: Painel Add / Edit Condição === -->
+        <section id="add-condicao-panel" class="add-condicao-panel" style="display:none;">
+            <div class="add-caminho-inner">
+                <button class="close-add-condicao close-btn" title="Fechar">&times;</button>
+                <h2>Criar / Editar Condição</h2>
+
+                <form id="add-condicao-form">
+                    <label>Nome
+                        <input type="text" id="cond_nome" required />
+                    </label>
+                    <br>
+
+                    <label>Tipo (ex: positiva / negativa)
+                        <input type="text" id="cond_tipo" placeholder="positiva / negativa" required />
+                    </label>
+                    <br>
+
+                    <label>Cor
+                        <div class="cond-cor-row">
+                            <input type="color" id="cond_cor" value="#696565" />
+                            <input type="text" id="cond_cor_hex" class="cond-cor-hex" value="#696565" readonly />
+                        </div>
+                    </label>
+
+                    <br>
+
+                    <label>Duração
+                        <input type="text" id="cond_duracao" placeholder="1d4 turnos." />
+                    </label>
+                    <br>
+
+                    <label>Efeito
+                        <textarea id="cond_efeito" rows="3" placeholder="+1 a +3 Defesa..."></textarea>
+                    </label>
+                    <br>
+
+                    <label>Descrição
+                        <textarea id="cond_descricao" rows="3" placeholder="Energia mágica protege o corpo."></textarea>
+                    </label>
+
+                    <div class="form-actions">
+                        <button type="button" id="cancel-add-condicao" class="modal-btn">Cancelar</button>
+                        <button type="submit" class="modal-btn">Salvar Condição</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+        <!-- === END === -->
+
 
         <div class="admin-content">
             <div class="users-section">
@@ -107,7 +161,21 @@
                     <!-- lista de documentos 'caminhos' será renderizada aqui -->
                 </div>
             </div>
+
+            <!-- === START: Condições administration === -->
+            <div class="condicoes-section" id="condicoes-section">
+                <h2>Condições</h2>
+                <div class="condicoes-actions">
+                    <button id="novo-condicao-btn" class="modal-btn">+ Nova Condição</button>
+                    <button id="refresh-condicoes-btn" class="modal-btn">Atualizar Lista</button>
+                </div>
+
+                <div id="condicoes-list" class="condicoes-list">
+                    <!-- lista de documentos 'condicoes' será renderizada aqui -->
+                </div>
+            </div>
             <!-- === END === -->
+
 
         </div>
     </div>

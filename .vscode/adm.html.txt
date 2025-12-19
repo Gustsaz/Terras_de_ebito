@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - Terras de Ébito</title>
     <link rel="stylesheet" href="adm.css">
+    <link rel="stylesheet" href="global.css">
     <link rel="icon" href="./imgs/logo.svg" type="image/svg+xml" sizes="32x32">
     <link rel="apple-touch-icon" href="./imgs/logo.svg">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -30,6 +31,11 @@
                 <button id="open-add-caminho" class="side-btn" title="Adicionar Caminho">
                     <i class="fas fa-route"></i>
                     <span class="side-label">Add Caminho</span>
+                </button>
+
+                <button id="open-add-condicao" class="side-btn" title="Adicionar Condição">
+                    <i class="fas fa-shield-alt"></i>
+                    <span class="side-label">Add Condição</span>
                 </button>
             </nav>
         </aside>
@@ -78,6 +84,55 @@
         </section>
         <!-- === END === -->
 
+        <!-- === START: Painel Add / Edit Condição === -->
+        <section id="add-condicao-panel" class="add-condicao-panel" style="display:none;">
+            <div class="add-caminho-inner">
+                <button class="close-add-condicao close-btn" title="Fechar">&times;</button>
+                <h2>Criar / Editar Condição</h2>
+
+                <form id="add-condicao-form">
+                    <label>Nome
+                        <input type="text" id="cond_nome" required />
+                    </label>
+                    <br>
+
+                    <label>Tipo (ex: positiva / negativa)
+                        <input type="text" id="cond_tipo" placeholder="positiva / negativa" required />
+                    </label>
+                    <br>
+
+                    <label>Cor
+                        <div class="cond-cor-row">
+                            <input type="color" id="cond_cor" value="#696565" />
+                            <input type="text" id="cond_cor_hex" class="cond-cor-hex" value="#696565" readonly />
+                        </div>
+                    </label>
+
+                    <br>
+
+                    <label>Duração
+                        <input type="text" id="cond_duracao" placeholder="1d4 turnos." />
+                    </label>
+                    <br>
+
+                    <label>Efeito
+                        <textarea id="cond_efeito" rows="3" placeholder="+1 a +3 Defesa..."></textarea>
+                    </label>
+                    <br>
+
+                    <label>Descrição
+                        <textarea id="cond_descricao" rows="3" placeholder="Energia mágica protege o corpo."></textarea>
+                    </label>
+
+                    <div class="form-actions">
+                        <button type="button" id="cancel-add-condicao" class="modal-btn">Cancelar</button>
+                        <button type="submit" class="modal-btn">Salvar Condição</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+        <!-- === END === -->
+
 
         <div class="admin-content">
             <div class="users-section">
@@ -93,10 +148,41 @@
                     <!-- Characters will be populated here -->
                 </div>
             </div>
+
+            <!-- === START: Caminhos administration === -->
+            <div class="caminhos-section" id="caminhos-section">
+                <h2>Caminhos</h2>
+                <div class="caminhos-actions">
+                    <button id="novo-caminho-btn" class="modal-btn">+ Novo Caminho</button>
+                    <button id="refresh-caminhos-btn" class="modal-btn">Atualizar Lista</button>
+                </div>
+
+                <div id="caminhos-list" class="caminhos-list">
+                    <!-- lista de documentos 'caminhos' será renderizada aqui -->
+                </div>
+            </div>
+
+            <!-- === START: Condições administration === -->
+            <div class="condicoes-section" id="condicoes-section">
+                <h2>Condições</h2>
+                <div class="condicoes-actions">
+                    <button id="novo-condicao-btn" class="modal-btn">+ Nova Condição</button>
+                    <button id="refresh-condicoes-btn" class="modal-btn">Atualizar Lista</button>
+                </div>
+
+                <div id="condicoes-list" class="condicoes-list">
+                    <!-- lista de documentos 'condicoes' será renderizada aqui -->
+                </div>
+            </div>
+            <!-- === END === -->
+
+
         </div>
     </div>
 
     <script src="adm.js"></script>
+    <script type="module" src="global.js"></script>
+
 </body>
 
 </html>

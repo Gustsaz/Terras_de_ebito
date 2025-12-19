@@ -547,6 +547,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 charData.pontos_restantes = Number(newChar.pontos_restantes ?? 0);
             }
 
+            // 6.5) Atualiza pontos_classe local e no display
+            if (typeof newChar.pontos_classe !== 'undefined') {
+                charData.pontos_classe = Number(newChar.pontos_classe ?? 0);
+            }
+
             // 7) Atualiza as barras e textos na UI sem salvar (usar applyBar em vez de updateAllBars para evitar re-save)
             try {
                 applyBar('pv-bar-fill', 'pv-bar-text', curPV, totPV, 'pv');
@@ -1357,7 +1362,41 @@ document.addEventListener('DOMContentLoaded', async () => {
             const nivelAtual = (savedNivel !== null && !Number.isNaN(savedNivel)) ? savedNivel : Number(currentIndex || 0);
 
             // centro mostra o nível atual (index)
-            if (center) center.textContent = String(nivelAtual || 0);
+            // --- mostrar imagem do caminho dentro do centro (usa campo 'img' do doc caminhos) ---
+            if (center) {
+                // imagem do caminho (fallback para placeholder)
+                const imgSrc = (path && (path.img || (Array.isArray(path.img) && path.img[0]))) ?
+                    (Array.isArray(path.img) ? path.img[0] : path.img) :
+                    './imgs/placeholder.png';
+
+                // inserir imagem + badge do nível
+                center.innerHTML = `
+                <img src="${imgSrc.replace(/"/g, '&quot;')}" alt="${(path && path.nome) ? path.nome.replace(/"/g, '&quot;') : ''}" />
+                <span class="selected-center-level">${nivelAtual || 0}</span>
+            `;
+            }
+
+            // --- garantir que o selected-footer acompanhe o skill-tree (ficando filho direto de #skill-tree) ---
+            (function ensureFooterAttachedToSkillTree() {
+                try {
+                    const skillTree = document.getElementById('skill-tree') || document.querySelector('.skill-tree');
+                    const footer = document.querySelector('.selected-footer');
+                    if (!skillTree || !footer) return;
+
+                    // se já estiver onde deve, não faz nada
+                    if (footer.parentElement === skillTree) return;
+
+                    // move o footer para ser filho direto do skill-tree,
+                    // preservando o conteúdo e listeners existentes
+                    skillTree.appendChild(footer);
+
+                    // (opcional) garantir que o footer esteja visível depois da movimentação
+                    footer.style.display = ''; // remove inline none se houver
+                } catch (e) {
+                    console.warn('Não foi possível anexar selected-footer ao skill-tree:', e);
+                }
+            })();
+
 
             vertical.innerHTML = ''; // cria nós: assumimos niveis length
             const niveis = Array.isArray(path.niveis) ? path.niveis : [];
@@ -5971,5 +6010,3 @@ document.addEventListener('DOMContentLoaded', async () => {
     })();
 
 })();
-
-

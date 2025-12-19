@@ -332,3 +332,166 @@ body {
     border: none;
     cursor: pointer;
 }
+
+/* Caminhos admin list */
+.caminhos-section {
+    margin-top: 24px;
+}
+
+.caminhos-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.caminhos-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.caminho-card {
+    background: rgba(92, 34, 34, 0.5);
+    border: 2px solid rgba(92, 34, 34, 0.35);
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.caminho-card h4 {
+    margin: 0;
+    color: #efe6e2;
+}
+
+.caminho-card p {
+    margin: 0;
+    font-size: 0.88rem;
+    color: #d6c9c6;
+}
+
+.caminho-card .card-actions {
+    margin-top: auto;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.caminho-card button {
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 6px 8px;
+    border: none;
+    background: rgba(0, 0, 0, 0.25);
+    color: #efe6e2;
+}
+
+/* === Painel Condição (reaproveita visual do painel de caminhos) === */
+.add-condicao-panel {
+    position: fixed;
+    right: 20px;
+    top: 60px;
+    width: min(560px, 92%);
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    background: linear-gradient(180deg, #161010, #241616);
+    border: 3px solid rgba(92, 34, 34, 0.9);
+    border-radius: 10px;
+    z-index: 1350;
+    padding: 16px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+}
+
+/* Reusa add-caminho-inner/close-btn/form-actions styles já existentes */
+/* Lista de condições */
+.condicoes-section {
+    margin-top: 24px;
+}
+
+.condicoes-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.condicoes-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.condicao-card {
+    background: rgba(40, 40, 40, 0.45);
+    border: 2px solid rgba(92, 34, 34, 0.25);
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.condicao-card h4 {
+    margin: 0;
+    color: #efe6e2;
+}
+
+.condicao-card p {
+    margin: 0;
+    font-size: 0.88rem;
+    color: #d6c9c6;
+}
+
+.condicao-card .card-actions {
+    margin-top: auto;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.condicao-card button {
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 6px 8px;
+    border: none;
+    background: rgba(0, 0, 0, 0.25);
+    color: #efe6e2;
+}
+
+/* badge que mostra o tipo com a cor da condição */
+.cond-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    color: #fff;
+    background: #696565;
+    /* fallback */
+}
+
+/* Color picker + hex field for conditions */
+.cond-cor-row {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+.add-condicao-panel input[type="color"] {
+  width: 44px;
+  height: 36px;
+  padding: 2px;
+  border-radius: 6px;
+  border: 2px solid rgba(92,34,34,0.45);
+  background: #fff;
+  cursor: pointer;
+}
+.cond-cor-hex {
+  width: 110px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 2px solid rgba(92,34,34,0.45);
+  background: #120d0d;
+  color: #efe6e2;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
