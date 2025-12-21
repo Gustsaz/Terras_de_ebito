@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Criação de Personagem - Terras de Ébito</title>
-<link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v7.0.0/css/all.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="criacao_personagem.css">
     <link rel="icon" href="./imgs/logo.svg" type="image/svg+xml" sizes="32x32">
     <link rel="apple-touch-icon" href="./imgs/logo.svg">
@@ -429,7 +429,7 @@
 
                 <div style="display:flex; align-items:center; gap:10px;">
                     <i class="fa-regular fa-computer-mouse-button-right" aria-hidden="true" style="font-size:20px;"></i>
-                    <div><strong>(Clique com o botão direito)</strong> : diminuir -1 no atributo clicado, com o limite
+                    <div><i class="fa-solid fa-computer-mouse-button-right"></i> : diminuir -1 no atributo clicado, com o limite
                         sendo até -1</div>
                 </div>
             </div>
