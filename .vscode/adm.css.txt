@@ -15,7 +15,7 @@ body {
 }
 
 .admin-container {
-    max-width: 1200px;
+    max-width: 100%;
     margin: 0 auto;
     padding: 20px;
 }
@@ -50,6 +50,7 @@ body {
 .admin-content {
     display: flex;
     gap: 30px;
+    width: 100%;
 }
 
 .users-section {
@@ -449,7 +450,7 @@ body {
     justify-content: flex-end;
 }
 
-.condicao-card button, .form-actions button, .filter-actions button {
+.condicao-card button, .form-actions button, .filter-actions button, .search-result-item .btns button {
     cursor: pointer;
     border-radius: 6px;
     padding: 6px 8px;

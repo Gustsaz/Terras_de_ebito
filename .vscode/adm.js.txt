@@ -1970,67 +1970,103 @@ async function getDocRefSafe(collectionName, docId) {
 
 })();
 
-/* === controle de Elementos: abre apenas 1 painel por vez (substitua por este bloco) === */
+/* === controle de Elementos: abre apenas 1 painel por vez (substituir por este bloco) === */
 (function () {
-    // botões que disparam a abertura (devem ter data-target="caminhos" / "condicoes" / "itens" / "feiticos" / "milagres")
     const toggles = document.querySelectorAll('.elemento-toggle');
-    const panelsContainer = document.getElementById('elementos-panels'); // ajuste se você usa outro id
-
+    const panelsContainer = document.getElementById('elementos-panels');
     if (!panelsContainer || !toggles.length) return;
 
-    // fecha todos os painéis visíveis
+    function panelIdFor(target) { return `${target}-list`; }
+
     function closeAllPanels() {
-        // use children + filter (selector '> div.open' é inválido em querySelectorAll)
+        // usar children (selector '> div.open' quebrou antes)
         const openPanels = Array.from(panelsContainer.children).filter(ch => ch && ch.classList && ch.classList.contains('open'));
         openPanels.forEach(p => {
             p.classList.remove('open');
             p.setAttribute('hidden', '');
-            // se você usa display em vez de hidden:
-            // p.style.display = 'none';
         });
         toggles.forEach(t => t.classList.remove('active'));
     }
 
+    // tenta acionar o botão de refresh correspondente no DOM
+    function tryClickRefreshFor(target) {
+        try {
+            // tenta achar qualquer id que contenha 'refresh' e o nome do target
+            const allRefresh = Array.from(document.querySelectorAll('[id^="refresh-"]'));
+            const found = allRefresh.find(el => el.id && el.id.includes(target));
+            if (found) {
+                // console.debug('triggering refresh button for', target, found.id);
+                found.click();
+                return true;
+            }
+            // nomes alternativos (compatibilidade): refresh-caminhos-btn etc.
+            const alt = document.getElementById(`refresh-${target}-btn`) || document.getElementById(`refresh-${target}s-btn`) || document.getElementById(`refresh-${target}es-btn`);
+            if (alt) { alt.click(); return true; }
+        } catch (e) {
+            console.warn('tryClickRefreshFor error', e);
+        }
+        return false;
+    }
+
+    // fallback: tenta chamar funções globais se existirem (rare, mas segura)
+    async function tryCallLoaderFallback(target) {
+        try {
+            const map = {
+                caminhos: 'loadCaminhos',
+                condicoes: 'loadCondicoes',
+                itens: 'loadItens',
+                feiticos: 'loadFeiticos',
+                milagres: 'loadMilagres'
+            };
+            const fnName = map[target];
+            if (fnName && typeof window[fnName] === 'function') {
+                await window[fnName]();
+                return true;
+            }
+        } catch (e) {
+            console.warn('tryCallLoaderFallback error', e);
+        }
+        return false;
+    }
+
     async function openPanel(target) {
-        // target: 'caminhos' | 'condicoes' | 'itens' | 'feiticos' | 'milagres' (dependendo do seu data-target)
-        const pid = `${target}-list`; // corresponde aos ids que você já tem (ex: id="caminhos-list")
+        const pid = panelIdFor(target);
         const panel = document.getElementById(pid);
         if (!panel) return;
 
-        // fecha todas e abre a solicitada
         closeAllPanels();
         panel.classList.add('open');
         panel.removeAttribute('hidden');
-        // panel.style.display = ''; // se você usa style.display
 
-        // marca o toggle correspondente
-        const t = Array.from(toggles).find(x => x.dataset && x.dataset.target === target);
-        if (t) t.classList.add('active');
+        // marca o toggle
+        const myToggle = Array.from(toggles).find(t => t.dataset && t.dataset.target === target);
+        if (myToggle) myToggle.classList.add('active');
 
-        // se existir, chama o loader correspondente (não quebra se a função não existir)
-        try {
-            if (target === 'caminhos' && typeof window.loadCaminhos === 'function') await window.loadCaminhos();
-            if (target === 'condicoes' && typeof window.loadCondicoes === 'function') await window.loadCondicoes();
-            if (target === 'itens' && typeof window.loadItens === 'function') await window.loadItens();
-            if (target === 'feiticos' && typeof window.loadFeiticos === 'function') await window.loadFeiticos();
-            if (target === 'milagres' && typeof window.loadMilagres === 'function') await window.loadMilagres();
-        } catch (err) {
-            console.warn('Erro ao carregar dados do painel', target, err);
+        // primeiramente tente acionar o botão de refresh (que já está ligado ao loader dentro do IIFE)
+        const triggered = tryClickRefreshFor(target);
+        if (!triggered) {
+            // se não encontrou o botão, tenta chamar a função global (fallback)
+            await tryCallLoaderFallback(target);
         }
+
+        // scroll suave para o painel
+        setTimeout(() => { try { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { } }, 60);
     }
 
     function togglePanel(target) {
-        const pid = `${target}-list`;
+        const pid = panelIdFor(target);
         const panel = document.getElementById(pid);
         if (!panel) return;
         if (panel.classList.contains('open')) {
-            closeAllPanels();
+            // fechar
+            panel.classList.remove('open');
+            panel.setAttribute('hidden', '');
+            document.querySelectorAll(`.elemento-toggle[data-target="${target}"]`).forEach(t => t.classList.remove('active'));
         } else {
             openPanel(target);
         }
     }
 
-    // liga os botões toggles
     toggles.forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -2038,15 +2074,21 @@ async function getDocRefSafe(collectionName, docId) {
             if (!target) return;
             togglePanel(target);
         });
+        // keyboard accessibility
+        btn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                btn.click();
+            }
+        });
     });
 
-    // liga os botões de refresh (se existirem no DOM)
-    document.getElementById('refresh-caminhos-btn')?.addEventListener('click', () => { if (typeof window.loadCaminhos === 'function') window.loadCaminhos(); });
-    document.getElementById('refresh-condicoes-btn')?.addEventListener('click', () => { if (typeof window.loadCondicoes === 'function') window.loadCondicoes(); });
-    document.getElementById('refresh-itens-btn')?.addEventListener('click', () => { if (typeof window.loadItens === 'function') window.loadItens(); });
-    document.getElementById('refresh-feiticos-btn')?.addEventListener('click', () => { if (typeof window.loadFeiticos === 'function') window.loadFeiticos(); });
-    document.getElementById('refresh-milagres-btn')?.addEventListener('click', () => { if (typeof window.loadMilagres === 'function') window.loadMilagres(); });
+    // mantém compatibilidade: ligar os refresh handlers a chamadas diretas se alguém chamar window.loadX
+    // (não sobrescreve handlers já existentes; apenas evita que nada funcione caso o refresh button não exista)
+    document.getElementById('refresh-caminhos-btn')?.addEventListener('click', () => { /* delega para o handler já atrelado dentro do IIFE */ });
+    document.getElementById('refresh-condicoes-btn')?.addEventListener('click', () => { });
+    document.getElementById('refresh-itens-btn')?.addEventListener('click', () => { });
+    document.getElementById('refresh-feiticos-btn')?.addEventListener('click', () => { });
+    document.getElementById('refresh-milagres-btn')?.addEventListener('click', () => { });
 
-    // Opcional: abre automaticamente 'caminhos' ao carregar a página (descomente se desejar)
-    // openPanel('caminhos');
 })();

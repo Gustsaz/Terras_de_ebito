@@ -117,224 +117,176 @@ document.addEventListener('DOMContentLoaded', async () => {
     // (Opcional) expõe ownerUserId para debug/futuras ações (ex.: edição pelo admin)
     window._personagemAdmOwner = ownerUserId || null;
 
-    /* ===== INVENTÁRIO (para página personagemadm.html) =====
-   Substitua o bloco/funcão atual de inventário por este código.
-   Usa ownerUserId e charUid já carregados no início do arquivo personagemadm.js.
+    /* ---------- INVENTÁRIO (leitura+renderização para view Admin) ----------
+   Colar logo após window._personagemAdmOwner = ownerUserId || null;
+   (renderização apenas para visualização; sem editar/remover itens aqui)
 */
     (async function renderInventoryForAdmin() {
         try {
-            // ownerUserId e charUid devem já existir (carregados acima em personagemadm.js)
-            if (!ownerUserId || !charUid) {
-                console.warn('renderInventoryForAdmin: ownerUserId ou charUid não definidos');
-                return;
+            // garante que temos charUid e ownerUserId
+            const charId = typeof charUid !== 'undefined' ? charUid : new URLSearchParams(window.location.search).get('uid');
+            const ownerUid = ownerUserId || null;
+            if (!charId || !ownerUid) return;
+
+            // helper: calcula peso somando pesos dos itens (busca cada documento 'itens')
+            async function calcularPesoAtualAdmin(arrayDeItens) {
+                let soma = 0;
+                if (!Array.isArray(arrayDeItens) || arrayDeItens.length === 0) return 0;
+                for (const entry of arrayDeItens) {
+                    if (!entry || !entry.uid) continue;
+                    try {
+                        const itemRef = window.doc(window.firestoredb, 'itens', String(entry.uid));
+                        const itemSnap = await window.getDoc(itemRef);
+                        if (itemSnap && itemSnap.exists()) {
+                            const itemData = itemSnap.data();
+                            soma += Number(itemData.peso) || 0;
+                        }
+                    } catch (err) {
+                        console.warn('calcularPesoAtualAdmin: item inválido', entry, err);
+                    }
+                }
+                return soma;
             }
 
-            // Helper: cria modal de detalhe do item, caso não exista no HTML
-            function ensureItemModalExists() {
-                if (document.getElementById('inventory-item-modal')) return;
-                const tpl = `
-        <div id="inventory-item-modal-backdrop" class="inventory-modal" aria-hidden="true" style="display:none;">
-          <div class="modal-content" role="dialog" aria-modal="true" id="inventory-item-modal">
-            <button class="close-btn" id="inventory-item-modal-close" title="Fechar">&times;</button>
-            <div class="item-detail">
-              <h3 id="inv-detail-name">—</h3>
-              <div class="item-detail-fields" id="inv-detail-fields"></div>
-              <div class="item-detail-actions">
-                <button type="button" id="inv-detail-close" class="alert-btn">Fechar</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-                const div = document.createElement('div');
-                div.innerHTML = tpl;
-                document.body.appendChild(div);
-                // small handlers
-                const closeBtns = [
-                    document.getElementById('inventory-item-modal-close'),
-                    document.getElementById('inv-detail-close')
-                ];
-                const backdrop = document.getElementById('inventory-item-modal-backdrop');
-                closeBtns.forEach(b => b?.addEventListener('click', () => {
-                    backdrop.classList.remove('open'); backdrop.style.display = 'none';
-                    backdrop.setAttribute('aria-hidden', 'true');
-                }));
-            }
-
-            ensureItemModalExists();
-
-            // fetch do usuário dono para obter o personagem e o array de itens
-            const userDocRef = window.doc(window.firestoredb, 'usuarios', ownerUserId);
+            // busca o documento do usuário-proprietário e encontra o personagem
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', ownerUid);
             const userSnap = await window.getDoc(userDocRef);
             if (!userSnap || !userSnap.exists()) {
-                console.warn('renderInventoryForAdmin: usuário dono não encontrado', ownerUserId);
+                console.warn('renderInventoryForAdmin: usuário dono não encontrado', ownerUid);
                 return;
             }
             const userData = userSnap.data() || {};
             const personagens = Array.isArray(userData.personagens) ? userData.personagens : [];
-            const foundIdx = personagens.findIndex(p => p && String(p.uid) === String(charUid));
+            const foundIdx = personagens.findIndex(p => p && String(p.uid) === String(charId));
             if (foundIdx < 0) {
-                console.warn('renderInventoryForAdmin: personagem não encontrado no usuário', charUid);
+                console.warn('renderInventoryForAdmin: personagem não encontrado no usuário', charId);
                 return;
             }
             const thisChar = personagens[foundIdx];
 
-            // cria container inventory-wrap (se já existir, apenas atualiza)
+            // cria container inventory-wrap (se já existir, vamos limpar e atualizar)
             let wrap = document.getElementById('inventory-wrap');
             if (!wrap) {
                 wrap = document.createElement('div');
                 wrap.id = 'inventory-wrap';
-                // inserir ao lado da .character-main (mesma posição do personagem.html)
+                // inserimos ao lado direito do layout .character-main (mesma estrutura do personagem.html)
                 const main = document.querySelector('.character-main') || document.body;
                 main.appendChild(wrap);
+            } else {
+                wrap.innerHTML = ''; // reset
             }
 
-            // monta estrutura (usa classes do personagem.css)
+            // estrutura básica (seguindo classes do seu CSS para ficar com o mesmo estilo)
             wrap.innerHTML = `
       <div class="inventory-card">
         <h3>Inventário</h3>
         <div class="inventory-top">
           <div class="peso-line">Peso: <span id="peso-info">—</span></div>
-          <div class="inventory-actions"></div>
+          <div class="inventory-actions" style="display:none;"></div>
         </div>
-        <div class="inv-grid" id="inv-grid"></div>
+        <div class="inv-grid" id="inv-grid" style="display:grid; grid-template-columns: repeat(1, 1fr); gap:8px; margin-top:12px;"></div>
       </div>
     `;
 
             const grid = wrap.querySelector('#inv-grid');
 
-            // Helper para renderizar detalhe (abre modal)
-            async function openItemDetail(itemDoc) {
-                const backdrop = document.getElementById('inventory-item-modal-backdrop');
-                const nameEl = document.getElementById('inv-detail-name');
-                const fieldsEl = document.getElementById('inv-detail-fields');
-                if (!backdrop || !nameEl || !fieldsEl) return;
-                nameEl.textContent = itemDoc.nome || '(Sem nome)';
-                // limpa e monta campos importantes
-                fieldsEl.innerHTML = `
-        <div><strong>Categoria:</strong> ${escapeHtml(String(itemDoc.categoria || '—'))}</div>
-        <div><strong>Tipo:</strong> ${escapeHtml(String(itemDoc.tipo_item || '—'))}</div>
-        <div><strong>Peso:</strong> ${escapeHtml(String(itemDoc.peso ?? '—'))}</div>
-        <div style="margin-top:8px;"><strong>Descrição:</strong><div style="opacity:0.95;margin-top:6px;">${escapeHtml(String(itemDoc.descricao || '—'))}</div></div>
-        <div style="margin-top:6px;"><strong>Efeito:</strong><div style="opacity:0.95;margin-top:6px;">${escapeHtml(String(itemDoc.efeito || '—'))}</div></div>
-      `;
-                backdrop.style.display = 'block';
-                setTimeout(() => { backdrop.classList.add('open'); backdrop.setAttribute('aria-hidden', 'false'); }, 10);
+            // preenche a grade com os itens do personagem (buscando cada documento 'itens' por uid)
+            const itensArray = Array.isArray(thisChar.itens) ? thisChar.itens.slice() : [];
+
+            // se não houver itens, mostra mensagem
+            if (itensArray.length === 0) {
+                grid.innerHTML = `<div style="padding:12px;color:#cfcfcf;">Nenhum item no inventário.</div>`;
+            } else {
+                // para cada entrada no array de itens, busca o documento e mostra
+                grid.innerHTML = ''; // limpa
+                for (let i = 0; i < itensArray.length; i++) {
+                    const entry = itensArray[i];
+                    const slot = document.createElement('div');
+                    slot.className = 'inv-slot';
+                    slot.style.border = '1px solid rgba(92,34,34,0.25)';
+                    slot.style.padding = '10px';
+                    slot.style.borderRadius = '8px';
+                    slot.style.background = 'linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.12))';
+                    // default content while fetching
+                    slot.innerHTML = `<div style="opacity:0.8">Carregando item...</div>`;
+                    grid.appendChild(slot);
+
+                    (async () => {
+                        try {
+                            const uidItem = String(entry.uid || entry.itemUid || '');
+                            if (!uidItem) {
+                                slot.innerHTML = `<div style="color:#cfcfcf">Item inválido</div>`;
+                                return;
+                            }
+                            const itemRef = window.doc(window.firestoredb, 'itens', uidItem);
+                            const itemSnap = await window.getDoc(itemRef);
+                            if (!itemSnap || !itemSnap.exists()) {
+                                slot.innerHTML = `<div style="color:#cfcfcf">Item não encontrado (uid:${uidItem})</div>`;
+                                return;
+                            }
+                            const item = itemSnap.data() || {};
+                            const nome = item.nome || 'Sem nome';
+                            const desc = item.descricao || item.efeito || '—';
+                            const peso = (Number(item.peso) || 0);
+
+                            slot.innerHTML = `
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="font-size:1rem;">${nome}</strong>
+                <span style="font-size:0.9rem; opacity:0.9;">${peso} kg</span>
+              </div>
+              <div style="margin-top:6px; font-size:0.9rem; color:#ddd;">${desc}</div>
+            `;
+                        } catch (err) {
+                            console.warn('Erro ao buscar item para inv-grid:', err);
+                            slot.innerHTML = `<div style="color:#faa">Erro ao carregar item.</div>`;
+                        }
+                    })();
+                } // for
             }
 
-            // escape helper (prevent XSS)
-            function escapeHtml(s) {
-                return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-            }
-
-            // função que (re)popula a grade com os itens atuais do personagem
-            async function populateGrid() {
-                grid.innerHTML = '<div style="padding:8px;color:#ccc">Carregando inventário...</div>';
+            // calcula e mostra o peso total (peso_atual ou soma dos itens)
+            const pesoInfoSpan = document.getElementById('peso-info');
+            let pesoAtual = Number(thisChar.peso_atual ?? 0);
+            if (!Number.isFinite(pesoAtual) || pesoAtual === 0) {
                 try {
-                    // re-fetch do usuário para manter sincronizado
-                    const snap = await window.getDoc(window.doc(window.firestoredb, 'usuarios', ownerUserId));
-                    if (!snap || !snap.exists()) { grid.innerHTML = '<div style="padding:12px;color:#faa">Usuário não encontrado</div>'; return; }
+                    pesoAtual = Number(await calcularPesoAtualAdmin(itensArray)) || 0;
+                } catch (e) {
+                    pesoAtual = Number(thisChar.peso_atual ?? 0) || 0;
+                }
+            }
+
+            let cargaMax = Number(thisChar.carga ?? thisChar.atributos?.carga);
+            if (!Number.isFinite(cargaMax) || cargaMax <= 0) {
+                const bravuraRaw = Number(thisChar.atributos?.bravura ?? 0) || 0;
+                cargaMax = 8 + bravuraRaw;
+            }
+            if (pesoInfoSpan) pesoInfoSpan.textContent = `${pesoAtual} / ${cargaMax}`;
+
+            // expõe função utilitária caso queira atualizar depois
+            window._renderInventoryForAdmin = async function refreshInventoryAdmin() {
+                try {
+                    // re-fetch user doc + personagem (para manter em sincronia)
+                    const snap = await window.getDoc(window.doc(window.firestoredb, 'usuarios', ownerUid));
+                    if (!snap || !snap.exists()) return;
                     const data = snap.data() || {};
                     const chars = Array.isArray(data.personagens) ? data.personagens : [];
-                    const idx = chars.findIndex(p => p && String(p.uid) === String(charUid));
-                    if (idx < 0) { grid.innerHTML = '<div style="padding:12px;color:#faa">Personagem não encontrado</div>'; return; }
-                    const charObj = chars[idx];
-                    const itensArray = Array.isArray(charObj.itens) ? charObj.itens.slice() : [];
-
-                    if (itensArray.length === 0) {
-                        grid.innerHTML = `<div style="padding:12px;color:#cfcfcf;">Nenhum item no inventário.</div>`;
-                    } else {
-                        grid.innerHTML = '';
-                        // cria uma slot para cada item
-                        for (let i = 0; i < itensArray.length; i++) {
-                            const entry = itensArray[i];
-                            // entry pode ser string UID ou { uid: ... } dependendo do seu schema
-                            const itemUid = (typeof entry === 'string') ? entry : (entry.uid || entry.id || null);
-                            const slot = document.createElement('div');
-                            slot.className = 'inv-slot';
-                            // estrutura visual aproximada igual ao personagem.js (nome + quick meta)
-                            slot.innerHTML = `<div class="slot-inner" style="display:flex;flex-direction:column;gap:6px;">
-                                <div class="slot-name" style="font-weight:700;">Carregando...</div>
-                                <div class="slot-meta" style="font-size:0.85rem;opacity:0.9;">UID: ${escapeHtml(String(itemUid || '—'))}</div>
-                              </div>`;
-                            slot.style.cursor = 'pointer';
-                            grid.appendChild(slot);
-
-                            if (!itemUid) {
-                                slot.querySelector('.slot-name').textContent = '(UID inválido)';
-                                continue;
-                            }
-
-                            // busca documento do item
-                            (async () => {
-                                try {
-                                    const itRef = window.doc(window.firestoredb, 'itens', itemUid);
-                                    const itSnap = await window.getDoc(itRef);
-                                    if (!itSnap || !itSnap.exists()) {
-                                        slot.querySelector('.slot-name').textContent = '(Item removido)';
-                                        slot.querySelector('.slot-meta').textContent = `id: ${itemUid}`;
-                                        return;
-                                    }
-                                    const itemDoc = itSnap.data() || {};
-                                    const name = itemDoc.nome || '(Sem nome)';
-                                    slot.querySelector('.slot-name').textContent = name;
-                                    slot.querySelector('.slot-meta').textContent = `${String(itemDoc.tipo_item || itemDoc.categoria || '')} • ${String(itemDoc.dano || '')}`;
-                                    // click abre modal detalhe
-                                    slot.addEventListener('click', (ev) => {
-                                        ev.preventDefault();
-                                        openItemDetail(itemDoc);
-                                    });
-                                } catch (err) {
-                                    console.error('Erro ao buscar item', itemUid, err);
-                                    slot.querySelector('.slot-name').textContent = '(Erro)';
-                                }
-                            })();
-                        } // end for
-                    } // end else
-
-                    // atualizar peso
-                    updatePesoUI(charObj);
-                } catch (err) {
-                    console.error('populateGrid erro', err);
-                    grid.innerHTML = `<div style="padding:12px;color:#faa">Erro ao carregar inventário.</div>`;
+                    const idx = chars.findIndex(p => p && String(p.uid) === String(charId));
+                    if (idx < 0) return;
+                    const newChar = chars[idx];
+                    // atualiza peso
+                    const p = Number(newChar.peso_atual ?? 0) || Number(await calcularPesoAtualAdmin(Array.isArray(newChar.itens) ? newChar.itens : [])) || 0;
+                    const cmax = Number(newChar.carga ?? newChar.atributos?.carga) || (8 + Number(newChar.atributos?.bravura ?? 0));
+                    const span = document.getElementById('peso-info');
+                    if (span) span.textContent = `${p} / ${cmax}`;
+                    // opcional: re-render grid (simples refresh)
+                    // window._renderInventoryForAdmin() pode ser chamado quando quiser forçar refresh
+                } catch (e) {
+                    console.warn('refreshInventoryAdmin erro', e);
                 }
-            } // populateGrid
-
-            // atualiza o span de peso com base nos dados do personagem
-            function updatePesoUI(charObj) {
-                const pesoSpan = document.getElementById('peso-info');
-                if (!pesoSpan) return;
-                // se charObj tiver peso_atual, exibe; senão soma itens
-                let pesoAtual = Number(charObj?.peso_atual ?? 0);
-                if (!Number.isFinite(pesoAtual) || pesoAtual === 0) {
-                    // soma pesos dos itens (busca local: itens no charObj podem apenas conter uids, então tentamos um fallback)
-                    // Melhor esforço: se charObj.itens contém objetos com peso, soma; senão deixa em 0
-                    let total = 0;
-                    (charObj.itens || []).forEach(it => {
-                        if (it && typeof it.peso !== 'undefined') {
-                            const w = Number(it.peso) || 0; total += w;
-                        }
-                    });
-                    pesoAtual = total || 0;
-                }
-                // carga máxima tentativa: charObj.carga ou 8 + bravura
-                let cargaMax = Number(charObj?.carga ?? (8 + Number(charObj?.atributos?.bravura ?? 0)));
-                if (!Number.isFinite(cargaMax)) cargaMax = 8;
-                pesoSpan.textContent = `${pesoAtual} / ${cargaMax}`;
-            }
-
-            // initial populate
-            await populateGrid();
-
-            // polling/auto-refresh (opcional) — atualiza o inventário a cada 6s
-            let pollInterval = wrap.dataset.pollInterval || 6000;
-            pollInterval = Number(pollInterval) || 6000;
-            const pollId = setInterval(populateGrid, pollInterval);
-            // store so external code can clear if preciso
-            wrap.dataset.pollId = String(pollId);
+            };
 
         } catch (err) {
-            console.error('renderInventoryForAdmin error', err);
+            console.warn('renderInventoryForAdmin erro geral:', err);
         }
     })();
 

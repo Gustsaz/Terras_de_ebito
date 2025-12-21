@@ -2718,3 +2718,20 @@ body.character-sheet .title {
     z-index: 60;
     pointer-events: auto;
 }
+
+/* ===== Condições: contraste adaptativo (text color) ===== */
+/* classes aplicadas dinamicamente pelo global.js */
+.cond-text-light {
+  color: #ffffff !important;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.45);
+}
+
+.cond-text-dark {
+  color: #0f0f0f !important;
+  text-shadow: none;
+}
+
+/* transição suave ao trocar contraste */
+.cond-pill, .cond-badge {
+  transition: color 180ms ease, text-shadow 180ms ease;
+}
