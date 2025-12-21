@@ -767,6 +767,7 @@ section {
   border-radius: 10px;
   max-width: 400px;
   font-family: 'MedievalSharp', serif;
+  font-size: 20px;
   opacity: 0;
   transform: translateX(-100%);
   transition: opacity 0.5s ease, transform 0.5s ease;

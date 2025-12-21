@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Criação de Personagem - Terras de Ébito</title>
-<link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v7.0.0/css/all.css">
+    <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v7.0.0/css/all.css">
     <link rel="stylesheet" href="criacao_personagem.css">
     <link rel="icon" href="./imgs/logo.svg" type="image/svg+xml" sizes="32x32">
     <link rel="apple-touch-icon" href="./imgs/logo.svg">
@@ -88,6 +88,11 @@
                 <p></p>
             </div>
         </div>
+
+        <!-- botão de tutorial (desktop apenas) -->
+        <button id="tuto-btn" class="tuto-btn" aria-label="Ajuda de Atributos" title="Ajuda de Atributos">
+            <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
+        </button>
     </section>
 
     <div id="help-modal" class="modal hidden">
@@ -404,11 +409,6 @@
         </div>
     </section>
 
-    <!-- botão de tutorial (desktop apenas) -->
-    <button id="tuto-btn" class="tuto-btn" aria-label="Ajuda de Atributos" title="Ajuda de Atributos">
-        <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
-    </button>
-
     <!-- modal do tutorial (abrido pelo botão .tuto-btn) -->
     <div id="tuto-modal" class="modal hidden" aria-hidden="true">
         <div class="modal-content modal-centered" role="dialog" aria-modal="true" style="max-width:680px;">
@@ -422,6 +422,11 @@
 
             <!-- corpo: instruções com ícones à esquerda -->
             <div class="modal-body" style="text-align:left; display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    Os atributos representam o que há de mais essencial em cada personagem: sua força interior e suas limitações. Eles definem não apenas o que o herói é capaz de fazer, mas também o que ele teme e evita.
+                </div>
+                <br>
+
                 <div style="display:flex; align-items:center; gap:10px;">
                     <i class="fa-regular fa-computer-mouse-button-left" aria-hidden="true" style="font-size:20px;"></i>
                     <div><strong>(Clique com o botão esquerdo)</strong> : adicionar +1 no atributo clicado</div>

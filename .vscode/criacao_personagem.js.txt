@@ -84,9 +84,26 @@ const updateSidebar = (user) => {
   }
 };
 
-
 let clickCountGlobal = {};
 let allowNextContextMenu = false;
+
+
+// ---------- inicialização segura de clickCountGlobal ----------
+window.clickCountGlobal = window.clickCountGlobal || {};
+
+// lista de atributos usados (normalizados). Ajuste se seus nomes differirem.
+const ATTR_KEYS = ['bravura', 'arcano', 'fôlego', 'essência', 'técnica', 'intelecto'];
+
+for (const raw of ATTR_KEYS) {
+  const key = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  // se já há valor salvo (localStorage ou global), forçamos Number, senão inicializamos com 0
+  if (typeof clickCountGlobal[key] === 'undefined' || clickCountGlobal[key] === null) {
+    clickCountGlobal[key] = 0;
+  } else {
+    clickCountGlobal[key] = Number(clickCountGlobal[key]) || 0;
+  }
+}
+// (agora clickCountGlobal[...keys] está sempre como Number)
 
 // Auth state observer for profile picture
 document.addEventListener("DOMContentLoaded", () => {
@@ -1263,36 +1280,58 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Handle right-click to decrease
   document.addEventListener('contextmenu', function (e) {
     const target = e.target.closest('.icon, .counter');
-    if (target) {
-      if (!allowNextContextMenu) {
-        e.preventDefault();
-        const isIcon = target.classList.contains('icon');
-        const isCounter = target.classList.contains('counter');
-        let nome = isIcon ? target.classList[1] : target.classList[1];
-        if (clickCountGlobal[nome] == 0) {
-          clickCountGlobal[nome]--;
-          flaws++;
-        } else if (clickCountGlobal[nome] > -1) {
-          clickCountGlobal[nome]--;
-        }
-        maxPontos = 7 + flaws;
-        pontos = Object.values(clickCountGlobal).reduce((a, b) => a + (b > 0 ? b : 0), 0);
-        numRight.textContent = maxPontos;
-        numLeft.textContent = pontos;
-        const ctr = document.querySelector(`.counter.${nome}`);
-        if (ctr) ctr.textContent = clickCountGlobal[nome];
-        localStorage.setItem('attributes', JSON.stringify(clickCountGlobal));
+    if (!target) return;
 
-        if (pontos < maxPontos) {
-          document.querySelector('.numbers').classList.remove('hidden');
-          document.querySelector('.circle-container').classList.add('hidden');
-        }
+    // Evita erros se a estrutura global não existir
+    if (typeof window.clickCountGlobal !== 'object' || window.clickCountGlobal === null) window.clickCountGlobal = {};
+
+    // Previna menu padrão somente quando for nossa ação
+    if (!allowNextContextMenu) {
+      e.preventDefault();
+
+      const isIcon = target.classList.contains('icon');
+      const nome = isIcon ? target.classList[1] : target.classList[1];
+      if (!nome) {
+        allowNextContextMenu = false;
+        return;
       }
-      allowNextContextMenu = false;
+
+      // Garantir que há um número inicial
+      clickCountGlobal[nome] = Number(clickCountGlobal[nome] ?? 0);
+
+      // Regras de decremento: 0 -> -1 (gera penalty), > -1 -> decrementa; nunca abaixo de -1
+      if (clickCountGlobal[nome] === 0) {
+        clickCountGlobal[nome] = -1;
+      } else if (clickCountGlobal[nome] > -1) {
+        clickCountGlobal[nome] = clickCountGlobal[nome] - 1;
+      } else {
+        // já estava -1: mantém -1
+        clickCountGlobal[nome] = -1;
+      }
+
+      if (clickCountGlobal[nome] < -1) clickCountGlobal[nome] = -1;
+
+      // Atualiza a UI + recalcula flaws/pontos através da função central
+      if (typeof recalcTotalsAndSave === 'function') {
+        recalcTotalsAndSave();
+      } else {
+        // fallback seguro (mesma lógica da recalc em linha)
+        window.flaws = Object.values(clickCountGlobal).filter(v => v < 0).length;
+        window.maxPontos = 7 + (Number(window.flaws || 0));
+        window.pontos = Object.values(clickCountGlobal).reduce((acc, v) => acc + (v > 0 ? v : 0), 0);
+        document.querySelector('.num.right').textContent = String(window.maxPontos);
+        document.querySelector('.num.left').textContent = String(window.pontos);
+        localStorage.setItem('attributes', JSON.stringify(clickCountGlobal));
+      }
+
+      // atualiza o counter visual do atributo específico
+      const ctr = document.querySelector(`.counter.${nome}`);
+      if (ctr) ctr.textContent = String(clickCountGlobal[nome]);
     }
+
+    allowNextContextMenu = false;
   });
 
   // Click on circle to proceed
