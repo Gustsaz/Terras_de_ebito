@@ -2040,8 +2040,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                     addSTA = 5 + fole;
                 }
 
-                // registra histórico
+                // --- registra histórico (snapshot antes do level-up) ---
                 characters[idx].levelHistory = Array.isArray(characters[idx].levelHistory) ? characters[idx].levelHistory : [];
+
+                // captura snapshot do estado *antes* do level-up (para restauração precisa)
+                const beforeSnapshot = {
+                    PV: {
+                        atual: Number(characters[idx].PV?.atual ?? 0),
+                        total: Number(characters[idx].PV?.total ?? 0)
+                    },
+                    MN: {
+                        atual: Number(characters[idx].MN?.atual ?? 0),
+                        total: Number(characters[idx].MN?.total ?? 0)
+                    },
+                    STA: {
+                        atual: Number(characters[idx].STA?.atual ?? 0),
+                        total: Number(characters[idx].STA?.total ?? 0)
+                    },
+                    pontos_restantes: Number(characters[idx].pontos_restantes ?? 0),
+                    pontos_classe: Number(characters[idx].pontos_classe ?? 0),
+                    peso_atual: Number(characters[idx].peso_atual ?? 0),
+                    LVL: Number(characters[idx].LVL ?? 1),
+                    proeficiencias: Array.isArray(characters[idx].proeficiencias) ? characters[idx].proeficiencias.slice() : [],
+                    itens: Array.isArray(characters[idx].itens) ? characters[idx].itens.slice() : []
+                };
+
                 const histEntry = {
                     lvl: lvl,
                     addPV: Number(addPV) || 0,
@@ -2049,9 +2072,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     addSTA: Number(addSTA) || 0,
                     pointsAdded: 1,
                     profAdded: null,
-                    ts: Date.now()
+                    ts: Date.now(),
+                    before: beforeSnapshot // <-- snapshot completo antes do level-up
                 };
+
                 characters[idx].levelHistory.push(histEntry);
+                // fim do bloco de histórico
+
 
                 // garante campos e aplica incrementos
                 characters[idx].PV = characters[idx].PV || { atual: 0, total: 0 };
@@ -4800,11 +4827,48 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const char = characters[idx];
 
-        // encontra a última entrada de histórico (se houver)
+        // pega histórico
         const history = Array.isArray(char.levelHistory) ? char.levelHistory : [];
-        if (history.length > 0) {
-            const last = history.pop(); // remove do histórico local
-            // aplica reversões
+        if (history.length === 0) {
+            alert('Nenhum nível registrado para reverter.');
+            return;
+        }
+
+        // retira a última entrada
+        const last = history.pop();
+
+        // Se houver snapshot 'before', restaura exatamente esse snapshot
+        if (last && last.before) {
+            const b = last.before;
+
+            // restaura PV/MN/STA (atual + total)
+            char.PV = {
+                atual: Number(b.PV?.atual ?? 0),
+                total: Math.max(0, Number(b.PV?.total ?? 0))
+            };
+            char.MN = {
+                atual: Number(b.MN?.atual ?? 0),
+                total: Math.max(0, Number(b.MN?.total ?? 0))
+            };
+            char.STA = {
+                atual: Number(b.STA?.atual ?? 0),
+                total: Math.max(0, Number(b.STA?.total ?? 0))
+            };
+
+            // restaura campos importantes
+            char.pontos_restantes = Number(b.pontos_restantes ?? 0);
+            char.pontos_classe = Number(b.pontos_classe ?? 0);
+            char.peso_atual = Number(b.peso_atual ?? 0);
+            char.LVL = Math.max(1, Number(b.LVL ?? (Number(char.LVL || 1) - 1)));
+
+            // restaura arrays
+            if (Array.isArray(b.proeficiencias)) char.proeficiencias = b.proeficiencias.slice();
+            if (Array.isArray(b.itens)) char.itens = b.itens.slice();
+
+            // grava o histórico atualizado (com a última entrada removida)
+            char.levelHistory = history;
+        } else {
+            // Fallback: não havia snapshot - aplica lógica antiga (subtrai incrementos)
             char.PV = char.PV || { atual: 0, total: 0 };
             char.MN = char.MN || { atual: 0, total: 0 };
             char.STA = char.STA || { atual: 0, total: 0 };
@@ -4813,109 +4877,51 @@ document.addEventListener('DOMContentLoaded', async () => {
             char.MN.total = Math.max(0, Number(char.MN.total ?? 0) - Number(last.addMN ?? 0));
             char.STA.total = Math.max(0, Number(char.STA.total ?? 0) - Number(last.addSTA ?? 0));
 
-            // ajusta atuais se necessário para não exceder novos totais
             if (Number(char.PV.atual) > char.PV.total) char.PV.atual = char.PV.total;
             if (Number(char.MN.atual) > char.MN.total) char.MN.atual = char.MN.total;
             if (Number(char.STA.atual) > char.STA.total) char.STA.atual = char.STA.total;
 
-            // pontos_restantes retrocede
             char.pontos_restantes = Math.max(0, Number(char.pontos_restantes ?? 0) - Number(last.pointsAdded ?? 1));
 
-            // remover proficiência adicionada (se houver)
             if (last.profAdded && Array.isArray(char.proeficiencias)) {
                 const pidx = char.proeficiencias.indexOf(last.profAdded);
                 if (pidx >= 0) char.proeficiencias.splice(pidx, 1);
             }
 
-            // atualiza LVL para LVL - 1 (garantir mínimo 1)
-            char.LVL = Math.max(1, Number(char.LVL ?? expLevel) - 1);
+            char.LVL = Math.max(1, Number(char.LVL ?? 1) - 1);
+            char.levelHistory = history;
+        }
 
-            // atualiza o array de personagens e persiste no Firestore
+        // Persiste mudanças no Firestore
+        try {
             characters[idx] = char;
-            try {
-                await window.updateDoc(userDocRef, { personagens: characters });
-            } catch (err) {
-                console.error('Falha ao salvar reversão no Firestore', err);
-                throw err;
-            }
+            await window.updateDoc(userDocRef, { personagens: characters });
 
-            // atualiza variáveis locais e UI
-            expLevel = Number(char.LVL);
-            currentEXP = 0; // deixa 0 (comportamento consistente ao clicar quando estava 0)
-            // read totals to local state (charData)
-            totPV = Number(char.PV.total ?? totPV);
-            totMN = Number(char.MN.total ?? totMN);
-            totSTA = Number(char.STA.total ?? totSTA);
+            // Atualiza UI local (otimistic)
+            charData = characters[idx];
 
-            // ajusta atuais locais
-            curPV = Math.min(curPV, totPV);
-            curMN = Math.min(curMN, totMN);
-            curSTA = Math.min(curSTA, totSTA);
+            // Atualiza variáveis locais e barras (garante consistência imediata)
+            totPV = Number(char.PV?.total ?? totPV);
+            totMN = Number(char.MN?.total ?? totMN);
+            totSTA = Number(char.STA?.total ?? totSTA);
 
-            // mantém charData local consistente
-            if (charData) {
-                charData.PV = char.PV;
-                charData.MN = char.MN;
-                charData.STA = char.STA;
-                charData.pontos_restantes = char.pontos_restantes;
-                charData.LVL = char.LVL;
-                if (char.proeficiencias) charData.proeficiencias = char.proeficiencias.slice();
-            }
+            curPV = Math.min(Number(char.PV?.atual ?? curPV), totPV);
+            curMN = Math.min(Number(char.MN?.atual ?? curMN), totMN);
+            curSTA = Math.min(Number(char.STA?.atual ?? curSTA), totSTA);
 
-            updateAllBars();
-            // salva barras + LVL/EXP
-            await saveBarsToFirestore();
+            // atualiza a UI visual (usa funções já existentes no seu arquivo)
+            try { applyBar('pv-bar-fill', 'pv-bar-text', curPV, totPV, 'pv'); } catch (e) { console.warn('applyBar pv erro', e); }
+            try { applyBar('mn-bar-fill', 'mn-bar-text', curMN, totMN, 'mn'); } catch (e) { console.warn('applyBar mn erro', e); }
+            try { applyBar('sta-bar-fill', 'sta-bar-text', curSTA, totSTA, 'sta'); } catch (e) { console.warn('applyBar sta erro', e); }
 
-            alert(`Nível ${last.lvl} revertido com sucesso.`);
-            return;
+            // atualiza UI de pontos/painéis
+            try { updateRemainingUI(); } catch (e) { /* silencioso */ }
+
+            alert('Regressão de nível aplicada com sucesso.');
+        } catch (err) {
+            console.error('Falha ao salvar regressão de nível:', err);
+            alert('Falha ao salvar regressão. Veja console.');
         }
-
-        // --- fallback: se não existir histórico, tenta estimativa reversa (menos segura) ---
-        // tenta subtrair de acordo com fórmulas atuais (pior caso)
-        const brav = Number(attrKeys.bravura ?? 0);
-        const arca = Number(attrKeys.arcano ?? 0);
-        const fole = Number(attrKeys.folego ?? 0);
-        const ess = Number(attrKeys.essencia ?? 0);
-        let subPV = 0, subMN = 0, subSTA = 0;
-        if (savedClass === 'Arcanista') { subPV = 2 + brav; subMN = 5 + arca; subSTA = 2 + fole; }
-        else if (savedClass === 'Escudeiro') { subPV = 4 + brav; subMN = 1 + arca; subSTA = 1 + fole; }
-        else if (savedClass === 'Luminar') { subPV = 2 + brav; subMN = 4 + arca; subSTA = 4 + ess; }
-        else if (savedClass === 'Errante') { subPV = 3 + brav; subMN = 1 + arca; subSTA = 5 + fole; }
-
-        // aplica a subtração conservadora
-        char.PV = char.PV || { atual: 0, total: 0 };
-        char.MN = char.MN || { atual: 0, total: 0 };
-        char.STA = char.STA || { atual: 0, total: 0 };
-
-        char.PV.total = Math.max(0, Number(char.PV.total ?? 0) - subPV);
-        char.MN.total = Math.max(0, Number(char.MN.total ?? 0) - subMN);
-        char.STA.total = Math.max(0, Number(char.STA.total ?? 0) - subSTA);
-        char.pontos_restantes = Math.max(0, Number(char.pontos_restantes ?? 0) - 1);
-        char.LVL = Math.max(1, Number(char.LVL ?? expLevel) - 1);
-
-        // salva fallback
-        characters[idx] = char;
-        await window.updateDoc(userDocRef, { personagens: characters });
-
-        // atualiza locais como acima
-        expLevel = Number(char.LVL);
-        currentEXP = 0;
-        totPV = Number(char.PV.total ?? totPV);
-        totMN = Number(char.MN.total ?? totMN);
-        totSTA = Number(char.STA.total ?? totSTA);
-        curPV = Math.min(curPV, totPV);
-        curMN = Math.min(curMN, totMN);
-        curSTA = Math.min(curSTA, totSTA);
-        if (charData) {
-            charData.PV = char.PV;
-            charData.MN = char.MN;
-            charData.STA = char.STA;
-            charData.pontos_restantes = char.pontos_restantes;
-            charData.LVL = char.LVL;
-        }
-        updateAllBars();
-        await saveBarsToFirestore();
-        alert('Reversão feita por estimativa (não havia histórico detalhado).');
     }
 
     function enableInlineEditExp(textEl) {
