@@ -2735,3 +2735,40 @@ body.character-sheet .title {
 .cond-pill, .cond-badge {
   transition: color 180ms ease, text-shadow 180ms ease;
 }
+
+
+/* ---------- Forçar centralização perfeita do inventory-item-modal ---------- */
+/* (cole após as regras .inventory-modal já existentes) */
+
+.inventory-modal {
+  /* garante layout flex centralizado mesmo que outra regra sobrescreva */
+  display: flex !important;
+  align-items: center !important;    /* centraliza verticalmente */
+  justify-content: center !important;/* centraliza horizontalmente */
+  padding: 20px;                     /* Espaço seguro nas bordas em telas pequenas */
+  box-sizing: border-box;
+}
+
+/* painel interno: centraliza e impede overflow da viewport */
+.inventory-modal .modal-content {
+  margin: auto;            /* fallback extra */
+  max-height: 90vh;        /* nunca ultrapassar a viewport vertical */
+  overflow: auto;          /* cria scroll interno quando o conteúdo for alto */
+  box-sizing: border-box;
+  transform: none !important; /* evita offsets por transforms anteriores */
+  /* largura padrão, você já tem width definido em outra regra; aqui só protegemos */
+  width: auto;
+}
+
+/* mobile: modal ocupa largura útil com pequenas margens */
+@media (max-width: 520px) {
+  .inventory-modal {
+    padding: 12px;
+    align-items: center;
+  }
+  .inventory-modal .modal-content {
+    width: calc(100% - 24px);
+    max-width: 520px;
+    border-radius: 12px;
+  }
+}
