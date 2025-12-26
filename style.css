@@ -42,7 +42,6 @@ body {
     font-size: 4rem;
     position: relative;
     display: inline-block;
-    background-color: black;
     padding: 0 15px;
     z-index: 2;
 }
@@ -702,185 +701,289 @@ body {
 
 /* Apply the global modal styles to all modals */
 .modal {
-  display: none; /* Hide by default */
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 9999;
-  backdrop-filter: blur(3px); /* Optional, you can remove if not needed */
-  animation: modalPopIn 0.36s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+    display: none;
+    /* Hide by default */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    backdrop-filter: blur(3px);
+    /* Optional, you can remove if not needed */
+    animation: modalPopIn 0.36s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
 }
 
 /* Backdrop styles */
 .modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(3px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  opacity: 0;
-  transition: opacity 0.3s ease;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
 .modal-backdrop.visible {
-  opacity: 1;
+    opacity: 1;
 }
 
 /* Modal content box */
 .modal-content {
-  background: linear-gradient(180deg, #1a1414, #2a1c1c);
-  border: 4px solid rgba(92, 34, 34, 0.95);
-  border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
-  color: #efe6e2;
-  width: 360px;
-  max-width: calc(100% - 32px);
-  padding: 16px;
-  animation: alertPop 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(180deg, #1a1414, #2a1c1c);
+    border: 4px solid rgba(92, 34, 34, 0.95);
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
+    color: #efe6e2;
+    width: 360px;
+    max-width: calc(100% - 32px);
+    padding: 16px;
+    animation: alertPop 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Modal header */
 .modal-header {
-  font-weight: 900;
-  padding: 12px 16px;
-  border-bottom: 2px solid rgba(90, 22, 22, 0.6);
-  text-align: center;
-  letter-spacing: 1px;
+    font-weight: 900;
+    padding: 12px 16px;
+    border-bottom: 2px solid rgba(90, 22, 22, 0.6);
+    text-align: center;
+    letter-spacing: 1px;
 }
 
 /* Modal body */
 .modal-body {
-  padding: 16px;
-  text-align: center;
-  line-height: 1.4;
-  font-size: 1rem;
+    padding: 16px;
+    text-align: center;
+    line-height: 1.4;
+    font-size: 1rem;
 }
 
 /* Modal actions */
 .modal-actions {
-  padding: 12px;
-  display: flex;
-  justify-content: center;
+    padding: 12px;
+    display: flex;
+    justify-content: center;
 }
 
 .modal-btn {
-  padding: 8px 22px;
-  border-radius: 10px;
-  border: none;
-  background: linear-gradient(145deg, #5c2222, #3d1616);
-  color: #efe6e2;
-  font-family: inherit;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(92, 34, 34, 0.5);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+    padding: 8px 22px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(145deg, #5c2222, #3d1616);
+    color: #efe6e2;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(92, 34, 34, 0.5);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .modal-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 26px rgba(92, 34, 34, 0.7);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px rgba(92, 34, 34, 0.7);
 }
 
 .modal-btn:active {
-  transform: scale(0.95);
+    transform: scale(0.95);
 }
 
 /* Modal closing button */
 .close-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  font-size: 2rem;
-  color: #efe6e2;
-  background: none;
-  border: none;
-  cursor: pointer;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 2rem;
+    color: #efe6e2;
+    background: none;
+    border: none;
+    cursor: pointer;
 }
 
 /* Animations for modal */
 @keyframes alertPop {
-  from {
-    transform: scale(0.85) translateY(10px);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-  }
+    from {
+        transform: scale(0.85) translateY(10px);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
 }
 
 @keyframes modalPopIn {
-  from { transform: translateY(12px) scale(.96); opacity: 0; }
-  to   { transform: translateY(0) scale(1); opacity: 1; }
+    from {
+        transform: translateY(12px) scale(.96);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
 }
 
 @keyframes modalPopOut {
-  from { transform: translateY(0) scale(1); opacity: 1; }
-  to   { transform: translateY(8px) scale(.98); opacity: 0; }
+    from {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateY(8px) scale(.98);
+        opacity: 0;
+    }
 }
 
 @keyframes backdropFadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes backdropFadeOut {
-  from { opacity: 1; }
-  to   { opacity: 0; }
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
 }
 
 /* ---------------------------
    Desktop (não responsivo): modal maior e estilo aprimorado
    --------------------------- */
 @media (min-width: 769px) {
-  .modal {
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(3px);
-    display: none; /* manter comportamento atual (JS manipula display) */
-    justify-content: center;
-    align-items: center;
-  }
+    .modal {
+        background: rgba(0, 0, 0, 0.65);
+        backdrop-filter: blur(3px);
+        display: none;
+        /* manter comportamento atual (JS manipula display) */
+        justify-content: center;
+        align-items: center;
+    }
 
-  .modal-content {
-    /* Tamanho maior no desktop */
-    max-width: 900px;
-    width: 70%;
-    padding: 28px;
-    border-radius: 14px;
-    box-sizing: border-box;
+    .modal-content {
+        /* Tamanho maior no desktop */
+        max-width: 900px;
+        width: 70%;
+        padding: 28px;
+        border-radius: 14px;
+        box-sizing: border-box;
 
-    /* Visual inspirado no estilo de alert (com gradiente e borda) */
-    background: linear-gradient(180deg, #1a1414, #2a1c1c);
-    border: 4px solid rgba(92, 34, 34, 0.95);
-    color: #efe6e2;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
-    gap: 24px;
-  }
+        /* Visual inspirado no estilo de alert (com gradiente e borda) */
+        background: linear-gradient(180deg, #1a1414, #2a1c1c);
+        border: 4px solid rgba(92, 34, 34, 0.95);
+        color: #efe6e2;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
+        gap: 24px;
+    }
 
-  .modal-content .modal-left,
-  .modal-content .modal-right {
-    width: 50%;
-  }
+    .modal-content .modal-left,
+    .modal-content .modal-right {
+        width: 50%;
+    }
 
-  .close-btn {
-    color: #efe6e2;
-    font-size: 28px;
-    top: 12px;
-    right: 12px;
-  }
+    .close-btn {
+        color: #efe6e2;
+        font-size: 28px;
+        top: 12px;
+        right: 12px;
+    }
 }
 
 /* garante que mobile mantenha os estilos já existentes */
 @media (max-width: 768px) {
-  /* nada aqui — deixa as regras já existentes em seu arquivo para mobile */
+    /* nada aqui — deixa as regras já existentes em seu arquivo para mobile */
 }
 
 /* melhora a transição de abertura/fechamento (opcional / suave) */
 .modal.visible {
-  display: flex !important;
+    display: flex !important;
+}
+
+/* ---------------------------
+   BOLINHAS DE FUNDO (decoração)
+   --------------------------- */
+
+.bg-bubbles {
+    position: fixed;
+    inset: 0;
+    /* ocupa toda a viewport */
+    z-index: 0;
+    /* fica atrás dos elementos da UI (ver .screen abaixo) */
+    pointer-events: none;
+    /* não interfere em cliques */
+    overflow: hidden;
+    mix-blend-mode: normal;
+}
+
+/* garante que a área principal fique acima das bolinhas */
+.screen {
+    position: relative;
+    z-index: 2;
+    /* mantém todo o conteúdo visível acima do fundo */
+}
+
+/* Se necessário (sidebar/modals) já têm z-index maiores. Só para segurança: */
+.sidebar {
+    z-index: 3;
+}
+
+/* cada bolinha */
+.bg-bubbles .bubble {
+    position: absolute;
+    bottom: -40px;
+    /* nascem levemente abaixo da viewport */
+    border-radius: 50%;
+    pointer-events: none;
+    transform: translateY(0) scale(1);
+    opacity: 0;
+    /* aparência: núcleo claro + cor desejada */
+    background: radial-gradient(circle at 30% 30%,
+            rgba(92, 34, 34, 0.95) 40%,
+            rgba(92, 34, 34, 0.88) 60%);
+    box-shadow:
+        0 0 14px rgba(92, 34, 34, 0.9),
+        0 0 30px rgba(92, 34, 34, 0.28) inset;
+    will-change: transform, opacity;
+    /* animação aplicada dinamicamente via JS (dur e delay variam) */
+}
+
+/* animação: sobe e some */
+@keyframes rise {
+    0% {
+        transform: translateY(0) scale(1);
+        opacity: 0;
+    }
+
+    8% {
+        opacity: 0.92;
+    }
+
+    70% {
+        opacity: 0.6;
+    }
+
+    100% {
+        transform: translateY(-120vh) scale(1.35);
+        opacity: 0;
+    }
+}
+
+/* versão mais suave em telas muito pequenas (reduz tamanho/efeito para performance) */
+@media (max-width: 420px) {
+    .bg-bubbles .bubble {
+        filter: blur(0.6px);
+    }
 }

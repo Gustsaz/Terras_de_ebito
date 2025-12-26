@@ -92,7 +92,7 @@ let allowNextContextMenu = false;
 window.clickCountGlobal = window.clickCountGlobal || {};
 
 // lista de atributos usados (normalizados). Ajuste se seus nomes differirem.
-const ATTR_KEYS = ['bravura', 'arcano', 'fôlego', 'essência', 'técnica', 'intelecto'];
+const ATTR_KEYS = ['bravura', 'arcano', 'fôlego', 'essência', 'técnica', 'intelecto', 'influência'];
 
 for (const raw of ATTR_KEYS) {
   const key = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -547,7 +547,8 @@ document.addEventListener("DOMContentLoaded", () => {
     essencia: "Essência: Carrega a chama espiritual, a ligação com o divino, o profano ou o inexplicável.",
     arcano: "Arcana: Revela a sintonia com o oculto, o domínio sobre a magia e as forças invisíveis",
     bravura: "Bravura: Mede a força do coração e a capacidade de enfrentar o medo sem hesitar.",
-    folego: "Fôlego: A resistência física, a força para suportar dor e exaustão sem ceder."
+    folego: "Fôlego: A resistência física, a força para suportar dor e exaustão sem ceder.",
+    influencia: "Influência: Sua capacidade de se comunicar, persuadir ou flertar."
   };
 
   /* ---------- START: substituir aqui icons.forEach(...) e counter listeners ---------- */
@@ -955,14 +956,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // Calculate total attributes including racial bonuses for class stats
     const totalAttrs = {};
     const normalize = str => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    ['bravura', 'arcano', 'fôlego', 'essência', 'técnica', 'intelecto'].forEach(att => {
-      const key = normalize(att);
-      totalAttrs[key] = clickCountGlobal[key] ?? 0;
-      // Apply racial bonuses
-      if (racaNome === 'Feéricos' && subclasse === 'Ágeis' && key === 'tecnica') totalAttrs[key] += 1;
-      if (racaNome === 'Elfo' && key === 'intelecto') totalAttrs[key] += 1;
-      if (racaNome === 'Meio Orc' && key === 'bravura') totalAttrs[key] += 1;
-    });
+    ['bravura', 'arcano', 'fôlego', 'essência', 'técnica', 'intelecto', 'influência'].forEach(att => {
+        const key = normalize(att);
+        totalAttrs[key] = clickCountGlobal[key] ?? 0;
+        // Apply racial bonuses
+        if (racaNome === 'Feéricos' && subclasse === 'Ágeis' && key === 'tecnica') totalAttrs[key] += 1;
+        if (racaNome === 'Elfo' && key === 'intelecto') totalAttrs[key] += 1;
+        if (racaNome === 'Meio Orc' && key === 'bravura') totalAttrs[key] += 1;
+      });
 
     // Update race section
     const racaImg = document.querySelector('.raca-img');
@@ -1176,13 +1177,13 @@ document.addEventListener("DOMContentLoaded", () => {
         let sta = { total: 0, atual: 0 };
 
         const totalAttrs = {};
-        ['bravura', 'arcano', 'fôlego', 'essência', 'técnica', 'intelecto'].forEach(att => {
-          const key = normalize(att);
-          totalAttrs[key] = attribs[key] ?? 0;
-          if (raca === 'Feéricos' && subraca === 'Ágeis' && key === 'tecnica') totalAttrs[key] += 1;
-          if (raca === 'Elfo' && key === 'intelecto') totalAttrs[key] += 1;
-          if (raca === 'Meio Orc' && key === 'bravura') totalAttrs[key] += 1;
-        });
+        ['bravura', 'arcano', 'fôlego', 'essência', 'técnica', 'intelecto', 'influência'].forEach(att => {
+            const key = normalize(att);
+            totalAttrs[key] = attribs[key] ?? 0;
+            if (raca === 'Feéricos' && subraca === 'Ágeis' && key === 'tecnica') totalAttrs[key] += 1;
+            if (raca === 'Elfo' && key === 'intelecto') totalAttrs[key] += 1;
+            if (raca === 'Meio Orc' && key === 'bravura') totalAttrs[key] += 1;
+          });
 
         if (classe === 'Arcanista') {
           pv.total = 8 + totalAttrs.bravura;

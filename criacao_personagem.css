@@ -72,6 +72,16 @@ section {
   left: calc(50% - 270px);
 }
 
+.hex.influencia {
+  bottom: 270px;
+  left: calc(50% - 400px);
+}
+
+.icon.influencia {
+  bottom: 290px;
+  left: calc(50% - 375px);
+}
+
 .hex.intelecto,
 .icon.intelecto {
   bottom: 120px;
@@ -199,6 +209,10 @@ section {
   transform: translate(60%, -22%) scale(1.15);
 }
 
+.icon.influencia.hovered {
+  transform: translate(60%, -1%) scale(1.15);
+}
+
 .icon.intelecto.hovered {
   transform: translate(58%, -22%) scale(1.15);
 }
@@ -222,6 +236,11 @@ section {
 .counter.tecnica {
   bottom: 165px;
   left: calc(50% - 212px);
+}
+
+.counter.influencia {
+  bottom: 310px;
+  left: calc(50% - 345px);
 }
 
 .counter.intelecto {
@@ -915,7 +934,6 @@ section {
 /* estatísticas */
 .card-stats {
   width: 392px;
-  height: 450px;
   background: #5C2222;
   border-radius: 16px;
   padding: 14px;
@@ -1272,7 +1290,7 @@ section {
   .galharda {
     top: 50%;
     left: 56%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -80%);
     width: 700px;
   }
 

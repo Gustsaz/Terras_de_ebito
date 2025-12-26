@@ -1105,3 +1105,67 @@ document.addEventListener("DOMContentLoaded", () => {
         updateVisibleSlot();
     }, 120); // leve delay para garantir que animações/DOM estejam prontos
 });
+
+/* ---------------------------
+   BOLINHAS DE FUNDO - manager
+   (não interfere em nada da UI)
+   --------------------------- */
+(function initBackgroundBubbles() {
+  const container = document.querySelector('.bg-bubbles');
+  if (!container) return;
+
+  const MAX_BUBBLES = 28;       // máximo na tela (ajuste se quiser)
+  const INITIAL = 16;           // bolhas iniciais
+  const SPAWN_INTERVAL = 700;   // ms entre tentativas de spawn
+
+  function createBubble() {
+    // não ultrapassar o limite
+    if (container.children.length >= MAX_BUBBLES) return;
+
+    const b = document.createElement('div');
+    b.className = 'bubble';
+
+    // tamanho aleatório (px)
+    const size = Math.floor(Math.random() * 40) + 8; // 8..48
+    b.style.width = `${size}px`;
+    b.style.height = `${size}px`;
+
+    // posição horizontal aleatória
+    b.style.left = `${Math.random() * 100}%`;
+
+    // duração e atraso aleatórios (para variedade)
+    const duration = (Math.random() * 14) + 6; // 6s .. 20s
+    // usamos negative delay para que algumas já "estejam em andamento"
+    const delay = Math.random() * 2; // 0..2s
+    b.style.animation = `rise ${duration}s linear`;
+    b.style.animationDelay = `${-delay}s`;
+
+    // leve rotação aleatória (opcional)
+    const rotate = (Math.random() - 0.5) * 40; // -20..20deg
+    b.style.transform = `rotate(${rotate}deg)`;
+
+    // append e remover após animação
+    container.appendChild(b);
+    b.addEventListener('animationend', () => {
+      if (b && b.parentElement === container) container.removeChild(b);
+    });
+  }
+
+  // criar um punhado inicial com pequenas diferenças de tempo
+  for (let i = 0; i < INITIAL; i++) {
+    setTimeout(createBubble, Math.random() * 1800);
+  }
+
+  // spawn contínuo
+  setInterval(() => {
+    createBubble();
+  }, SPAWN_INTERVAL);
+
+  // opcional: reduzir números quando a aba estiver em background para performance
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // quando escondido, limpe excesso para economizar memória
+      while (container.children.length > 6) container.removeChild(container.firstChild);
+    }
+  });
+})();
