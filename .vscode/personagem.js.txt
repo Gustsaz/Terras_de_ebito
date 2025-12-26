@@ -144,8 +144,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         folego: attributes['fôlego'] ?? attributes['folego'] ?? 0,
         essencia: attributes['essencia'] ?? attributes['essência'] ?? 0,
         tecnica: attributes['técnica'] ?? attributes['tecnica'] ?? 0,
-        intelecto: attributes['intelecto'] ?? 0,
-        influencia: attributes['influencia'] ?? 0
+        intelecto: attributes['intelecto'] ?? 0
     };
 
     function applyRacialBonus(rawValue, key) {
@@ -170,7 +169,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     attrKeys.folego = applyRacialBonus(attrKeys.folego, 'folego');
     attrKeys.essencia = applyRacialBonus(attrKeys.essencia, 'essencia');
     attrKeys.intelecto = applyRacialBonus(attrKeys.intelecto, 'intelecto');
-    attrKeys.influencia = applyRacialBonus(attrKeys.influencia, 'influencia');
+
 
     // Calcula estatísticas de batalha por classe e define array de proeficiencias
     let pv = 0, mn = 0, sta = 0;
@@ -343,8 +342,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         essencia: 'attr-essencia',
         arcano: 'attr-arcano',
         bravura: 'attr-bravura',
-        folego: 'attr-folego',
-        influencia: 'attr-influencia'
+        folego: 'attr-folego'
     };
 
     // função para calcular bonus racial
@@ -390,7 +388,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // calcula allowedCap/sum/remaining com base no objeto `attributes`
     // garante que funcione com chaves acentuadas/normalizadas e usa APENAS os valores brutos (sem bônus racial)
     function computeAllowedAndRemainingFromAttributes(attrObj) {
-        const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego', 'influencia']
+        const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego'];
 
         // cria um mapa normalizedKey -> rawValue a partir do objeto que pode ter chaves acentuadas
         const normalizedMap = {};
@@ -679,7 +677,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             input.focus();
             input.select();
 
-            const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego', 'influencia']
+            const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego'];
             let alertShown = false; // garante um alerta só por edição
 
             const revertToPrevious = () => {
@@ -830,7 +828,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 }
 
                                 (() => {
-                                    const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego', 'influencia']
+                                    const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego'];
                                     const savedAttrs = characters[index].atributos || {};
 
                                     // cria mapa normalizedKey -> rawValue a partir do objeto salvo (pode ter acento)

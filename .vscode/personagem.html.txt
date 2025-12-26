@@ -174,12 +174,6 @@
                                     <span class="attr-value" id="attr-folego">0</span>
                                     <span class="attr-name">Fôlego</span>
                                 </div>
-                                <div class="attr-item">
-                                    <img src="./imgs/Influencia Branco.png" alt="influencia">
-                                    <span class="attr-value" id="attr-influencia">0</span>
-                                    <span class="attr-name">Influência</span>
-                                </div>
-
                             </div>
                         </div>
 
