@@ -6012,3 +6012,417 @@ document.addEventListener('DOMContentLoaded', async () => {
     })();
 
 })();
+
+
+; (function replaceDiceRenderer() {
+    const STORAGE_KEY = 'td_selectedDie';
+    const DEFAULT = '20';
+
+    const canvas = document.getElementById('dice-canvas');
+    const big = document.getElementById('dice-large');
+    const miniList = document.getElementById('dice-mini-list');
+    const overlay = document.getElementById('dice-result-overlay');
+
+    if (!canvas || !big || !miniList) return;
+
+    const ctx = canvas.getContext('2d', { alpha: true });
+    function resizeCanvas() {
+        const ratio = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth || 520;
+        const h = canvas.clientHeight || 520;
+        canvas.width = Math.round(w * ratio);
+        canvas.height = Math.round(h * ratio);
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
+    resizeCanvas();
+    window.addEventListener('resize', () => { resizeCanvas(); render(); });
+
+    /* ---------- quaternion helpers ---------- */
+    function qNormalize(q) { const l = Math.hypot(q[0], q[1], q[2], q[3]) || 1; return [q[0] / l, q[1] / l, q[2] / l, q[3] / l]; }
+    function qMultiply(a, b) {
+        return [
+            a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+            a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+            a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+            a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]
+        ];
+    }
+    function qFromAxisAngle(ax, ay, az, ang) { const s = Math.sin(ang / 2), c = Math.cos(ang / 2); const len = Math.hypot(ax, ay, az) || 1; return qNormalize([c, ax / len * s, ay / len * s, az / len * s]); }
+    function qToMatrix(q) {
+        const w = q[0], x = q[1], y = q[2], z = q[3]; return [
+            1 - 2 * y * y - 2 * z * z, 2 * x * y - 2 * z * w, 2 * x * z + 2 * y * w,
+            2 * x * y + 2 * z * w, 1 - 2 * x * x - 2 * z * z, 2 * y * z - 2 * x * w,
+            2 * x * z - 2 * y * w, 2 * y * z + 2 * x * w, 1 - 2 * x * x - 2 * y * y
+        ];
+    }
+    function qSlerp(a, b, t) {
+        let cosTheta = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+        let bb = b.slice();
+        if (cosTheta < 0) { cosTheta = -cosTheta; bb = bb.map(v => -v); }
+        if (cosTheta > 0.9995) { const res = a.map((v, i) => v + (bb[i] - v) * t); return qNormalize(res); }
+        const theta = Math.acos(Math.max(-1, Math.min(1, cosTheta)));
+        const sinTheta = Math.sin(theta);
+        const w1 = Math.sin((1 - t) * theta) / sinTheta;
+        const w2 = Math.sin(t * theta) / sinTheta;
+        return [a[0] * w1 + bb[0] * w2, a[1] * w1 + bb[1] * w2, a[2] * w1 + bb[2] * w2, a[3] * w1 + bb[3] * w2];
+    }
+
+    /* ---------- 3D util ---------- */
+    function matMulVec(m, v) { return { x: m[0] * v.x + m[1] * v.y + m[2] * v.z, y: m[3] * v.x + m[4] * v.y + m[5] * v.z, z: m[6] * v.x + m[7] * v.y + m[8] * v.z }; }
+    function faceNormal(a, b, c) { const ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z; const vx = c.x - a.x, vy = c.y - a.y, vz = c.z - a.z; const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const L = Math.hypot(nx, ny, nz) || 1; return { x: nx / L, y: ny / L, z: nz / L }; }
+    function project(p, camDist = 3.6) { const z = p.z + camDist; const f = (Math.min(canvas.width, canvas.height) / 2) / (camDist * 0.9); return { x: canvas.width / 2 + p.x * f, y: canvas.height / 2 - p.y * f, z: z }; }
+
+    /* ---------- geometry factories (fixed, robust) ---------- */
+
+    function normalizeVerts(verts) {
+        // center and scale so max distance = 1
+        let cx = 0, cy = 0, cz = 0;
+        verts.forEach(v => { cx += v.x; cy += v.y; cz += v.z; });
+        cx /= verts.length; cy /= verts.length; cz /= verts.length;
+        verts.forEach(v => { v.x -= cx; v.y -= cy; v.z -= cz; });
+        let maxd = 0; verts.forEach(v => { const d = Math.hypot(v.x, v.y, v.z); if (d > maxd) maxd = d; });
+        if (maxd === 0) maxd = 1;
+        verts.forEach(v => { v.x /= maxd; v.y /= maxd; v.z /= maxd; });
+        return verts;
+    }
+
+    function makeTetrahedron() {
+        const verts = [{ x: 1, y: 1, z: 1 }, { x: 1, y: -1, z: -1 }, { x: -1, y: 1, z: -1 }, { x: -1, y: -1, z: 1 }];
+        normalizeVerts(verts);
+        const faces = [[0, 1, 2], [0, 3, 1], [0, 2, 3], [1, 3, 2]];
+        return { verts, faces, labels: [1, 2, 3, 4] };
+    }
+
+    function makeCube() {
+        const s = 1;
+        const verts = [{ x: -s, y: -s, z: -s }, { x: s, y: -s, z: -s }, { x: s, y: s, z: -s }, { x: -s, y: s, z: -s }, { x: -s, y: -s, z: s }, { x: s, y: -s, z: s }, { x: s, y: s, z: s }, { x: -s, y: s, z: s }];
+        normalizeVerts(verts);
+        const faces = [[0, 1, 2, 3], [4, 7, 6, 5], [0, 4, 5, 1], [3, 2, 6, 7], [1, 5, 6, 2], [0, 3, 7, 4]];
+        return { verts, faces, labels: [1, 2, 3, 4, 5, 6] };
+    }
+
+    function makeOctahedron() {
+        const verts = [{ x: 1, y: 0, z: 0 }, { x: -1, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, { x: 0, y: -1, z: 0 }, { x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: -1 }];
+        normalizeVerts(verts);
+        const faces = [[0, 2, 4], [2, 1, 4], [1, 3, 4], [3, 0, 4], [2, 0, 5], [1, 2, 5], [3, 1, 5], [0, 3, 5]];
+        return { verts, faces, labels: [1, 2, 3, 4, 5, 6, 7, 8] };
+    }
+
+    function makeIcosahedron() {
+        const phi = (1 + Math.sqrt(5)) / 2;
+        const verts = [
+            { x: -1, y: phi, z: 0 }, { x: 1, y: phi, z: 0 }, { x: -1, y: -phi, z: 0 }, { x: 1, y: -phi, z: 0 },
+            { x: 0, y: -1, z: phi }, { x: 0, y: 1, z: phi }, { x: 0, y: -1, z: -phi }, { x: 0, y: 1, z: -phi },
+            { x: phi, y: 0, z: -1 }, { x: phi, y: 0, z: 1 }, { x: -phi, y: 0, z: -1 }, { x: -phi, y: 0, z: 1 }
+        ];
+        // Classic icosa faces (tested)
+        const faces = [
+            [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
+            [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+            [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
+            [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]
+        ];
+        normalizeVerts(verts);
+        return { verts, faces, labels: Array.from({ length: faces.length }, (_, i) => String(i + 1)) };
+    }
+
+    function makePentagonalTrapezohedron() {
+        // pentagonal trapezohedron (d10) - gera vértices, ordena vértices de cada face corretamente
+        const n = 5;
+        const upperZ = 0.65, lowerZ = -0.65;
+        const rUpper = 0.86, rLower = 0.86;
+        const verts = [];
+        for (let i = 0; i < n; i++) {
+            const ang = (i / n) * Math.PI * 2;
+            verts.push({ x: Math.cos(ang) * rUpper, y: Math.sin(ang) * rUpper, z: upperZ });
+        }
+        for (let i = 0; i < n; i++) {
+            const ang = ((i + 0.5) / n) * Math.PI * 2; // half-step rotation
+            verts.push({ x: Math.cos(ang) * rLower, y: Math.sin(ang) * rLower, z: lowerZ });
+        }
+
+        // centraliza e normaliza
+        normalizeVerts(verts);
+
+        // faces iniciais (quads), indexes ainda não ordenados perfeitamente
+        let faces = [];
+        for (let i = 0; i < n; i++) {
+            const ui = i;
+            const li = n + i;
+            const ui1 = (i + 1) % n;
+            const li1 = n + ((i + 1) % n);
+            faces.push([ui, li, li1, ui1]);
+        }
+
+        // helpers locais
+        function cross(u, v) { return { x: u.y * v.z - u.z * v.y, y: u.z * v.x - u.x * v.z, z: u.x * v.y - u.y * v.x }; }
+        function norm(v) { const L = Math.hypot(v.x, v.y, v.z) || 1; return { x: v.x / L, y: v.y / L, z: v.z / L }; }
+        function sub(a, b) { return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }; }
+        function dot(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+
+        // para cada face, reordena vértices projetando no plano da face e ordenando por ângulo
+        for (let fi = 0; fi < faces.length; fi++) {
+            const idxs = faces[fi].slice(); // cópia
+            // centroid no espaço 3D
+            const center = idxs.reduce((acc, idx) => { acc.x += verts[idx].x; acc.y += verts[idx].y; acc.z += verts[idx].z; return acc; }, { x: 0, y: 0, z: 0 });
+            center.x /= idxs.length; center.y /= idxs.length; center.z /= idxs.length;
+
+            // normal estimada (usando 3 primeiros pontos)
+            const a = verts[idxs[0]], b = verts[idxs[1]], c = verts[idxs[2]];
+            let nrm = faceNormal(a, b, c); // função global já presente
+            nrm = norm(nrm);
+
+            // criar base ortonormal (bnorm, cnorm) no plano da face
+            const ref = Math.abs(nrm.x) < 0.9 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
+            let bvec = cross(nrm, ref);
+            bvec = norm(bvec);
+            let cvec = cross(bvec, nrm);
+            cvec = norm(cvec);
+
+            // calcular ângulo para cada vértice relativo ao centro
+            const angled = idxs.map(idx => {
+                const p = verts[idx];
+                const rel = sub(p, center);
+                const ax = dot(rel, bvec);
+                const ay = dot(rel, cvec);
+                const ang = Math.atan2(ay, ax);
+                return { idx, ang };
+            });
+
+            // ordenar por ângulo crescente
+            angled.sort((A, B) => A.ang - B.ang);
+            const ordered = angled.map(x => x.idx);
+
+            // garantir winding coerente (normal apontando pra fora). 
+            // Recalcula normal usando tri (0,1,2) dos vértices ordenados; compara com vetor centro (do centro para origem).
+            const Apos = verts[ordered[0]], Bpos = verts[ordered[1]], Cpos = verts[ordered[2]];
+            let ncheck = faceNormal(Apos, Bpos, Cpos);
+            // vetor do centro da face para origem (aprox direção externa)
+            const faceCent = ordered.reduce((acc, id) => ({ x: acc.x + verts[id].x, y: acc.y + verts[id].y, z: acc.z + verts[id].z }), { x: 0, y: 0, z: 0 });
+            faceCent.x /= ordered.length; faceCent.y /= ordered.length; faceCent.z /= ordered.length;
+            const dotFC = ncheck.x * faceCent.x + ncheck.y * faceCent.y + ncheck.z * faceCent.z;
+            if (dotFC < 0) ordered.reverse();
+
+            faces[fi] = ordered;
+        }
+
+        return { verts, faces, labels: Array.from({ length: 10 }, (_, i) => String(i + 1)) };
+    }
+
+
+    function makeDodecahedron() {
+        // Build dodecahedron robustly as dual of icosahedron
+        const ico = makeIcosahedron();
+        // centroids of icosa faces => vertices of dodeca
+        const centroids = ico.faces.map(face => {
+            const c = face.reduce((acc, idx) => { acc.x += ico.verts[idx].x; acc.y += ico.verts[idx].y; acc.z += ico.verts[idx].z; return acc; }, { x: 0, y: 0, z: 0 });
+            const n = face.length;
+            return { x: c.x / n, y: c.y / n, z: c.z / n };
+        });
+        normalizeVerts(centroids);
+        // For each vertex of icosa, collect faces that include it -> polygon face in dodeca
+        const faces = [];
+        for (let vi = 0; vi < ico.verts.length; vi++) {
+            const incident = [];
+            for (let fi = 0; fi < ico.faces.length; fi++) {
+                if (ico.faces[fi].includes(vi)) incident.push(fi);
+            }
+            // compute center and sort incident by angle around original vertex to ensure consistent winding
+            const center = incident.reduce((acc, ci) => ({ x: acc.x + centroids[ci].x, y: acc.y + centroids[ci].y, z: acc.z + centroids[ci].z }), { x: 0, y: 0, z: 0 });
+            center.x /= incident.length; center.y /= incident.length; center.z /= incident.length;
+            const vx = ico.verts[vi];
+            const a = (Math.abs(vx.x) < 0.9) ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
+            const bx = vx.y * a.z - vx.z * a.y, by = vx.z * a.x - vx.x * a.z, bz = vx.x * a.y - vx.y * a.x;
+            const blen = Math.hypot(bx, by, bz) || 1; const bnorm = { x: bx / blen, y: by / blen, z: bz / blen };
+            const cx = vx.y * bnorm.z - vx.z * bnorm.y, cy = vx.z * bnorm.x - vx.x * bnorm.z, cz = vx.x * bnorm.y - vx.y * bnorm.x;
+            const clen = Math.hypot(cx, cy, cz) || 1; const cnorm = { x: cx / clen, y: cy / clen, z: cz / clen };
+            const angles = incident.map(ci => {
+                const p = centroids[ci];
+                const vx2 = p.x - center.x, vy2 = p.y - center.y, vz2 = p.z - center.z;
+                return Math.atan2(vx2 * cnorm.x + vy2 * cnorm.y + vz2 * cnorm.z, vx2 * bnorm.x + vy2 * bnorm.y + vz2 * bnorm.z);
+            });
+            const sorted = incident.map((ci, i) => ({ ci, a: angles[i] })).sort((A, B) => A.a - B.a).map(x => x.ci);
+            faces.push(sorted.slice());
+        }
+        return { verts: centroids, faces, labels: Array.from({ length: faces.length }, (_, i) => String(i + 1)) };
+    }
+
+    /* factories map */
+    const factories = {
+        '4': makeTetrahedron,
+        '6': makeCube,
+        '8': makeOctahedron,
+        '10': makePentagonalTrapezohedron,
+        '12': makeDodecahedron,
+        '20': makeIcosahedron,
+        '100': makePentagonalTrapezohedron
+    };
+
+    /* ---------- renderer state ---------- */
+    let currentSides = localStorage.getItem(STORAGE_KEY) || DEFAULT;
+    if (!factories[currentSides]) currentSides = DEFAULT;
+    let model = factories[currentSides]();
+    if (!model.labels || model.labels.length < model.faces.length) model.labels = Array.from({ length: model.faces.length }, (_, i) => String(i + 1));
+    if (currentSides === '100') model.labels = ['00', '10', '20', '30', '40', '50', '60', '70', '80', '90'];
+
+    let qCur = qFromAxisAngle(1, 0, 0, 0.5);
+    let animating = false, locked = false;
+    let selectedFaceIdx = null;
+    let labelScale = 1, labelScaleTarget = 1;
+
+    function render() {
+        if (!ctx) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const M = qToMatrix(qCur);
+        const tv = model.verts.map(p => matMulVec(M, p));
+        const faceData = model.faces.map((face, idx) => {
+            const pts = face.map(i => tv[i]);
+            const centroid = pts.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y, z: acc.z + p.z }), { x: 0, y: 0, z: 0 });
+            centroid.x /= pts.length; centroid.y /= pts.length; centroid.z /= pts.length;
+            const n = faceNormal(pts[0], pts[1], pts[2]);
+            return { idx, pts, centroid, normal: n, depth: centroid.z };
+        });
+        faceData.sort((a, b) => a.depth - b.depth);
+        for (let fd of faceData) {
+            const poly = fd.pts.map(p => project(p));
+            ctx.beginPath(); poly.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)); ctx.closePath();
+            const light = { x: 0.6, y: 0.8, z: 1 };
+            const ln = Math.max(0.12, (fd.normal.x * light.x + fd.normal.y * light.y + fd.normal.z * light.z));
+            const isSelected = (selectedFaceIdx === fd.idx);
+            const alphaBase = selectedFaceIdx === null ? (0.05 + 0.09 * ln) : (isSelected ? (0.12 + 0.16 * ln) : (0.02 + 0.03 * ln));
+            ctx.fillStyle = `rgba(255,255,255,${alphaBase})`; ctx.fill();
+            ctx.lineWidth = Math.max(1, Math.round(canvas.width / 420));
+            ctx.strokeStyle = isSelected ? 'rgba(92,34,34,1)' : 'rgba(92,34,34,0.96)'; ctx.stroke();
+
+            // label (mantém comportamento original + destaque quando resultado é mostrado)
+            let sx = 0, sy = 0;
+            poly.forEach(p => { sx += p.x; sy += p.y; });
+            sx /= poly.length; sy /= poly.length;
+
+            const label = String(model.labels[fd.idx] || fd.idx + 1);
+
+            // mantém a escala que você já usava para o vencedor
+            let baseFont = Math.max(12, Math.round(canvas.width / 28));
+            if (selectedFaceIdx === fd.idx) baseFont = Math.round(baseFont * labelScale * 1.25);
+            else baseFont = Math.round(baseFont * 0.9);
+
+            // calc opacidade: quando nenhum resultado está fixo, usa o alpha padrão (0.85).
+            // quando há resultado, vencedor = 1.0, demais = 0.22 (você pode ajustar esses números).
+            const baseOpacity = (selectedFaceIdx === null) ? 0.85 : (selectedFaceIdx === fd.idx ? 1.0 : 0.22);
+
+            ctx.save();
+            ctx.globalAlpha = baseOpacity;
+            ctx.font = `${baseFont}px serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.lineWidth = Math.max(2, Math.round(canvas.width / 180));
+            ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+            ctx.strokeText(label, sx, sy);
+            ctx.fillStyle = (selectedFaceIdx === fd.idx) ? '#5C2222' : '#bfbfbf'; // vencedor mais forte, outros mais desbotados
+            ctx.fillText(label, sx, sy);
+            ctx.restore();
+
+        }
+        labelScale += (labelScaleTarget - labelScale) * 0.18;
+    }
+
+    function makeTargetQuaternionForFace(faceIdx) {
+        // compute face normal in model-space (use model.verts)
+        const face = model.faces[faceIdx];
+        const a = model.verts[face[0]], b = model.verts[face[1]], c = model.verts[face[2]];
+        const n = faceNormal(a, b, c);
+        const dot = Math.max(-1, Math.min(1, n.z));
+        const angle = Math.acos(dot);
+        let axis = { x: n.y, y: -n.x, z: 0 }; // cross(n,z) simplified (since z=[0,0,1])
+        if (Math.hypot(axis.x, axis.y, axis.z) < 1e-6) axis = { x: 1, y: 0, z: 0 };
+        const qAlign = qFromAxisAngle(axis.x, axis.y, axis.z, angle);
+        const spin = (Math.random() * 2 - 1) * Math.PI * 2;
+        const qSpin = qFromAxisAngle(0, 0, 1, spin);
+        return qMultiply(qSpin, qAlign);
+    }
+
+    function rollDiceOnce() {
+        if (animating) return;
+        animating = true; locked = false; selectedFaceIdx = null; labelScaleTarget = 1;
+        overlay && overlay.classList.remove('visible'); overlay && overlay.setAttribute('aria-hidden', 'true');
+        const faceIdx = Math.floor(Math.random() * model.faces.length);
+        const label = String(model.labels[faceIdx]);
+        const qStart = qCur.slice();
+        const qEnd = makeTargetQuaternionForFace(faceIdx);
+        const duration = 800 + Math.floor(Math.random() * 300); const start = performance.now();
+        function frame(now) {
+            const t = Math.min(1, (now - start) / duration);
+            const ease = 1 - Math.pow(1 - t, 3);
+            qCur = qSlerp(qStart, qEnd, ease);
+            render();
+            if (t < 1) requestAnimationFrame(frame);
+            else {
+                qCur = qEnd.slice(); render();
+                animating = false; locked = true; selectedFaceIdx = faceIdx;
+                labelScale = 0.7; labelScaleTarget = 1.08;
+                if (overlay) { overlay.textContent = label; overlay.classList.add('visible'); overlay.setAttribute('aria-hidden', 'false'); }
+                miniList.querySelectorAll('.dice-mini').forEach(b => b.classList.add('dimmed'));
+            }
+        }
+        requestAnimationFrame(frame);
+    }
+
+    // event listeners
+    canvas.addEventListener('click', () => { if (animating) return; miniList.querySelectorAll('.dice-mini').forEach(b => b.classList.remove('dimmed')); overlay && overlay.classList.remove('visible'); rollDiceOnce(); });
+    big.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); canvas.click(); } });
+    canvas.addEventListener('mousemove', (ev) => {
+        if (animating || locked) return;
+        const rect = canvas.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+        const dx = (ev.clientX - cx) / rect.width, dy = (ev.clientY - cy) / rect.height;
+        const angX = -dy * 0.55, angY = dx * 0.85;
+        const qx = qFromAxisAngle(1, 0, 0, angX), qy = qFromAxisAngle(0, 1, 0, angY);
+        const qT = qMultiply(qx, qy);
+        qCur = qSlerp(qCur, qT, 0.14);
+        render();
+    });
+    canvas.addEventListener('mouseleave', () => { if (!locked) qCur = qFromAxisAngle(1, 0, 0, 0.5); });
+
+    // mini UI
+    miniList.querySelectorAll('.dice-mini').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const s = String(btn.dataset.sides);
+            if (!factories[s]) return;
+            currentSides = s; localStorage.setItem(STORAGE_KEY, s);
+            model = factories[s]();
+            if (s === '100') model.labels = ['00', '10', '20', '30', '40', '50', '60', '70', '80', '90'];
+            else if (!model.labels || model.labels.length < model.faces.length) model.labels = Array.from({ length: model.faces.length }, (_, i) => String(i + 1));
+            miniList.querySelectorAll('.dice-mini').forEach(b => { b.classList.toggle('selected', b === btn); b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); b.classList.remove('dimmed'); });
+            locked = false; selectedFaceIdx = null; overlay && overlay.classList.remove('visible'); render();
+        });
+    });
+
+    // init
+    (function init() {
+        currentSides = localStorage.getItem(STORAGE_KEY) || DEFAULT;
+        if (!factories[currentSides]) currentSides = DEFAULT;
+        model = factories[currentSides]();
+        if (currentSides === '100') model.labels = ['00', '10', '20', '30', '40', '50', '60', '70', '80', '90'];
+        if (!model.labels || model.labels.length < model.faces.length) model.labels = Array.from({ length: model.faces.length }, (_, i) => String(i + 1));
+        miniList.querySelectorAll('.dice-mini').forEach(b => b.classList.toggle('selected', String(b.dataset.sides) === currentSides));
+        overlay && overlay.classList.remove('visible'); overlay && overlay.setAttribute('aria-hidden', 'true');
+        render();
+    })();
+
+    // idle spin
+    let last = performance.now();
+    function idleLoop(now) {
+        const dt = now - last; last = now;
+        if (!animating && !locked) {
+            const spin = qFromAxisAngle(0, 0, 1, 0.0006 * dt);
+            qCur = qMultiply(spin, qCur);
+            render();
+        }
+        requestAnimationFrame(idleLoop);
+    }
+    requestAnimationFrame(idleLoop);
+
+    // expose convenience
+    window.rollCurrentDie = function () { if (!animating) { miniList.querySelectorAll('.dice-mini').forEach(b => b.classList.remove('dimmed')); overlay && overlay.classList.remove('visible'); rollDiceOnce(); } };
+
+})(); // end replaceDiceRenderer
