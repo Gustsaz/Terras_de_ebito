@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ficha do Personagem - Terras de Ébito</title>
+    <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v7.0.0/css/all.css">
+    <link rel="stylesheet" href="personagem.css">
+    <link rel="icon" href="./imgs/logo.svg" type="image/svg+xml" sizes="32x32">
+    <link rel="apple-touch-icon" href="./imgs/logo.svg">
+    <script type="module" src="firebase.js"></script>
+    <link rel="stylesheet" href="global.css">
+
+</head>
+
+<div class="sidebar">
+    <a href="index.html" class="sidebar-home">
+        <i class="fas fa-home"></i>
+    </a>
+</div>
+
+<body class="character-sheet">
+
+    <h1 class="title">Ficha do Personagem</h1>
+
+    <section class="character-main">
+        <!-- LEFT CARD (com as "orelinhas" / tabs) -->
+        <div class="left-card" aria-live="polite">
+            <!-- barra de tabs "orelinhas" (fica fora do topo do card) -->
+            <div class="card-tabs" role="tablist" aria-label="Abas da ficha">
+                <button class="card-tab active" data-tab="general" role="tab" aria-selected="true">Geral</button>
+                <button class="card-tab" data-tab="description" role="tab" aria-selected="false">Descrição</button>
+                <button class="card-tab" data-tab="battle" role="tab" aria-selected="false">Equipáveis</button>
+                <button class="card-tab" data-tab="caminhos" role="tab" aria-selected="false">Caminhos</button>
+
+            </div>
+
+            <!-- corpo do cartão (conteúdo trocável) -->
+            <div class="left-card-body">
+
+                <!-- ======= Painel GERAL (conteúdo tal qual estava) ======= -->
+                <div class="tab-content tab-general" data-tab="general">
+                    <div class="character-info">
+                        <div class="char-portrait">
+                            <img id="char-img" src="./imgs/placeholder.png" alt="Imagem do Personagem">
+                        </div>
+                        <div class="char-basic">
+                            <div class="char-name">
+                                <h2 style="display:inline-block; margin:0;">
+                                    Nome: <span id="char-name">Herói Sem Nome</span>
+                                </h2>
+
+                                <!-- container para mostrar as condições (pills) e o botão de abrir modal -->
+                                <div class="char-conditions-wrapper"
+                                    style="display:inline-flex; align-items:center; gap:8px; margin-left:12px;">
+                                    <!-- as condições serão renderizadas aqui dinamicamente -->
+                                    <div id="char-conditions" class="char-conditions" aria-live="polite"></div>
+
+                                    <!-- botão sem borda com ícone de tontura (Font Awesome) -->
+                                    <button id="open-cond-modal" class="icon-cond-btn" title="Adicionar condição"
+                                        aria-label="Adicionar condição"
+                                        style="border:none; background:transparent; padding:6px; cursor:pointer; color:inherit;">
+                                        <i class="fas fa-dizzy" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+
+                                <p style="margin-top:6px;">Classe: <span id="char-class">—</span></p>
+                                <p class="subraca" id="char-race">—</p>
+
+                                <!-- PONTOS DE CLASSE (AGORA ABAIXO DO subraca) -->
+                                <div id="char-pontos-classe"
+                                    style="margin-top:6px; font-weight:700; font-size:0.95rem; color:#efe6e2;">
+                                    Pontos de classe: <span id="char-pontos-classe-value">0</span>
+                                </div>
+
+
+                            </div>
+
+                            <!-- barras PV / MN / STA -->
+                            <div class="char-stats" aria-hidden="false">
+                                <div class="stat-row pv-row">
+                                    <div class="stat-bar" role="progressbar" aria-label="Pontos de Vida"
+                                        aria-valuemin="0" aria-valuemax="100" data-stat="pv">
+                                        <button class="stat-btn stat-btn-left" id="pv-minus"
+                                            aria-label="Diminuir PV">−</button>
+                                        <div class="bar-fill" id="pv-bar-fill" aria-hidden="true"></div>
+                                        <div class="bar-text" id="pv-bar-text" title="Clique para editar">0/0</div>
+                                        <button class="stat-btn stat-btn-right" id="pv-plus"
+                                            aria-label="Aumentar PV">+</button>
+                                    </div>
+                                </div>
+
+                                <div class="stat-row two-cols">
+                                    <div class="stat-block">
+                                        <div class="stat-bar" role="progressbar" aria-label="Mana" aria-valuemin="0"
+                                            aria-valuemax="100" data-stat="mn">
+                                            <button class="stat-btn stat-btn-left" id="mn-minus"
+                                                aria-label="Diminuir MN">−</button>
+                                            <div class="bar-fill" id="mn-bar-fill" aria-hidden="true"></div>
+                                            <div class="bar-text" id="mn-bar-text" title="Clique para editar">0/0</div>
+                                            <button class="stat-btn stat-btn-right" id="mn-plus"
+                                                aria-label="Aumentar MN">+</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="stat-block">
+                                        <div class="stat-bar" role="progressbar" aria-label="Stamina" aria-valuemin="0"
+                                            aria-valuemax="100" data-stat="sta">
+                                            <button class="stat-btn stat-btn-left" id="sta-minus"
+                                                aria-label="Diminuir STA">−</button>
+                                            <div class="bar-fill" id="sta-bar-fill" aria-hidden="true"></div>
+                                            <div class="bar-text" id="sta-bar-text" title="Clique para editar">0/0</div>
+                                            <button class="stat-btn stat-btn-right" id="sta-plus"
+                                                aria-label="Aumentar STA">+</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- EXP -->
+                            <div class="char-exp" aria-hidden="false" style="margin-top:10px;">
+                                <div class="exp-level-label"
+                                    style="text-align:center;font-size:0.85rem;color:#efe6e2;margin-bottom:6px;">
+                                    Nível <span id="exp-level">1</span>
+                                </div>
+
+                                <div class="stat-row exp-row">
+                                    <div class="stat-bar" role="progressbar" aria-label="Experiência" aria-valuemin="0"
+                                        aria-valuemax="100" data-stat="exp">
+                                        <button class="stat-btn stat-btn-left" id="exp-minus"
+                                            aria-label="Diminuir EXP">−</button>
+                                        <div class="bar-fill" id="exp-bar-fill" aria-hidden="true"></div>
+                                        <div class="bar-text" id="exp-bar-text" title="Clique para editar">0/0</div>
+                                        <button class="stat-btn stat-btn-right" id="exp-plus"
+                                            aria-label="Aumentar EXP">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="character-stats">
+                        <div class="attr-section">
+                            <h3>Atributos</h3>
+                            <div class="attr-grid">
+                                <div class="attr-item">
+                                    <img src="./imgs/Tecnica Branco.png" alt="técnica">
+                                    <span class="attr-value" id="attr-tecnica">0</span>
+                                    <span class="attr-name">Técnica</span>
+                                </div>
+                                <div class="attr-item">
+                                    <img src="./imgs/Intelecto Branco.png" alt="intelecto">
+                                    <span class="attr-value" id="attr-intelecto">0</span>
+                                    <span class="attr-name">Intelecto</span>
+                                </div>
+                                <div class="attr-item">
+                                    <img src="./imgs/Essencia Branca.png" alt="essencia">
+                                    <span class="attr-value" id="attr-essencia">0</span>
+                                    <span class="attr-name">Essência</span>
+                                </div>
+                                <div class="attr-item">
+                                    <img src="./imgs/Arcano Branco.png" alt="arcano">
+                                    <span class="attr-value" id="attr-arcano">0</span>
+                                    <span class="attr-name">Arcano</span>
+                                </div>
+                                <div class="attr-item">
+                                    <img src="./imgs/Bravura Branco.png" alt="bravura">
+                                    <span class="attr-value" id="attr-bravura">0</span>
+                                    <span class="attr-name">Bravura</span>
+                                </div>
+                                <div class="attr-item">
+                                    <img src="./imgs/Fôlego Branco.png" alt="fôlego">
+                                    <span class="attr-value" id="attr-folego">0</span>
+                                    <span class="attr-name">Fôlego</span>
+                                </div>
+                                <div class="attr-item">
+                                    <img src="./imgs/Influencia Branco.png" alt="influencia">
+                                    <span class="attr-value" id="attr-influencia">0</span>
+                                    <span class="attr-name">Influência</span>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="battle-section">
+                            <h3>Estatísticas de Batalha</h3>
+                            <div class="battle-stats">
+                                <div class="stat-item"><strong>PV:</strong> <span id="stat-pv">0</span></div>
+                                <div class="stat-item"><strong>MN:</strong> <span id="stat-mn">0</span></div>
+                                <div class="stat-item"><strong>STA:</strong> <span id="stat-sta">0</span></div>
+                                <div class="stat-item"><strong>Deslocamento:</strong> <span
+                                        id="stat-deslocamento">7</span></div>
+                                <div class="stat-item"><strong>Carga Máxima:</strong> <span id="stat-carga">9</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="abilities-section">
+                            <h3>Proficiências</h3>
+                            <div class="proficiencias-list" id="char-proficiencias">—</div>
+                            <!-- ===== ADD: Defense Cat (abaixo de proficiências) ===== -->
+                            <div class="defense-cat" aria-label="Defesa do personagem" role="group" aria-live="polite">
+                                <div class="defense-top">DEF</div>
+                                <div class="defense-shield-wrap">
+                                    <img src="./imgs/Escudo.png" alt="Escudo" class="defense-shield-img" />
+                                </div>
+                                <div class="defense-value" id="char-def-value">—</div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- backstory e appearance (Geral) -->
+
+                </div><!-- /.tab-general -->
+
+
+                <!-- ======= Painel DESCRIÇÃO (separado) ======= -->
+                <div class="tab-content tab-description" data-tab="description" style="display:none;">
+                    <!-- Descrição: backstory (cópia), appearance (cópia), personality (novo) -->
+                    <div class="character-backstory">
+                        <h2>História</h2>
+                        <textarea class="story-panel" id="char-historia-desc"
+                            placeholder="Conte a história do seu personagem...">—</textarea>
+                    </div>
+
+                    <div class="character-appearance">
+                        <h2>Aparência</h2>
+                        <textarea class="appearance-panel" id="char-aparencia-desc"
+                            placeholder="Descreva a aparência do seu personagem...">—</textarea>
+                    </div>
+
+                    <div class="character-personality">
+                        <h2>Personalidade</h2>
+                        <textarea class="personality-panel" id="char-personality-desc"
+                            placeholder="Descreva a personalidade do seu personagem...">—</textarea>
+                    </div>
+
+                </div><!-- /.tab-description -->
+
+
+                <!-- ======= Painel BATALHA (com slots e modal) ======= -->
+                <div class="tab-content tab-battle" data-tab="battle" style="display:none;">
+                    <h2>Equipáveis</h2>
+
+
+                    <div class="battle-equip">
+                        <div id="char-armas" class="char-equipment-slot" data-slot-type="armas" tabindex="0"
+                            role="button" aria-pressed="false">
+                            <div class="slot-title">Armas / Equipamentos</div>
+                            <div class="slot-body">Vazio</div>
+                        </div>
+
+
+                        <div id="char-protecao" class="char-equipment-slot" data-slot-type="protecao" tabindex="0"
+                            role="button" aria-pressed="false">
+                            <div class="slot-title">Proteção</div>
+                            <div class="slot-body">Vazio</div>
+                        </div>
+
+
+                        <div id="char-utilitarios" class="char-equipment-slot" data-slot-type="utilitarios" tabindex="0"
+                            role="button" aria-pressed="false">
+                            <div class="slot-title">Utilitários</div>
+                            <div class="slot-body">Vazio</div>
+                        </div>
+
+
+                    </div> <!-- fim de .battle-equip -->
+
+                    <!-- ===== container separado para feitiços & milagres (fica abaixo de .battle-equip) ===== -->
+                    <div class="feitico-equip" aria-label="Feitiços e Milagres equipados">
+                        <div id="char-feiticos" class="char-equipment-slot" data-slot-type="feiticos" tabindex="0"
+                            role="button" aria-pressed="false">
+                            <div class="slot-title">Feitiços</div>
+                            <div class="slot-body">Vazio</div>
+                        </div>
+
+                        <div id="char-milagres" class="char-equipment-slot" data-slot-type="milagres" tabindex="0"
+                            role="button" aria-pressed="false">
+                            <div class="slot-title">Milagres</div>
+                            <div class="slot-body">Vazio</div>
+                        </div>
+                    </div>
+
+                    <!-- INÍCIO: Dice widget (colar abaixo de .battle-equip / .feitico-equip na tab-battle) -->
+                    <div class="battle-dice-wrap" id="battle-dice-wrap" aria-live="polite">
+                        <div class="dice-panel" role="region" aria-label="Painel de dados">
+                            <!-- wrap retangular solicitado -->
+                            <div class="dice-panel-box">
+                                <!-- dado grande -->
+                                <!-- Substitua o conteúdo de .dice-large pelo canvas abaixo -->
+                                <div class="dice-large" id="dice-large" data-sides="20" tabindex="0" role="button"
+                                    aria-label="Dado grande. Pressione para rolar">
+                                    <canvas id="dice-canvas" width="420" height="420" aria-hidden="false"></canvas>
+                                    <!-- fallback número (para leitores/SEO) -->
+                                    <div class="dice-face" id="dice-face" aria-hidden="true">20</div>
+                                </div>
+                            </div>
+                            <!-- mini-dados (vertical, dentro da área direita do wrap) -->
+                                <div class="dice-mini-list" id="dice-mini-list" role="tablist"
+                                    aria-label="Selecionar tipo de dado">
+                                    <button class="dice-mini" data-sides="4" aria-pressed="false" title="d4">d4</button>
+                                    <button class="dice-mini" data-sides="6" aria-pressed="false" title="d6">d6</button>
+                                    <button class="dice-mini" data-sides="8" aria-pressed="false" title="d8">d8</button>
+                                    <button class="dice-mini" data-sides="10" aria-pressed="false"
+                                        title="d10">d10</button>
+                                    <button class="dice-mini" data-sides="12" aria-pressed="false"
+                                        title="d12">d12</button>
+                                    <button class="dice-mini selected" data-sides="20" aria-pressed="true"
+                                        title="d20">d20</button>
+                                </div>
+                        </div>
+                    </div>
+                    <!-- FIM: Dice widget -->
+
+
+                    <!-- Modal de itens (invisível por padrão) -->
+                    <div id="items-modal" class="items-modal" aria-hidden="true">
+                        <div class="items-modal-backdrop"></div>
+                        <div class="items-modal-panel" role="dialog" aria-modal="true"
+                            aria-labelledby="items-modal-title">
+                            <header class="items-modal-header">
+                                <h3 id="items-modal-title">Escolher Item</h3>
+                                <button id="items-modal-close" class="modal-close" aria-label="Fechar">✕</button>
+                            </header>
+                            <div class="items-modal-body">
+                                <aside class="items-list" id="items-list" role="list"></aside>
+                                <section class="item-detail" id="item-detail">
+                                    <div class="item-detail-empty">Selecione um item à esquerda para ver a descrição.
+                                    </div>
+                                    <div class="item-detail-content" style="display:none;">
+                                        <h4 id="detail-name"></h4>
+
+                                        <!-- IMAGEM DO ITEM (adicionada) -->
+                                        <img id="detail-icon" class="detail-icon" src="./imgs/placeholder.png"
+                                            alt="Ícone do item" style="display:none;" />
+
+                                        <div id="detail-fields"></div>
+                                        <div class="item-detail-actions">
+                                            <button id="confirm-equip" class="btn-confirm">Confirmar</button>
+                                            <button id="cancel-equip" class="btn-cancel">Cancelar</button>
+                                        </div>
+                                    </div>
+
+                                </section>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cole isto dentro de .left-card-body como um novo painel -->
+                <div class="tab-content tab-caminhos" data-tab="caminhos" style="display:none;">
+                    <h2 style="text-align:center;margin:6px 0 12px 0;">Caminhos</h2>
+
+                    <div class="skill-tree-wrap">
+                        <div class="skill-tree" id="skill-tree">
+                            <!-- nodes serão renderizados aqui dinamicamente -->
+                            <div id="nodes-container" class="nodes-container"></div>
+
+                            <!-- view após escolher caminho (inicialmente escondida) -->
+                            <div id="selected-path-view" class="selected-path-view" style="display:none;">
+                                <div class="selected-center" id="selected-center"></div>
+                                <div class="selected-vertical" id="selected-vertical"></div>
+                                <div class="selected-footer">
+                                    <div class="pontos-classe-value" id="skilltree-pontos-classe">0</div>
+                                    <div class="pontos-classe-label">Quantidade de pontos de classe</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div><!-- /.left-card-body -->
+        </div><!-- /.left-card -->
+
+    </section>
+
+    <!-- Modal de DETALHE do inventário (lado direito) -->
+    <div id="inventory-item-modal" class="inventory-modal" aria-hidden="true">
+        <div class="modal-content">
+            <button id="inv-item-close" class="close-btn" aria-label="Fechar">X</button>
+            <h2 class="item-detail-title"></h2>
+
+            <div class="item-detail-fields"></div>
+
+            <!-- Ações do modal (botões) -->
+            <div class="item-detail-actions" style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+                <!-- Se você já tem lógica para excluir o documento do collection 'itens', pode reaproveitar este botão.
+           Não substituímos o comportamento do 'Excluir', apenas colocamos o botão visualmente acima do novo. -->
+
+                <!-- BOTÃO SOLICITADO: Remove apenas do inventário do personagem (apaga a entrada do array personagens[].itens) -->
+                <button id="inv-remove-from-char" class="alert-btn" type="button" style="width:100%;">Remover do
+                    inventário</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== ADD: Modal para Feitiços / Milagres ===== -->
+    <div id="magic-modal-backdrop" class="magic-modal-backdrop" aria-hidden="true"></div>
+    <div id="magic-modal" class="magic-modal" aria-hidden="true" role="dialog" aria-modal="true"
+        aria-label="Seleção de Feitiço ou Milagre">
+        <button id="magic-modal-close" class="magic-modal-close" aria-label="Fechar">✕</button>
+
+        <div class="magic-modal-body">
+            <aside class="magic-list">
+                <h3 id="magic-list-title">Carregando...</h3>
+                <div id="magic-list" class="magic-list-items"></div>
+            </aside>
+
+            <section class="magic-detail">
+                <div id="magic-detail-empty" class="magic-detail-empty">Selecione um item à esquerda para ver detalhes.
+                </div>
+                <div id="magic-detail-content" class="magic-detail-content" style="display:none;">
+                    <h2 id="magic-detail-name"></h2>
+                    <div id="magic-detail-fields" class="magic-detail-fields"></div>
+                    <div class="magic-detail-actions">
+                        <button id="magic-confirm-btn" class="btn-confirm">Confirmar</button>
+                        <button id="magic-cancel-btn" class="btn-cancel">Cancelar</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- ========== MODAL: Criar Item (inv-slot vazio) ========== -->
+    <div id="create-item-backdrop" class="alert-backdrop" aria-hidden="true" style="display:none;">
+        <div class="alert-modal" role="dialog" aria-modal="true" aria-labelledby="create-item-title"
+            style="max-width:420px;">
+            <!-- Header -->
+            <div class="alert-header" id="create-item-title">Criar item</div>
+
+            <!-- BODY: two-panel (view 1 = choose, view 2 = form) -->
+            <div class="alert-body" style="display:flex;flex-direction:column;align-items:center;gap:14px;">
+
+                <!-- VIEW 1: Choose (ícone grande + Criar) -->
+                <div id="create-view-choose"
+                    style="width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;">
+                    <div style="font-size:56px;line-height:1.0;">
+                        <i class="fa-solid fa-plus-circle" aria-hidden="true"></i>
+                    </div>
+                    <div style="opacity:0.9;">Crie um novo item para este personagem</div>
+                    <div class="alert-actions">
+                        <button id="btn-open-create-form" class="alert-btn" type="button">Criar</button>
+                        <button id="btn-cancel-create" class="alert-btn" type="button"
+                            style="margin-left:8px;">Fechar</button>
+                    </div>
+                </div>
+
+                <!-- VIEW 2: Form (escondida por padrão) -->
+                <div id="create-view-form"
+                    style="width:100%;display:none;flex-direction:column;align-items:center;gap:10px;">
+                    <!-- imagem placeholder (você pode trocar pela upload se quiser no futuro) -->
+                    <div id="create-item-img"
+                        style="width:160px;height:120px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;overflow:hidden;background:#120f0f;">
+                        <i class="fa-solid fa-box-open" style="font-size:44px;opacity:0.9;"></i>
+                    </div>
+
+                    <!-- inputs -->
+                    <div style="width:100%;display:flex;flex-direction:column;gap:8px;padding-top:8px;">
+                        <input id="create-item-nome" placeholder="Nome do item"
+                            style="width:100%;padding:10px;border-radius:8px;border:2px solid rgba(90,22,22,0.6);background:transparent;color:#efe6e2;font-family:inherit;" />
+                        <textarea id="create-item-descricao" placeholder="Descrição (curta)" rows="3"
+                            style="width:100%;padding:10px;border-radius:8px;border:2px solid rgba(90,22,22,0.6);background:transparent;color:#efe6e2;font-family:inherit;"></textarea>
+                        <!-- Adicione abaixo de #create-item-descricao -->
+                        <div class="form-row create-item-peso-row" style="margin-top:10px;">
+                            <label for="create-item-peso"
+                                style="display:block; font-size:0.9rem; color:#efe6e2; margin-bottom:6px;">Peso
+                                (kg)</label>
+                            <input id="create-item-peso" type="number" step="0.1" placeholder="Ex: 1.5" />
+                        </div>
+
+                    </div>
+
+                    <div class="alert-actions" style="width:100%;margin-top:6px;">
+                        <button id="btn-confirm-create" class="alert-btn" type="button">Confirmar</button>
+                        <button id="btn-back-to-choose" class="alert-btn" type="button"
+                            style="margin-left:8px;">Voltar</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <!-- ========== /MODAL ========== -->
+
+
+    <!-- Mobile Navigation Buttons (apenas visível em mobile) -->
+    <div class="mobile-nav-buttons">
+        <button class="mobile-nav-btn" id="mobile-home-btn" title="Voltar ao Menu" aria-label="Voltar">
+            <i class="fas fa-home"></i>
+        </button>
+        <button class="mobile-nav-btn" id="mobile-char-btn" title="Ficha do Personagem" aria-label="Ver ficha">
+            <i class="fas fa-user-circle"></i>
+        </button>
+        <button class="mobile-nav-btn" id="mobile-inv-btn" title="Inventário" aria-label="Ver inventário">
+            <i class="fas fa-box"></i>
+        </button>
+
+        <button class="mobile-nav-btn" id="mobile-profile-btn" title="Perfil" aria-label="Perfil">
+            <i class="fas fa-user"></i>
+        </button>
+    </div>
+
+    <!-- Botão de fechar mobile -->
+    <button class="mobile-close-btn" id="mobile-close-btn" aria-label="Fechar">
+        <i class="fas fa-times"></i>
+    </button>
+
+    <!-- Overlay de fundo mobile -->
+    <div class="mobile-overlay" id="mobile-overlay"></div>
+
+    <script src="personagem.js"></script>
+    <script type="module" src="global.js"></script>
+
+</body>
+
+</html>

@@ -387,40 +387,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // calcula allowedCap/sum/remaining com base no objeto `attributes`
-    // garante que funcione com chaves acentuadas/normalizadas e usa APENAS os valores brutos (sem bônus racial)
+    // --- computeAllowedAndRemainingFromAttributes (substituir implementação antiga) ---
     function computeAllowedAndRemainingFromAttributes(attrObj) {
-        const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego', 'influencia']
+        const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego', 'influencia'];
 
-        // cria um mapa normalizedKey -> rawValue a partir do objeto que pode ter chaves acentuadas
+        // cria um mapa normalizedKey -> rawValue a partir do objeto que pode ter acentos
         const normalizedMap = {};
         Object.keys(attrObj || {}).forEach(origKey => {
             try {
                 const nk = normalize(origKey);
                 normalizedMap[nk] = Number(attrObj[origKey] ?? 0);
             } catch (e) {
-                // fallback: guarda com a própria key como string
                 normalizedMap[String(origKey)] = Number(attrObj[origKey] ?? 0);
             }
         });
 
-        // conta quantos atributos têm valor negativo (cada negativo aumenta o limite em +1)
-        // isso corresponde ao cálculo de "flaws" na criação de personagem
-        let countNegatives = 0;
+        // conta quantos -1 existem (cada -1 aumenta o limite em +1)
+        let countMinusOne = 0;
         for (const k of ATTR_KEYS_LIST) {
-            if (Number(normalizedMap[k] ?? 0) < 0) countNegatives++;
+            if (Number(normalizedMap[k] ?? 0) === -1) countMinusOne++;
         }
-        const allowedCap = 7 + countNegatives;
+        const allowedCap = 7 + countMinusOne;
 
-        // soma apenas dos valores positivos (raw) - mesma lógica da criação
-        let sumPositives = 0;
-        for (const k of ATTR_KEYS_LIST) {
-            const val = Number(normalizedMap[k] ?? 0);
-            if (val > 0) sumPositives += val;
-        }
+        // soma dos valores brutos (raw)
+        let sumRaw = 0;
+        for (const k of ATTR_KEYS_LIST) sumRaw += Number(normalizedMap[k] ?? 0);
 
-        const remaining = allowedCap - sumPositives;
-        return { allowedCap, sumPositives, remaining, countNegatives };
+        const remaining = allowedCap - sumRaw;
+        return { allowedCap, sumRaw, remaining, countMinusOne };
     }
 
     function updateRemainingUI() {
@@ -712,36 +706,34 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (Number.isNaN(newValue)) newValue = prevRaw;
                     newValue = Math.max(-1, Math.min(7, newValue)); // clamp entre -1 e 7
 
-                    // conta quantos atributos têm valor negativo (cada negativo aumenta o limite em +1, considerando o novo valor)
-                    let countNegatives = 0;
+                    // conta quantos -1 existirão considerando o novo valor editado
+                    // --- substitua a lógica antiga por esta ---
+                    const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego', 'influencia'];
+
+                    // conta quantos -1 haverão considerando o novo valor que o usuário está tentando aplicar
+                    let countMinusOneAfter = 0;
                     for (const k of ATTR_KEYS_LIST) {
                         const kn = normalize(k);
-                        const val = (kn === normalizedKey) ? newValue : Number(attributes[kn] ?? 0);
-                        if (val < 0) countNegatives++;
+                        const v = (kn === normalizedKey) ? newValue : Number(attributes[kn] ?? 0);
+                        if (Number(v) === -1) countMinusOneAfter++;
                     }
-                    const allowedCap = 7 + countNegatives;
+                    const allowedCap = 7 + countMinusOneAfter;
 
-                    // soma apenas dos valores positivos com a substituição do valor em edição - mesma lógica da criação
-                    let sumPositives = 0;
+
+
+                    // soma dos valores brutos com a substituição do valor em edição
+                    let sumRaw = 0;
                     for (const k of ATTR_KEYS_LIST) {
                         const kn = normalize(k);
-                        const val = (kn === normalizedKey) ? newValue : Number(attributes[kn] ?? 0);
-                        if (val > 0) sumPositives += val;
+                        if (kn === normalizedKey) sumRaw += newValue;
+                        else sumRaw += Number(attributes[kn] ?? 0);
                     }
 
-                    if (sumPositives > allowedCap) {
-                        // calcula soma dos positivos antes da alteração
-                        let sumPositivesBefore = 0;
-                        for (const k of ATTR_KEYS_LIST) {
-                            const kn = normalize(k);
-                            const val = Number(attributes[kn] ?? 0);
-                            if (val > 0) sumPositivesBefore += val;
-                        }
-                        const remainingBefore = allowedCap - sumPositivesBefore;
-                        
+                    if (sumRaw > allowedCap) {
                         // mostra alerta 1 vez e reverte ao valor anterior
                         if (!alertShown) {
-                            alert(`Não é possível atribuir esse valor: total de pontos excederia ${allowedCap}.\nPontos restantes antes desta alteração: ${remainingBefore}.\nSoma proposta: ${sumPositives}.`);
+                            const remainingBefore = allowedCap - (sumRaw - newValue);
+                            alert(`Não é possível atribuir esse valor: total de pontos excederia ${allowedCap}.\nPontos restantes antes desta alteração: ${remainingBefore}.\nSoma proposta: ${sumRaw}.`);
                             alertShown = true;
                         }
                         // feedback visual leve
@@ -847,7 +839,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 }
 
                                 (() => {
-                                    const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego', 'influencia']
+                                    const ATTR_KEYS_LIST = ['tecnica', 'intelecto', 'essencia', 'arcano', 'bravura', 'folego', 'influencia'];
                                     const savedAttrs = characters[index].atributos || {};
 
                                     // cria mapa normalizedKey -> rawValue a partir do objeto salvo (pode ter acento)
@@ -861,27 +853,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         }
                                     });
 
-                                    // conta quantos atributos têm valor negativo (cada negativo aumenta o limite em +1)
-                                    let countNegativesSaved = 0;
+                                    // contar quantos -1 existem no mapa salvo (normalizado)
+                                    let countMinusOneSaved = 0;
                                     for (const k of ATTR_KEYS_LIST) {
-                                        if (Number(normalizedMapSaved[k] ?? 0) < 0) countNegativesSaved++;
+                                        if (Number(normalizedMapSaved[k] ?? 0) === -1) countMinusOneSaved++;
                                     }
-                                    const allowedCapSaved = 7 + countNegativesSaved;
+                                    const allowedCapSaved = 7 + countMinusOneSaved;
 
-                                    // soma apenas dos valores positivos (raw) - mesma lógica da criação
-                                    let sumPositivesSaved = 0;
-                                    for (const k of ATTR_KEYS_LIST) {
-                                        const val = Number(normalizedMapSaved[k] ?? 0);
-                                        if (val > 0) sumPositivesSaved += val;
-                                    }
+                                    let sumRawSaved = 0;
+                                    for (const k of ATTR_KEYS_LIST) sumRawSaved += Number(normalizedMapSaved[k] ?? 0);
 
-                                    const remainingSaved = Math.max(0, allowedCapSaved - sumPositivesSaved);
+                                    const remainingSaved = Math.max(0, allowedCapSaved - sumRawSaved);
 
                                     // salva como number no objeto do personagem
                                     characters[index].pontos_restantes = Number(remainingSaved);
-                                    // também mantém charData local em sincronia, se aplicável
                                     if (charData) charData.pontos_restantes = Number(remainingSaved);
                                 })();
+
 
                                 // SALVA no campo CORRETO 'personagens'
                                 await window.updateDoc(userDocRef, { personagens: characters });
