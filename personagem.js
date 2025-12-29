@@ -729,19 +729,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                         if (val > 0) sumPositives += val;
                     }
 
-                    if (sumPositives > allowedCap) {
-                        // calcula soma dos positivos antes da alteração
-                        let sumPositivesBefore = 0;
-                        for (const k of ATTR_KEYS_LIST) {
-                            const kn = normalize(k);
-                            const val = Number(attributes[kn] ?? 0);
-                            if (val > 0) sumPositivesBefore += val;
-                        }
-                        const remainingBefore = allowedCap - sumPositivesBefore;
+                    // calcula soma dos positivos antes da alteração
+                    let sumPositivesBefore = 0;
+                    for (const k of ATTR_KEYS_LIST) {
+                        const kn = normalize(k);
+                        const val = Number(attributes[kn] ?? 0);
+                        if (val > 0) sumPositivesBefore += val;
+                    }
+
+                    // pega pontos_restantes disponíveis (de subir de nível)
+                    const pontosRestantesDisponiveis = (typeof charData !== 'undefined' && charData && typeof charData.pontos_restantes !== 'undefined')
+                        ? Number(charData.pontos_restantes ?? 0)
+                        : 0;
+
+                    // o limite efetivo é allowedCap + pontos_restantes disponíveis
+                    const effectiveCap = allowedCap + pontosRestantesDisponiveis;
+
+                    if (sumPositives > effectiveCap) {
+                        // calcula pontos restantes antes: allowedCap - sumPositivesBefore + pontos_restantes disponíveis
+                        const remainingFromCap = Math.max(0, allowedCap - sumPositivesBefore);
+                        const remainingBefore = remainingFromCap + pontosRestantesDisponiveis;
                         
                         // mostra alerta 1 vez e reverte ao valor anterior
                         if (!alertShown) {
-                            alert(`Não é possível atribuir esse valor: total de pontos excederia ${allowedCap}.\nPontos restantes antes desta alteração: ${remainingBefore}.\nSoma proposta: ${sumPositives}.`);
+                            alert(`Não é possível atribuir esse valor: total de pontos excederia ${effectiveCap}.\nPontos restantes antes desta alteração: ${remainingBefore}.\nSoma proposta: ${sumPositives}.`);
                             alertShown = true;
                         }
                         // feedback visual leve
@@ -808,6 +819,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                             const characters = userDocSnap.data().personagens || [];
                             const index = characters.findIndex(c => c.uid === charUid);
                             if (index >= 0) {
+                                // salva os atributos ANTES da mudança para calcular diferença depois
+                                const attrsBeforeSave = JSON.parse(JSON.stringify(characters[index].atributos || {}));
+                                
                                 // garante que os atributos armazenados no documento sejam números
                                 characters[index].atributos = characters[index].atributos || {};
                                 Object.keys(attributes).forEach(k => {
@@ -875,12 +889,36 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         if (val > 0) sumPositivesSaved += val;
                                     }
 
-                                    const remainingSaved = Math.max(0, allowedCapSaved - sumPositivesSaved);
+                                    // calcula soma anterior (antes da mudança) para ver se pontos foram gastos
+                                    let sumPositivesBefore = 0;
+                                    for (const k of ATTR_KEYS_LIST) {
+                                        try {
+                                            const nk = normalize(k);
+                                            const val = Number(attrsBeforeSave[nk] ?? 0);
+                                            if (val > 0) sumPositivesBefore += val;
+                                        } catch (e) {
+                                            const val = Number(attrsBeforeSave[k] ?? 0);
+                                            if (val > 0) sumPositivesBefore += val;
+                                        }
+                                    }
 
-                                    // salva como number no objeto do personagem
-                                    characters[index].pontos_restantes = Number(remainingSaved);
+                                    // pega pontos_restantes atuais (antes da mudança)
+                                    const pontosRestantesAtuais = Number(characters[index].pontos_restantes ?? 0);
+                                    
+                                    // calcula diferença: se soma nova > soma anterior, pontos foram gastos
+                                    const diferenca = sumPositivesSaved - sumPositivesBefore;
+                                    
+                                    // se pontos foram adicionados (diferenca > 0), decrementa pontos_restantes
+                                    // se pontos foram removidos (diferenca < 0), não faz nada (não devolve pontos)
+                                    let pontosRestantesFinais = pontosRestantesAtuais;
+                                    if (diferenca > 0) {
+                                        pontosRestantesFinais = Math.max(0, pontosRestantesAtuais - diferenca);
+                                    }
+
+                                    // salva pontos_restantes (decrementado se pontos foram gastos)
+                                    characters[index].pontos_restantes = Number(pontosRestantesFinais);
                                     // também mantém charData local em sincronia, se aplicável
-                                    if (charData) charData.pontos_restantes = Number(remainingSaved);
+                                    if (charData) charData.pontos_restantes = Number(pontosRestantesFinais);
                                 })();
 
                                 // SALVA no campo CORRETO 'personagens'
@@ -2037,6 +2075,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             // loop nível-a-nível (para tratar triggers por nível se necessário)
             // loop nível-a-nível (para tratar triggers por nível se necessário)
             for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) {
+                // salva estado ANTES de subir de nível (para reversão)
+                const attrsBeforeLevelUp = JSON.parse(JSON.stringify(characters[idx].atributos || {}));
+                const pontosRestantesBeforeLevelUp = Number(characters[idx].pontos_restantes ?? 0);
+                
                 // 1) pontos_restantes +1
                 const prevPR = Number(characters[idx].pontos_restantes ?? 0);
                 characters[idx].pontos_restantes = prevPR + 1;
@@ -2067,7 +2109,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     addSTA = 5 + fole;
                 }
 
-                // registra histórico
+                // registra histórico (incluindo estado antes de subir de nível)
                 characters[idx].levelHistory = Array.isArray(characters[idx].levelHistory) ? characters[idx].levelHistory : [];
                 const histEntry = {
                     lvl: lvl,
@@ -2076,6 +2118,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     addSTA: Number(addSTA) || 0,
                     pointsAdded: 1,
                     profAdded: null,
+                    attrsBefore: attrsBeforeLevelUp,  // salva atributos antes de subir de nível
+                    pontosRestantesBefore: pontosRestantesBeforeLevelUp,  // salva pontos_restantes antes de subir de nível
                     ts: Date.now()
                 };
                 characters[idx].levelHistory.push(histEntry);
@@ -4845,8 +4889,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (Number(char.MN.atual) > char.MN.total) char.MN.atual = char.MN.total;
             if (Number(char.STA.atual) > char.STA.total) char.STA.atual = char.STA.total;
 
-            // pontos_restantes retrocede
-            char.pontos_restantes = Math.max(0, Number(char.pontos_restantes ?? 0) - Number(last.pointsAdded ?? 1));
+            // pontos_restantes retrocede para o valor antes de subir de nível
+            if (typeof last.pontosRestantesBefore !== 'undefined') {
+                char.pontos_restantes = Number(last.pontosRestantesBefore ?? 0);
+            } else {
+                // fallback: subtrai apenas o que foi adicionado
+                char.pontos_restantes = Math.max(0, Number(char.pontos_restantes ?? 0) - Number(last.pointsAdded ?? 1));
+            }
+
+            // restaura atributos para o estado antes de subir de nível
+            if (last.attrsBefore && typeof last.attrsBefore === 'object') {
+                char.atributos = JSON.parse(JSON.stringify(last.attrsBefore));
+            }
 
             // remover proficiência adicionada (se houver)
             if (last.profAdded && Array.isArray(char.proeficiencias)) {
@@ -4879,6 +4933,67 @@ document.addEventListener('DOMContentLoaded', async () => {
             curMN = Math.min(curMN, totMN);
             curSTA = Math.min(curSTA, totSTA);
 
+            // atualiza atributos locais (attributes e attrKeys) se foram restaurados
+            if (last.attrsBefore && typeof last.attrsBefore === 'object') {
+                // atualiza objeto attributes local
+                Object.keys(attributes).forEach(k => delete attributes[k]);
+                Object.keys(last.attrsBefore).forEach(origKey => {
+                    try {
+                        const nk = normalize(origKey);
+                        attributes[nk] = Number(last.attrsBefore[origKey] ?? 0);
+                    } catch (e) {
+                        attributes[origKey] = Number(last.attrsBefore[origKey] ?? 0);
+                    }
+                });
+
+                // recalcula attrKeys (raw + bônus racial)
+                Object.keys(attributes).forEach(k => {
+                    attrKeys[k] = applyRacialBonus(Number(attributes[k] ?? 0), k);
+                });
+
+                // atualiza UI dos atributos
+                Object.keys(attributes).forEach(k => {
+                    const attrEl = document.querySelector(`.attr-value[data-attr="${k}"]`);
+                    if (attrEl) {
+                        const raw = Number(attributes[k] ?? 0);
+                        const bonus = getBonus(k);
+                        const total = raw + bonus;
+                        attrEl.textContent = String(total);
+                        attrEl.title = bonus > 0 ? `${raw} + ${bonus}` : `${raw}`;
+                    }
+                });
+
+                // recalcula stats baseado nos atributos restaurados
+                const brav = Number(attrKeys.bravura ?? 0);
+                const arca = Number(attrKeys.arcano ?? 0);
+                const fole = Number(attrKeys.folego ?? 0);
+                const ess = Number(attrKeys.essencia ?? 0);
+
+                let pv = 0, mn = 0, sta = 0;
+                if (savedClass === 'Arcanista') {
+                    pv = 8 + brav;
+                    mn = 10 + arca;
+                    sta = 6 + fole;
+                } else if (savedClass === 'Escudeiro') {
+                    pv = 18 + brav;
+                    mn = 2 + arca;
+                    sta = 8 + fole;
+                } else if (savedClass === 'Errante') {
+                    pv = 10 + brav;
+                    mn = 5 + arca;
+                    sta = 12 + fole;
+                } else if (savedClass === 'Luminar') {
+                    pv = 9 + brav;
+                    mn = 10 + arca;
+                    sta = 4 + ess;
+                }
+
+                // atualiza charData com atributos restaurados
+                if (charData) {
+                    charData.atributos = JSON.parse(JSON.stringify(char.atributos));
+                }
+            }
+
             // mantém charData local consistente
             if (charData) {
                 charData.PV = char.PV;
@@ -4890,6 +5005,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             updateAllBars();
+            try { updateRemainingUI(); } catch (e) { console.warn('updateRemainingUI erro na reversão:', e); }
             // salva barras + LVL/EXP
             await saveBarsToFirestore();
 
@@ -5232,8 +5348,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // subir níveis: acumula deltas e cria entradas em levelHistory (uma por nível)
                 const levelsToAdd = newLevel - oldLevel;
                 let totalAddPV = 0, totalAddMN = 0, totalAddSTA = 0, totalPoints = 0;
+                
                 for (let i = 1; i <= levelsToAdd; i++) {
                     const lvlReached = oldLevel + i;
+                    
+                    // salva estado ANTES de subir este nível específico (para reversão)
+                    const attrsBeforeThisLevel = JSON.parse(JSON.stringify(char.atributos || {}));
+                    const pontosRestantesBeforeThisLevel = Number(char.pontos_restantes ?? 0);
+                    
                     const d = perLevelDelta(className);
                     totalAddPV += d.addPV;
                     totalAddMN += d.addMN;
@@ -5248,9 +5370,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                         addSTA: d.addSTA,
                         pointsAdded: d.pointsAdded,
                         profAdded: null,
+                        attrsBefore: attrsBeforeThisLevel,
+                        pontosRestantesBefore: pontosRestantesBeforeThisLevel,
                         ts: Date.now()
                     };
                     char.levelHistory.push(histEntry);
+                    
+                    // atualiza pontos_restantes para o próximo nível (se houver)
+                    if (i < levelsToAdd) {
+                        char.pontos_restantes = Number(char.pontos_restantes ?? 0) + d.pointsAdded;
+                    }
                 }
 
                 char.PV.total = Number(char.PV.total ?? 0) + totalAddPV;
@@ -5327,9 +5456,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // diminuir níveis: tenta remover entradas do levelHistory; se faltar, usa estimativa
                 const levelsToRemove = oldLevel - newLevel;
                 let totalSubPV = 0, totalSubMN = 0, totalSubSTA = 0, totalPointsSub = 0;
+                let firstRevertedEntry = null; // guarda o primeiro nível revertido (mais antigo) para restaurar atributos
+                
                 for (let i = 0; i < levelsToRemove; i++) {
                     if (char.levelHistory.length > 0) {
                         const last = char.levelHistory.pop();
+                        // o primeiro que pegamos (último do loop) será o mais antigo
+                        if (i === levelsToRemove - 1) {
+                            firstRevertedEntry = last;
+                        }
                         totalSubPV += Number(last.addPV ?? 0);
                         totalSubMN += Number(last.addMN ?? 0);
                         totalSubSTA += Number(last.addSTA ?? 0);
@@ -5359,8 +5494,83 @@ document.addEventListener('DOMContentLoaded', async () => {
                 char.MN.atual = Math.min(Number(char.MN.atual ?? 0), char.MN.total);
                 char.STA.atual = Math.min(Number(char.STA.atual ?? 0), char.STA.total);
 
-                char.pontos_restantes = Math.max(0, Number(char.pontos_restantes ?? 0) - totalPointsSub);
+                // restaura pontos_restantes e atributos do primeiro nível revertido (mais antigo)
+                if (firstRevertedEntry) {
+                    if (typeof firstRevertedEntry.pontosRestantesBefore !== 'undefined') {
+                        char.pontos_restantes = Number(firstRevertedEntry.pontosRestantesBefore ?? 0);
+                    } else {
+                        char.pontos_restantes = Math.max(0, Number(char.pontos_restantes ?? 0) - totalPointsSub);
+                    }
+                    
+                    // restaura atributos para o estado antes de subir de nível
+                    if (firstRevertedEntry.attrsBefore && typeof firstRevertedEntry.attrsBefore === 'object') {
+                        char.atributos = JSON.parse(JSON.stringify(firstRevertedEntry.attrsBefore));
+                    }
+                } else {
+                    char.pontos_restantes = Math.max(0, Number(char.pontos_restantes ?? 0) - totalPointsSub);
+                }
                 char.LVL = Math.max(1, newLevel);
+                
+                // atualiza atributos locais (attributes e attrKeys) se foram restaurados
+                if (firstRevertedEntry && firstRevertedEntry.attrsBefore && typeof firstRevertedEntry.attrsBefore === 'object') {
+                    // atualiza objeto attributes local
+                    Object.keys(attributes).forEach(k => delete attributes[k]);
+                    Object.keys(firstRevertedEntry.attrsBefore).forEach(origKey => {
+                        try {
+                            const nk = normalize(origKey);
+                            attributes[nk] = Number(firstRevertedEntry.attrsBefore[origKey] ?? 0);
+                        } catch (e) {
+                            attributes[origKey] = Number(firstRevertedEntry.attrsBefore[origKey] ?? 0);
+                        }
+                    });
+
+                    // recalcula attrKeys (raw + bônus racial)
+                    Object.keys(attributes).forEach(k => {
+                        attrKeys[k] = applyRacialBonus(Number(attributes[k] ?? 0), k);
+                    });
+
+                    // atualiza UI dos atributos
+                    Object.keys(attributes).forEach(k => {
+                        const attrEl = document.querySelector(`.attr-value[data-attr="${k}"]`);
+                        if (attrEl) {
+                            const raw = Number(attributes[k] ?? 0);
+                            const bonus = getBonus(k);
+                            const total = raw + bonus;
+                            attrEl.textContent = String(total);
+                            attrEl.title = bonus > 0 ? `${raw} + ${bonus}` : `${raw}`;
+                        }
+                    });
+
+                    // recalcula stats baseado nos atributos restaurados
+                    const brav = Number(attrKeys.bravura ?? 0);
+                    const arca = Number(attrKeys.arcano ?? 0);
+                    const fole = Number(attrKeys.folego ?? 0);
+                    const ess = Number(attrKeys.essencia ?? 0);
+
+                    let pv = 0, mn = 0, sta = 0;
+                    if (savedClass === 'Arcanista') {
+                        pv = 8 + brav;
+                        mn = 10 + arca;
+                        sta = 6 + fole;
+                    } else if (savedClass === 'Escudeiro') {
+                        pv = 18 + brav;
+                        mn = 2 + arca;
+                        sta = 8 + fole;
+                    } else if (savedClass === 'Errante') {
+                        pv = 10 + brav;
+                        mn = 5 + arca;
+                        sta = 12 + fole;
+                    } else if (savedClass === 'Luminar') {
+                        pv = 9 + brav;
+                        mn = 10 + arca;
+                        sta = 4 + ess;
+                    }
+
+                    // atualiza charData com atributos restaurados
+                    if (charData) {
+                        charData.atributos = JSON.parse(JSON.stringify(char.atributos));
+                    }
+                }
 
                 // salva alterações
                 characters[idx] = char;
