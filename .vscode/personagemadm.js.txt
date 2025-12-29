@@ -388,9 +388,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         folego: attributes['fôlego'] ?? attributes['folego'] ?? 0,
         essencia: attributes['essencia'] ?? attributes['essência'] ?? 0,
         tecnica: attributes['técnica'] ?? attributes['tecnica'] ?? 0,
-        intelecto: attributes['intelecto'] ?? 0,
-        influencia: attributes['influencia'] ?? attributes['influência'] ?? 0   // <-- novo
-
+        intelecto: attributes['intelecto'] ?? 0
     };
 
     function applyRacialBonus(rawValue, key) {
