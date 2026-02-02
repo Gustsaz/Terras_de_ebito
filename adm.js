@@ -16,7 +16,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Function to load all users
     async function loadUsers() {
         try {
-            const usuariosCol = window.collection(window.firestoredb, 'usuarios');
+            await waitForFirestoreReady(); // garante que firestore + funções estejam prontas
+            const usuariosCol = await getCollectionRefSafe('usuarios'); // usa helper seguro
             const snapshot = await window.getDocs(usuariosCol);
             usersList.innerHTML = '';
             snapshot.forEach(doc => {
@@ -43,8 +44,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
         } catch (error) {
             console.error('Error loading users:', error);
-            usersList.innerHTML = '<p>Erro ao carregar usuários.</p>';
+            if (error && error.code === 'permission-denied') {
+                usersList.innerHTML = '<p>Sem permissões para listar usuários. Verifique regras do Firestore ou faça login como admin.</p>';
+            } else {
+                usersList.innerHTML = '<p>Erro ao carregar usuários.</p>';
+            }
         }
+
     }
 
     // Function to load characters of a user
@@ -1608,9 +1614,10 @@ async function getDocRefSafe(collectionName, docId) {
     // fetch distinct values for a collection+field
     async function getDistinctValues(collection, field) {
         try {
-            const fns = await resolveFirestoreFunctions();
-            const colRef = fns.collection(window.firestoredb, collection);
-            const snap = await fns.getDocs(colRef);
+            // espera/garante Firestore pronto
+            await waitForFirestoreReady();
+            const colRef = await getCollectionRefSafe(collection);
+            const snap = await window.getDocs(colRef);
             const s = new Set();
             snap.forEach(d => {
                 const v = d.data()[field];
@@ -1622,6 +1629,7 @@ async function getDocRefSafe(collectionName, docId) {
             return [];
         }
     }
+
 
     // populate subfilter buttons (calls once on init)
     async function populateAllSubfilters() {

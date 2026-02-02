@@ -749,7 +749,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         // calcula pontos restantes antes: allowedCap - sumPositivesBefore + pontos_restantes disponíveis
                         const remainingFromCap = Math.max(0, allowedCap - sumPositivesBefore);
                         const remainingBefore = remainingFromCap + pontosRestantesDisponiveis;
-                        
+
                         // mostra alerta 1 vez e reverte ao valor anterior
                         if (!alertShown) {
                             alert(`Não é possível atribuir esse valor: total de pontos excederia ${effectiveCap}.\nPontos restantes antes desta alteração: ${remainingBefore}.\nSoma proposta: ${sumPositives}.`);
@@ -821,7 +821,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             if (index >= 0) {
                                 // salva os atributos ANTES da mudança para calcular diferença depois
                                 const attrsBeforeSave = JSON.parse(JSON.stringify(characters[index].atributos || {}));
-                                
+
                                 // garante que os atributos armazenados no documento sejam números
                                 characters[index].atributos = characters[index].atributos || {};
                                 Object.keys(attributes).forEach(k => {
@@ -904,10 +904,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                                     // pega pontos_restantes atuais (antes da mudança)
                                     const pontosRestantesAtuais = Number(characters[index].pontos_restantes ?? 0);
-                                    
+
                                     // calcula diferença: se soma nova > soma anterior, pontos foram gastos
                                     const diferenca = sumPositivesSaved - sumPositivesBefore;
-                                    
+
                                     // se pontos foram adicionados (diferenca > 0), decrementa pontos_restantes
                                     // se pontos foram removidos (diferenca < 0), não faz nada (não devolve pontos)
                                     let pontosRestantesFinais = pontosRestantesAtuais;
@@ -1165,123 +1165,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    /* =========================
-   Caminhos (Skill Tree)
-   Cole AFTER saveCharacterField(...) - dentro do mesmo DOMContentLoaded
-   ========================= */
-
-    (function initCaminhosFeature() {
-        // safe-refs
+    /* ========== NOVO: Caminhos - Lista vertical com modais ========== */
+    (function initCaminhosLista() {
         const tabBtn = document.querySelector('.card-tab[data-tab="caminhos"]');
-        const tabContent = document.querySelector('.tab-content.tab-caminhos');
-        const nodesContainer = () => document.getElementById('nodes-container');
-        const selectedViewEl = () => document.getElementById('selected-path-view');
-        const selectedCenter = () => document.getElementById('selected-center');
-        const selectedVertical = () => document.getElementById('selected-vertical');
-        const pontosClasseDom = () => document.getElementById('skilltree-pontos-classe');
+        const listRoot = document.getElementById('caminhos-list');
 
-        // helper: change tab (reuse your existing tab switching if any)
-        // Não mexemos no controle do setActiveTab() (já feito por setupCardTabs).
-        // Só usamos o clique na aba 'caminhos' para garantir que os nodes sejam (re)renderizados.
-        if (tabBtn) {
-            tabBtn.addEventListener('click', async (e) => {
-                try {
-                    // renderiza (ou re-renderiza) os nodes quando o usuário abre a aba
-                    await renderInitialNodes();
-                } catch (err) {
-                    console.warn('Erro ao renderizar caminhos ao abrir aba:', err);
-                }
+        // helpers de DOM
+        const create = (tag, props = {}, children = []) => {
+            const el = document.createElement(tag);
+            Object.entries(props).forEach(([k, v]) => {
+                if (k === 'class') el.className = v;
+                else if (k === 'html') el.innerHTML = v;
+                else el.setAttribute(k, String(v));
             });
-        }
+            (Array.isArray(children) ? children : [children]).forEach(c => { if (typeof c === 'string') el.appendChild(document.createTextNode(c)); else if (c) el.appendChild(c); });
+            return el;
+        };
 
-
-
-        // small mouse move 3D effect for .skill-tree
-        const tree = document.getElementById('skill-tree');
-        if (tree) {
-            tree.addEventListener('mousemove', (ev) => {
-                const r = tree.getBoundingClientRect();
-                const cx = r.left + r.width / 2;
-                const cy = r.top + r.height / 2;
-                const dx = ev.clientX - cx;
-                const dy = ev.clientY - cy;
-                const rx = clamp(-dy / 40, -8, 8);
-                const ry = clamp(dx / 40, -8, 8);
-                tree.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
-            });
-            tree.addEventListener('mouseleave', () => { tree.style.transform = ''; });
-        }
-
-        // ----------------------- PANNING (drag to move the skill-tree) -----------------------
-        (() => {
-            const treeEl = document.getElementById('skill-tree');
-            const nodesEl = document.getElementById('nodes-container');
-            if (!treeEl || !nodesEl) return;
-
-            // evita comportamento nativo doloroso em touch
-            nodesEl.style.touchAction = 'none';
-
-            let isPanning = false;
-            let startX = 0, startY = 0;
-            let panX = 0, panY = 0;
-
-            // Inicia panning somente se clicar/arrastar em área que NÃO é um nó
-            treeEl.addEventListener('pointerdown', (ev) => {
-                // Somente botão esquerdo
-                if (ev.button !== 0) return;
-                // não iniciar pan se clicou em um node (ct-node ou level-node)
-                if (ev.target.closest('.ct-node') || ev.target.closest('.level-node')) return;
-                isPanning = true;
-                startX = ev.clientX;
-                startY = ev.clientY;
-                if (treeEl.setPointerCapture) treeEl.setPointerCapture(ev.pointerId);
-            });
-
-            treeEl.addEventListener('pointermove', (ev) => {
-                if (!isPanning) return;
-                const dx = ev.clientX - startX;
-                const dy = ev.clientY - startY;
-                // aplica transform temporário (não grava panX/panY ainda)
-                nodesEl.style.transform = `translate(${panX + dx}px, ${panY + dy}px)`;
-            });
-
-            const stopPan = (ev) => {
-                if (!isPanning) return;
-                const dx = ev.clientX - startX;
-                const dy = ev.clientY - startY;
-                panX += dx;
-                panY += dy;
-                isPanning = false;
-                if (treeEl.releasePointerCapture) {
-                    try { treeEl.releasePointerCapture(ev.pointerId); } catch (e) { /* silent */ }
-                }
-                // se quiser limitar pan, aqui é o lugar (clamp panX/panY)
-            };
-
-            treeEl.addEventListener('pointerup', stopPan);
-            treeEl.addEventListener('pointercancel', stopPan);
-
-            // duplo clique pra reset do pan (opcional)
-            treeEl.addEventListener('dblclick', () => {
-                panX = 0; panY = 0;
-                nodesEl.style.transform = '';
-            });
-        })();
-
-
-        // clamp helper
-        function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-
-        // fetch caminhos for this class
-        async function fetchCaminhosForClass() {
+        // fetch caminhos filtrados pela classe do char atual
+        async function fetchCaminhosForChar() {
             try {
-                // carrega todos os docs da coleção 'caminhos'
                 const snap = await window.getDocs(window.collection(window.firestoredb, 'caminhos'));
-                // monta array com uid + dados (spread corretamente)
                 const all = snap.docs.map(d => ({ uid: d.id, ...(d.data() || {}) }));
-                // filtra pelos caminhos que correspondem à classe do personagem atual
                 const filtered = all.filter(c => String(c.classe || '').trim() === String(charData.classe || '').trim());
-                console.log('fetchCaminhosForClass -> encontrados caminhos para classe', charData?.classe, filtered.length);
                 return filtered;
             } catch (e) {
                 console.error('Erro ao carregar caminhos:', e);
@@ -1289,436 +1195,225 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        // render inicial nodes (circles distributed near center)
-        async function renderInitialNodes() {
-            const nCont = nodesContainer();
-            if (!nCont) return;
-            // se painel está oculto, não redesenhar (evita efeitos visuais)
-            const tab = nCont.closest('.tab-content');
-            if (tab && tab.style.display === 'none') return;
-            nCont.innerHTML = '';
+        // retorna nivel atual do personagem para um dado caminho uid (0 se não tiver)
+        function getCharNivelForPath(uid) {
+            try {
+                const caminhosArr = Array.isArray(charData.caminho) ? charData.caminho : [];
+                const found = caminhosArr.find(x => x && String(x.uid) === String(uid));
+                return found ? Number(found.nivel_atual || 0) : 0;
+            } catch (e) {
+                return 0;
+            }
+        }
 
-            // carrega caminhos e loga para debug
-            const caminhos = await fetchCaminhosForClass();
-            console.log('renderInitialNodes -> caminhos carregados:', caminhos.length, caminhos);
+        // salva o nivel para o personagem (sobrescreve/insere no array personagens[].caminho)
+        async function saveCharNivel(uid, nivelNumber) {
+            try {
+                const arr = Array.isArray(charData.caminho) ? charData.caminho.slice() : [];
+                // encontrar índice do caminho
+                const idx = arr.findIndex(x => x && String(x.uid) === String(uid));
+                if (idx >= 0) {
+                    arr[idx] = Object.assign({}, arr[idx], { uid: String(uid), nivel_atual: Number(nivelNumber) });
+                } else {
+                    arr.push({ uid: String(uid), nivel_atual: Number(nivelNumber) });
+                }
+                await robustSaveCharacterField('caminho', arr);
+                // atualizar local charData para feedback imediato
+                charData.caminho = arr;
+                return true;
+            } catch (e) {
+                console.error('Erro ao salvar caminho do personagem:', e);
+                return false;
+            }
+        }
+
+        // render de toda lista
+        async function renderLista() {
+            if (!listRoot) return;
+            listRoot.innerHTML = '';
+            const caminhos = await fetchCaminhosForChar();
 
             if (!caminhos.length) {
-                nCont.innerHTML = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#ccc">Nenhum caminho disponível para sua classe.</div>`;
+                const empty = create('div', { class: 'empty-caminhos', html: 'Nenhum caminho disponível para sua classe.' });
+                listRoot.appendChild(empty);
                 return;
             }
 
-            // layout: place nodes in a small circular cluster or grid centered
-            const centerX = nCont.clientWidth / 2 || 400;
-            const centerY = nCont.clientHeight / 2 || 200;
-            const radius = Math.min(centerX, centerY) * 0.28;
-            caminhos.forEach((cam, i) => {
-                const angle = (i / caminhos.length) * Math.PI * 2;
-                // slight randomization to cluster near center
-                const rx = (Math.cos(angle) * radius) + (Math.random() * 24 - 12);
-                const ry = (Math.sin(angle) * radius) + (Math.random() * 20 - 10);
-                const el = document.createElement('div');
-                el.className = 'ct-node';
-                el.style.left = `calc(50% + ${rx}px)`;
-                el.style.top = `calc(50% + ${ry}px)`;
-                el.dataset.uid = cam.uid;
-                // image inside circle
-                const img = document.createElement('img');
-                img.src = cam.img || './imgs/placeholder.png';
-                img.alt = cam.nome || '';
-                el.appendChild(img);
-                // click opens path modal
-                el.addEventListener('click', (ev) => {
-                    ev.stopPropagation();
-                    showPathModal(cam);
-                });
-                nCont.appendChild(el);
+            caminhos.forEach(cam => {
+                const row = create('div', { class: 'caminho-row', 'data-uid': cam.uid });
+                // left: retângulo com nome (clicável abre modal info do caminho)
+                const left = create('div', { class: 'caminho-nome', role: 'button', tabindex: 0 });
+                if (cam.img) {
+                    const img = create('img', { src: Array.isArray(cam.img) ? cam.img[0] : cam.img, alt: cam.nome || '' });
+                    left.appendChild(img);
+                }
+                left.appendChild(document.createTextNode(cam.nome || 'Caminho'));
+                left.addEventListener('click', () => openPathInfoModal(cam));
+                left.addEventListener('keydown', (e) => { if (e.key === 'Enter') openPathInfoModal(cam); });
+
+                // right: níveis (quadradinhos) - conforme pedido, começamos do índice 1 do array 'niveis'
+                const levelsWrap = create('div', { class: 'caminho-levels' });
+                const niveis = Array.isArray(cam.niveis) ? cam.niveis : [];
+                // se tiver apenas 1 elemento, ainda assim tenta criar ao menos 1 "quadradinho" (a regra sua usará index>=1)
+                const startIndex = 1;
+                for (let i = startIndex; i < niveis.length; i++) {
+                    const lvlIndex = i;
+                    const sq = create('div', { class: 'caminho-level', 'data-level': lvlIndex, title: niveis[lvlIndex]?.nome || `Nível ${lvlIndex}` }, [String(lvlIndex)]);
+                    // marcar preenchidos de acordo com charData
+                    const current = getCharNivelForPath(cam.uid);
+                    if (current >= lvlIndex) sq.classList.add('filled');
+                    else sq.classList.add('opaco');
+
+                    sq.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        // se já preenchido (current >= lvlIndex) abrimos modal para "voltar 1 nivel"
+                        if (current >= lvlIndex) {
+                            openLevelModal(cam, lvlIndex, true);
+                        } else {
+                            // caso não preenchido, abrimos modal para subir
+                            openLevelModal(cam, lvlIndex, false);
+                        }
+                    });
+
+                    levelsWrap.appendChild(sq);
+                }
+
+                row.appendChild(left);
+                row.appendChild(levelsWrap);
+                listRoot.appendChild(row);
             });
         }
 
-        // Show modal for a path (with carousel for niveis)
-        function showPathModal(path) {
-            if (!path) return;
-            if (document.getElementById('path-modal-overlay')) return; // avoid duplicates
-            const overlay = document.createElement('div');
-            overlay.id = 'path-modal-overlay';
-            overlay.className = 'path-modal-overlay';
+        // cria e exibe modal com info geral do caminho (clicando no nome)
+        function openPathInfoModal(cam) {
+            if (!cam) return;
+            // bloqueia duplicatas
+            if (document.getElementById('path-info-overlay')) return;
 
-            const box = document.createElement('div');
-            box.className = 'path-modal';
+            const overlay = create('div', { id: 'path-info-overlay', class: 'path-modal-overlay' });
+            const box = create('div', { class: 'path-modal', role: 'dialog', 'aria-modal': 'true' });
+
+            // nivel atual
+            const current = getCharNivelForPath(cam.uid);
+            // descricao_nivel atual (ou "Sem nivel")
+            const currentNivelObj = (Array.isArray(cam.niveis) && cam.niveis[current]) ? cam.niveis[current] : null;
+            const descricaoNivel = currentNivelObj ? (currentNivelObj.descricao_nivel || '') : 'Sem nível';
+
             box.innerHTML = `
-      <div class="modal-header"><div style="font-size:1.15rem">${path.nome || 'Caminho'}</div></div>
+      <div class="modal-header">${cam.nome || 'Caminho'}</div>
       <div class="modal-body">
-        <div class="path-desc">${path.descricao_geral || '—'}</div>
-        <div class="levels-carousel" id="levels-carousel"></div>
+        <div class="path-img"><img src="${(Array.isArray(cam.img) ? cam.img[0] : cam.img) || './imgs/placeholder.png'}" alt="${cam.nome || ''}"></div>
+        <div class="path-text">
+          <div><strong>Descrição geral</strong></div>
+          <div style="opacity:0.95">${cam.descricao_geral || '—'}</div>
+          <div style="margin-top:8px;display:flex;gap:12px;align-items:center;justify-content:space-between;">
+            <div><strong>Nível atual:</strong> ${current || 0}</div>
+            <div style="flex:1;text-align:right;opacity:0.95"><strong>Detalhe do nível:</strong> ${descricaoNivel}</div>
+          </div>
+        </div>
       </div>
       <div class="modal-actions">
-        <button class="alert-btn" id="choose-path-btn">Escolher caminho</button>
-        <button class="alert-btn" id="close-path-btn">Fechar</button>
+        <button class="btn" id="path-info-close">Fechar</button>
       </div>
     `;
+
             overlay.appendChild(box);
             document.body.appendChild(overlay);
 
-            // build carousel - simple one-card show with prev/next
-            const carousel = box.querySelector('#levels-carousel');
-            const niveis = Array.isArray(path.niveis) ? path.niveis : [];
-            let carouselIndex = 0;
+            function cleanup() { overlay.remove(); }
 
-            function renderCarousel() {
-                carousel.innerHTML = '';
-                const prev = document.createElement('button'); prev.className = 'alert-btn'; prev.textContent = '◀';
-                const next = document.createElement('button'); next.className = 'alert-btn'; next.textContent = '▶';
-                const slot = document.createElement('div'); slot.className = 'carousel-slot';
-                const nivel = niveis[carouselIndex] || {};
-                slot.innerHTML = `<div style="font-weight:800;margin-bottom:8px;">${nivel.nome || ('Nível ' + carouselIndex)}</div>
-                        <div style="font-size:0.95rem;color:#eee">${nivel.descricao_nivel || '—'}</div>`;
-                prev.addEventListener('click', (e) => { e.stopPropagation(); carouselIndex = (carouselIndex - 1 + niveis.length) % Math.max(1, niveis.length); renderCarousel(); });
-                next.addEventListener('click', (e) => { e.stopPropagation(); carouselIndex = (carouselIndex + 1) % Math.max(1, niveis.length); renderCarousel(); });
-
-                carousel.appendChild(prev);
-                carousel.appendChild(slot);
-                carousel.appendChild(next);
-            }
-            renderCarousel();
-
-            // handlers
-            box.querySelector('#close-path-btn').addEventListener('click', () => overlay.remove());
-            overlay.addEventListener('click', (ev) => { if (ev.target === overlay) overlay.remove(); });
-
-            // Choose path button action
-            box.querySelector('#choose-path-btn').addEventListener('click', async () => {
-                try {
-                    // build caminho object to save in character
-                    const roteiro = {
-                        uid: path.uid,
-                        descricao_geral: path.descricao_geral || '',
-                        nivel_atual: 0,
-                        descricao_nivel: (Array.isArray(path.niveis) && path.niveis[0]) ? path.niveis[0].descricao_nivel || '' : ''
-                    };
-
-                    // save using your helper (saveCharacterField) as array
-                    await saveCharacterField('caminho', [roteiro]);
-                    charData.caminho = [roteiro]; // sync local
-                    // update UI: hide nodes and show selected view
-                    const nCont = nodesContainer();
-                    if (nCont) nCont.classList.add('hidden');
-                    renderSelectedPathView(path, roteiro.nivel_atual);
-                } catch (e) {
-                    console.error('Falha ao escolher caminho:', e);
-                    alert('Erro ao escolher caminho.');
-                } finally {
-                    overlay.remove();
-                }
-            });
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) cleanup(); });
+            box.querySelector('#path-info-close').addEventListener('click', cleanup);
+            document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { cleanup(); document.removeEventListener('keydown', esc); } }, { once: true });
         }
 
-        // Render selected path view (center + vertical nodes)
-        // Render selected path view (center + vertical nodes) - substitua a função existente
-        function renderSelectedPathView(path, currentIndex = 0) {
-            const sel = selectedViewEl();
-            if (!sel) return;
-            sel.style.display = '';
-            const center = selectedCenter();
-            const vertical = selectedVertical();
-
-            // determinar nível atual salvo no personagem (preferência)
-            const charCaminho = Array.isArray(charData.caminho) && charData.caminho.length ? charData.caminho[0] : null;
-            const savedNivel = charCaminho ? Number(charCaminho.nivel_atual || 0) : null;
-            const nivelAtual = (savedNivel !== null && !Number.isNaN(savedNivel)) ? savedNivel : Number(currentIndex || 0);
-
-            // centro mostra o nível atual (index)
-            // --- mostrar imagem do caminho dentro do centro (usa campo 'img' do doc caminhos) ---
-            if (center) {
-                // imagem do caminho (fallback para placeholder)
-                const imgSrc = (path && (path.img || (Array.isArray(path.img) && path.img[0]))) ?
-                    (Array.isArray(path.img) ? path.img[0] : path.img) :
-                    './imgs/placeholder.png';
-
-                // inserir imagem + badge do nível
-                center.innerHTML = `
-                <img src="${imgSrc.replace(/"/g, '&quot;')}" alt="${(path && path.nome) ? path.nome.replace(/"/g, '&quot;') : ''}" />
-                <span class="selected-center-level">${nivelAtual || 0}</span>
-            `;
-            }
-
-            // --- garantir que o selected-footer acompanhe o skill-tree (ficando filho direto de #skill-tree) ---
-            (function ensureFooterAttachedToSkillTree() {
-                try {
-                    const skillTree = document.getElementById('skill-tree') || document.querySelector('.skill-tree');
-                    const footer = document.querySelector('.selected-footer');
-                    if (!skillTree || !footer) return;
-
-                    // se já estiver onde deve, não faz nada
-                    if (footer.parentElement === skillTree) return;
-
-                    // move o footer para ser filho direto do skill-tree,
-                    // preservando o conteúdo e listeners existentes
-                    skillTree.appendChild(footer);
-
-                    // (opcional) garantir que o footer esteja visível depois da movimentação
-                    footer.style.display = ''; // remove inline none se houver
-                } catch (e) {
-                    console.warn('Não foi possível anexar selected-footer ao skill-tree:', e);
-                }
-            })();
-
-
-            vertical.innerHTML = ''; // cria nós: assumimos niveis length
-            const niveis = Array.isArray(path.niveis) ? path.niveis : [];
-            const total = Math.max(1, niveis.length);
-
-            // criamos do topo (index maior) ao 1 (center é 0)
-            for (let idx = total - 1; idx >= 1; idx--) {
-                const node = document.createElement('div');
-                node.className = 'level-node';
-                node.dataset.index = String(idx);
-                node.textContent = String(idx);
-                node.title = niveis[idx]?.nome || ('Nível ' + idx);
-
-                // se o índice for <= nivelAtual, marca como upada (ativas), senão deixa opaca
-                if (idx <= nivelAtual) {
-                    node.classList.add('upada');
-                } else {
-                    node.classList.add('opaco');
-                }
-
-                node.addEventListener('click', (ev) => {
-                    ev.stopPropagation();
-                    showLevelModal(path, idx);
-                });
-
-                vertical.appendChild(node);
-            }
-
-            // atualiza display de pontos de classe
-            try { if (pontosClasseDom()) pontosClasseDom().textContent = String(Number(charData.pontos_classe || 0)); } catch (e) {/*silent*/ }
-        }
-
-
-        // Show modal for a given level index (with button to subir de nivel) - substitui a versão existente
-        function showLevelModal(path, levelIndex) {
-            if (!path) return;
-            const overlayId = 'path-level-modal-overlay';
+        // abrir modal do nível; if isAlreadyFilled true -> mostra opção "Voltar 1 nível", else "Subir nível"
+        function openLevelModal(cam, levelIndex, isAlreadyFilled) {
+            if (!cam) return;
+            const overlayId = 'path-level-overlay';
             if (document.getElementById(overlayId)) return;
-            const overlay = document.createElement('div');
-            overlay.id = overlayId;
-            overlay.className = 'path-modal-overlay';
 
-            const box = document.createElement('div');
-            box.className = 'path-modal';
-            const niveis = Array.isArray(path.niveis) ? path.niveis : [];
-            const nivel = niveis[levelIndex] || {};
+            const niveis = Array.isArray(cam.niveis) ? cam.niveis : [];
+            const nivelObj = niveis[levelIndex] || {};
+            const overlay = create('div', { id: overlayId, class: 'path-modal-overlay' });
+            const box = create('div', { class: 'path-modal', role: 'dialog', 'aria-modal': 'true' });
 
             box.innerHTML = `
-    <div class="modal-header"><div>${nivel.nome || ('Nível ' + levelIndex)}</div></div>
-    <div class="modal-body">
-      <div style="text-align:center;">${nivel.descricao_nivel || '—'}</div>
-    </div>
-  `;
+      <div class="modal-header">${nivelObj.nome || ('Nível ' + levelIndex)}</div>
+      <div class="modal-body">
+        <div style="flex:1">${nivelObj.descricao_nivel || '—'}</div>
+      </div>
+      <div class="modal-actions"></div>
+    `;
+
+            const actions = box.querySelector('.modal-actions');
+
+            const btnClose = create('button', { class: 'btn' }, ['Fechar']);
+            btnClose.addEventListener('click', () => overlay.remove());
+            actions.appendChild(btnClose);
+
+            if (isAlreadyFilled) {
+                const btnVoltar = create('button', { class: 'btn confirm' }, ['Voltar 1 nível']);
+                btnVoltar.addEventListener('click', async () => {
+                    try {
+                        // reduzir 1 nível (se possível)
+                        const current = getCharNivelForPath(cam.uid);
+                        const newNivel = Math.max(0, current - 1);
+                        const ok = await saveCharNivel(cam.uid, newNivel);
+                        if (ok) {
+                            // re-render lista
+                            await renderLista();
+                            alert('Nível reduzido.');
+                        } else {
+                            alert('Falha ao atualizar nível (veja console).');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        alert('Erro inesperado.');
+                    } finally {
+                        overlay.remove();
+                    }
+                });
+                actions.appendChild(btnVoltar);
+            } else {
+                const btnSubir = create('button', { class: 'btn confirm' }, ['Subir nível']);
+                btnSubir.addEventListener('click', async () => {
+                    try {
+                        // incrementar para esse nível (pode pular direto para nivelIndex conforme pedido — salvamos o nivel escolhido)
+                        const current = getCharNivelForPath(cam.uid);
+                        // obrigamos que o novo nivel seja >= current (o usuário clicou em um nivel superior)
+                        const newNivel = Math.max(current, levelIndex);
+                        const ok = await saveCharNivel(cam.uid, newNivel);
+                        if (ok) {
+                            await renderLista();
+                            alert('Nível atualizado!');
+                        } else {
+                            alert('Falha ao atualizar nível (veja console).');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        alert('Erro inesperado.');
+                    } finally {
+                        overlay.remove();
+                    }
+                });
+                actions.appendChild(btnSubir);
+            }
+
             overlay.appendChild(box);
-
-            // monta ações dinamicamente
-            const actions = document.createElement('div');
-            actions.className = 'modal-actions';
-
-            const fecharBtn = document.createElement('button');
-            fecharBtn.className = 'alert-btn';
-            fecharBtn.id = 'fechar-nivel-btn';
-            fecharBtn.textContent = 'Fechar';
-
-            // estado salvo do caminho no personagem
-            const charCaminho = Array.isArray(charData.caminho) && charData.caminho.length ? charData.caminho[0] : null;
-            const savedNivel = charCaminho ? Number(charCaminho.nivel_atual || 0) : 0;
-
-            // Se o nível clicado for <= savedNivel (já upado ou igual), mostrar botão "Voltar para este nível"
-            if (levelIndex <= savedNivel) {
-                const voltarBtn = document.createElement('button');
-                voltarBtn.className = 'alert-btn';
-                voltarBtn.textContent = 'Voltar para este nível';
-                voltarBtn.id = 'voltar-para-nivel-btn';
-                actions.appendChild(voltarBtn);
-
-                voltarBtn.addEventListener('click', async () => {
-                    try {
-                        const currentCaminhoArr = Array.isArray(charData.caminho) ? charData.caminho.slice() : [];
-                        if (currentCaminhoArr.length === 0) {
-                            currentCaminhoArr[0] = {
-                                uid: path.uid,
-                                descricao_geral: path.descricao_geral || '',
-                                nivel_atual: levelIndex,
-                                descricao_nivel: nivel.descricao_nivel || ''
-                            };
-                        } else {
-                            currentCaminhoArr[0] = Object.assign({}, currentCaminhoArr[0], {
-                                nivel_atual: levelIndex,
-                                descricao_nivel: nivel.descricao_nivel || ''
-                            });
-                        }
-
-                        // atualiza local e persiste
-                        charData.caminho = currentCaminhoArr;
-                        await robustSaveCharacterField('caminho', currentCaminhoArr);
-
-                        // atualiza UI (re-render da view selecionada)
-                        try { renderSelectedPathView(path, levelIndex); } catch (e) { console.warn('renderSelectedPathView erro:', e); }
-
-                        alert('Nível ajustado.');
-                    } catch (err) {
-                        console.error('Erro ao ajustar nível:', err);
-                        alert('Falha ao ajustar nível.');
-                    } finally {
-                        overlay.remove();
-                    }
-                });
-            }
-
-            // Se o nível clicado for exatamente o nível atual, permitir "Desupar"
-            if (levelIndex === savedNivel) {
-                const desuparBtn = document.createElement('button');
-                desuparBtn.className = 'alert-btn';
-                desuparBtn.textContent = 'Desupar';
-                desuparBtn.id = 'desupar-nivel-btn';
-                actions.appendChild(desuparBtn);
-
-                desuparBtn.addEventListener('click', async () => {
-                    if (savedNivel <= 0) {
-                        alert('Não há nível anterior para reverter.');
-                        return;
-                    }
-                    try {
-                        // reembolsa 1 ponto
-                        const refundPoints = Number(charData.pontos_classe ?? 0) + 1;
-                        charData.pontos_classe = refundPoints;
-                        if (pontosClasseDom()) pontosClasseDom().textContent = String(refundPoints);
-
-                        // atualiza nivel_atual para savedNivel - 1
-                        const newNivel = savedNivel - 1;
-                        const currentCaminhoArr = Array.isArray(charData.caminho) ? charData.caminho.slice() : [];
-                        if (currentCaminhoArr.length === 0) {
-                            currentCaminhoArr[0] = {
-                                uid: path.uid,
-                                nivel_atual: newNivel,
-                                descricao_nivel: (Array.isArray(path.niveis) && path.niveis[newNivel]) ? path.niveis[newNivel].descricao_nivel || '' : ''
-                            };
-                        } else {
-                            currentCaminhoArr[0] = Object.assign({}, currentCaminhoArr[0], {
-                                nivel_atual: newNivel,
-                                descricao_nivel: (Array.isArray(path.niveis) && path.niveis[newNivel]) ? path.niveis[newNivel].descricao_nivel || '' : ''
-                            });
-                        }
-
-                        // persist ambos pontos_classe e caminho
-                        await robustSaveCharacterField('pontos_classe', refundPoints);
-                        await robustSaveCharacterField('caminho', currentCaminhoArr);
-
-                        // re-render
-                        try { renderSelectedPathView(path, newNivel); } catch (e) { console.warn('renderSelectedPathView erro:', e); }
-
-                        alert('Nível reduzido e ponto reembolsado.');
-                    } catch (err) {
-                        console.error('Erro no desupar:', err);
-                        alert('Falha ao desupar nível.');
-                    } finally {
-                        overlay.remove();
-                    }
-                });
-            }
-
-            // botão Subir (somente se levelIndex > savedNivel)
-            let subirBtn = null;
-            if (levelIndex > savedNivel) {
-                subirBtn = document.createElement('button');
-                subirBtn.className = 'alert-btn';
-                subirBtn.id = 'subir-nivel-btn';
-                subirBtn.textContent = 'Subir de nível';
-                actions.appendChild(subirBtn);
-            }
-
-            // Fechar sempre no fim
-            actions.appendChild(fecharBtn);
-            box.appendChild(actions);
             document.body.appendChild(overlay);
 
             overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-            fecharBtn.addEventListener('click', () => overlay.remove());
-
-            // Handler subir (usa robustSaveCharacterField)
-            if (subirBtn) {
-                subirBtn.addEventListener('click', async () => {
-                    try {
-                        const currentPoints = Number(charData.pontos_classe ?? 0);
-                        if (currentPoints <= 0) {
-                            alert('Você não tem pontos de classe suficientes para subir de nível.');
-                            return;
-                        }
-
-                        const newPoints = currentPoints - 1;
-                        charData.pontos_classe = newPoints;
-                        if (pontosClasseDom()) pontosClasseDom().textContent = String(newPoints);
-
-                        const currentCaminhoArr = Array.isArray(charData.caminho) ? charData.caminho.slice() : [];
-                        if (currentCaminhoArr.length === 0) {
-                            currentCaminhoArr[0] = {
-                                uid: path.uid,
-                                descricao_geral: path.descricao_geral || '',
-                                nivel_atual: levelIndex,
-                                descricao_nivel: nivel.descricao_nivel || ''
-                            };
-                        } else {
-                            currentCaminhoArr[0] = Object.assign({}, currentCaminhoArr[0], {
-                                nivel_atual: levelIndex,
-                                descricao_nivel: nivel.descricao_nivel || ''
-                            });
-                        }
-
-                        // grava pontos_classe e caminho usando o helper robusto
-                        await robustSaveCharacterField('pontos_classe', newPoints);
-                        await robustSaveCharacterField('caminho', currentCaminhoArr);
-
-                        // atualiza center node se existir
-                        const center = selectedCenter();
-                        if (center) center.textContent = String(levelIndex);
-
-                        alert('Nível atualizado!');
-                    } catch (err) {
-                        console.error('Erro ao subir nível:', err);
-                        alert('Falha ao subir nível.');
-                    } finally {
-                        overlay.remove();
-                    }
-                });
-            }
+            document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', esc); } }, { once: true });
         }
 
-        // init: if already has chosen caminho in charData, show selected view directly
-        (async function bootstrap() {
-            try {
-                // initial render of starting nodes
-                await renderInitialNodes();
+        // attach: quando a aba for aberta, renderiza (compatível com seu setActiveTab)
+        if (tabBtn) tabBtn.addEventListener('click', (e) => { renderLista().catch(err => console.warn('renderLista erro', err)); });
 
-                // if charData already has caminho, load that path and render selected view
-                if (Array.isArray(charData.caminho) && charData.caminho.length > 0) {
-                    const chosen = charData.caminho[0];
-                    // fetch path doc from Firestore to get full info
-                    try {
-                        const docRef = window.doc(window.firestoredb, 'caminhos', chosen.uid);
-                        const snap = await window.getDoc(docRef);
-                        if (snap && snap.exists()) {
-                            const path = snap.data(); path.uid = snap.id;
-                            // hide initial nodes
-                            const nCont = nodesContainer(); if (nCont) nCont.classList.add('hidden');
-                            renderSelectedPathView(path, Number(chosen.nivel_atual || 0));
-                        }
-                    } catch (e) {
-                        console.warn('Falha ao carregar caminho escolhido:', e);
-                    }
-                }
-            } catch (e) {
-                console.warn('bootstrap caminhos erro:', e);
-            }
-        })();
-
+        // inicial render (se a aba já estiver visível)
+        try { renderLista().catch(() => { }); } catch (e) { /* silent */ }
     })();
+
 
 
     /* =========================
@@ -2078,7 +1773,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // salva estado ANTES de subir de nível (para reversão)
                 const attrsBeforeLevelUp = JSON.parse(JSON.stringify(characters[idx].atributos || {}));
                 const pontosRestantesBeforeLevelUp = Number(characters[idx].pontos_restantes ?? 0);
-                
+
                 // 1) pontos_restantes +1
                 const prevPR = Number(characters[idx].pontos_restantes ?? 0);
                 characters[idx].pontos_restantes = prevPR + 1;
@@ -5348,14 +5043,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // subir níveis: acumula deltas e cria entradas em levelHistory (uma por nível)
                 const levelsToAdd = newLevel - oldLevel;
                 let totalAddPV = 0, totalAddMN = 0, totalAddSTA = 0, totalPoints = 0;
-                
+
                 for (let i = 1; i <= levelsToAdd; i++) {
                     const lvlReached = oldLevel + i;
-                    
+
                     // salva estado ANTES de subir este nível específico (para reversão)
                     const attrsBeforeThisLevel = JSON.parse(JSON.stringify(char.atributos || {}));
                     const pontosRestantesBeforeThisLevel = Number(char.pontos_restantes ?? 0);
-                    
+
                     const d = perLevelDelta(className);
                     totalAddPV += d.addPV;
                     totalAddMN += d.addMN;
@@ -5375,7 +5070,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         ts: Date.now()
                     };
                     char.levelHistory.push(histEntry);
-                    
+
                     // atualiza pontos_restantes para o próximo nível (se houver)
                     if (i < levelsToAdd) {
                         char.pontos_restantes = Number(char.pontos_restantes ?? 0) + d.pointsAdded;
@@ -5457,7 +5152,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const levelsToRemove = oldLevel - newLevel;
                 let totalSubPV = 0, totalSubMN = 0, totalSubSTA = 0, totalPointsSub = 0;
                 let firstRevertedEntry = null; // guarda o primeiro nível revertido (mais antigo) para restaurar atributos
-                
+
                 for (let i = 0; i < levelsToRemove; i++) {
                     if (char.levelHistory.length > 0) {
                         const last = char.levelHistory.pop();
@@ -5501,7 +5196,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     } else {
                         char.pontos_restantes = Math.max(0, Number(char.pontos_restantes ?? 0) - totalPointsSub);
                     }
-                    
+
                     // restaura atributos para o estado antes de subir de nível
                     if (firstRevertedEntry.attrsBefore && typeof firstRevertedEntry.attrsBefore === 'object') {
                         char.atributos = JSON.parse(JSON.stringify(firstRevertedEntry.attrsBefore));
@@ -5510,7 +5205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     char.pontos_restantes = Math.max(0, Number(char.pontos_restantes ?? 0) - totalPointsSub);
                 }
                 char.LVL = Math.max(1, newLevel);
-                
+
                 // atualiza atributos locais (attributes e attrKeys) se foram restaurados
                 if (firstRevertedEntry && firstRevertedEntry.attrsBefore && typeof firstRevertedEntry.attrsBefore === 'object') {
                     // atualiza objeto attributes local
@@ -6249,415 +5944,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 })();
 
 
-; (function replaceDiceRenderer() {
-    const STORAGE_KEY = 'td_selectedDie';
-    const DEFAULT = '20';
-
-    const canvas = document.getElementById('dice-canvas');
-    const big = document.getElementById('dice-large');
-    const miniList = document.getElementById('dice-mini-list');
-    const overlay = document.getElementById('dice-result-overlay');
-
-    if (!canvas || !big || !miniList) return;
-
-    const ctx = canvas.getContext('2d', { alpha: true });
-    function resizeCanvas() {
-        const ratio = window.devicePixelRatio || 1;
-        const w = canvas.clientWidth || 520;
-        const h = canvas.clientHeight || 520;
-        canvas.width = Math.round(w * ratio);
-        canvas.height = Math.round(h * ratio);
-        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    }
-    resizeCanvas();
-    window.addEventListener('resize', () => { resizeCanvas(); render(); });
-
-    /* ---------- quaternion helpers ---------- */
-    function qNormalize(q) { const l = Math.hypot(q[0], q[1], q[2], q[3]) || 1; return [q[0] / l, q[1] / l, q[2] / l, q[3] / l]; }
-    function qMultiply(a, b) {
-        return [
-            a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
-            a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
-            a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
-            a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]
-        ];
-    }
-    function qFromAxisAngle(ax, ay, az, ang) { const s = Math.sin(ang / 2), c = Math.cos(ang / 2); const len = Math.hypot(ax, ay, az) || 1; return qNormalize([c, ax / len * s, ay / len * s, az / len * s]); }
-    function qToMatrix(q) {
-        const w = q[0], x = q[1], y = q[2], z = q[3]; return [
-            1 - 2 * y * y - 2 * z * z, 2 * x * y - 2 * z * w, 2 * x * z + 2 * y * w,
-            2 * x * y + 2 * z * w, 1 - 2 * x * x - 2 * z * z, 2 * y * z - 2 * x * w,
-            2 * x * z - 2 * y * w, 2 * y * z + 2 * x * w, 1 - 2 * x * x - 2 * y * y
-        ];
-    }
-    function qSlerp(a, b, t) {
-        let cosTheta = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
-        let bb = b.slice();
-        if (cosTheta < 0) { cosTheta = -cosTheta; bb = bb.map(v => -v); }
-        if (cosTheta > 0.9995) { const res = a.map((v, i) => v + (bb[i] - v) * t); return qNormalize(res); }
-        const theta = Math.acos(Math.max(-1, Math.min(1, cosTheta)));
-        const sinTheta = Math.sin(theta);
-        const w1 = Math.sin((1 - t) * theta) / sinTheta;
-        const w2 = Math.sin(t * theta) / sinTheta;
-        return [a[0] * w1 + bb[0] * w2, a[1] * w1 + bb[1] * w2, a[2] * w1 + bb[2] * w2, a[3] * w1 + bb[3] * w2];
-    }
-
-    /* ---------- 3D util ---------- */
-    function matMulVec(m, v) { return { x: m[0] * v.x + m[1] * v.y + m[2] * v.z, y: m[3] * v.x + m[4] * v.y + m[5] * v.z, z: m[6] * v.x + m[7] * v.y + m[8] * v.z }; }
-    function faceNormal(a, b, c) { const ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z; const vx = c.x - a.x, vy = c.y - a.y, vz = c.z - a.z; const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const L = Math.hypot(nx, ny, nz) || 1; return { x: nx / L, y: ny / L, z: nz / L }; }
-    function project(p, camDist = 3.6) { const z = p.z + camDist; const f = (Math.min(canvas.width, canvas.height) / 2) / (camDist * 0.9); return { x: canvas.width / 2 + p.x * f, y: canvas.height / 2 - p.y * f, z: z }; }
-
-    /* ---------- geometry factories (fixed, robust) ---------- */
-
-    function normalizeVerts(verts) {
-        // center and scale so max distance = 1
-        let cx = 0, cy = 0, cz = 0;
-        verts.forEach(v => { cx += v.x; cy += v.y; cz += v.z; });
-        cx /= verts.length; cy /= verts.length; cz /= verts.length;
-        verts.forEach(v => { v.x -= cx; v.y -= cy; v.z -= cz; });
-        let maxd = 0; verts.forEach(v => { const d = Math.hypot(v.x, v.y, v.z); if (d > maxd) maxd = d; });
-        if (maxd === 0) maxd = 1;
-        verts.forEach(v => { v.x /= maxd; v.y /= maxd; v.z /= maxd; });
-        return verts;
-    }
-
-    function makeTetrahedron() {
-        const verts = [{ x: 1, y: 1, z: 1 }, { x: 1, y: -1, z: -1 }, { x: -1, y: 1, z: -1 }, { x: -1, y: -1, z: 1 }];
-        normalizeVerts(verts);
-        const faces = [[0, 1, 2], [0, 3, 1], [0, 2, 3], [1, 3, 2]];
-        return { verts, faces, labels: [1, 2, 3, 4] };
-    }
-
-    function makeCube() {
-        const s = 1;
-        const verts = [{ x: -s, y: -s, z: -s }, { x: s, y: -s, z: -s }, { x: s, y: s, z: -s }, { x: -s, y: s, z: -s }, { x: -s, y: -s, z: s }, { x: s, y: -s, z: s }, { x: s, y: s, z: s }, { x: -s, y: s, z: s }];
-        normalizeVerts(verts);
-        const faces = [[0, 1, 2, 3], [4, 7, 6, 5], [0, 4, 5, 1], [3, 2, 6, 7], [1, 5, 6, 2], [0, 3, 7, 4]];
-        return { verts, faces, labels: [1, 2, 3, 4, 5, 6] };
-    }
-
-    function makeOctahedron() {
-        const verts = [{ x: 1, y: 0, z: 0 }, { x: -1, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, { x: 0, y: -1, z: 0 }, { x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: -1 }];
-        normalizeVerts(verts);
-        const faces = [[0, 2, 4], [2, 1, 4], [1, 3, 4], [3, 0, 4], [2, 0, 5], [1, 2, 5], [3, 1, 5], [0, 3, 5]];
-        return { verts, faces, labels: [1, 2, 3, 4, 5, 6, 7, 8] };
-    }
-
-    function makeIcosahedron() {
-        const phi = (1 + Math.sqrt(5)) / 2;
-        const verts = [
-            { x: -1, y: phi, z: 0 }, { x: 1, y: phi, z: 0 }, { x: -1, y: -phi, z: 0 }, { x: 1, y: -phi, z: 0 },
-            { x: 0, y: -1, z: phi }, { x: 0, y: 1, z: phi }, { x: 0, y: -1, z: -phi }, { x: 0, y: 1, z: -phi },
-            { x: phi, y: 0, z: -1 }, { x: phi, y: 0, z: 1 }, { x: -phi, y: 0, z: -1 }, { x: -phi, y: 0, z: 1 }
-        ];
-        // Classic icosa faces (tested)
-        const faces = [
-            [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
-            [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
-            [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
-            [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]
-        ];
-        normalizeVerts(verts);
-        return { verts, faces, labels: Array.from({ length: faces.length }, (_, i) => String(i + 1)) };
-    }
-
-    function makePentagonalTrapezohedron() {
-        // pentagonal trapezohedron (d10) - gera vértices, ordena vértices de cada face corretamente
-        const n = 5;
-        const upperZ = 0.65, lowerZ = -0.65;
-        const rUpper = 0.86, rLower = 0.86;
-        const verts = [];
-        for (let i = 0; i < n; i++) {
-            const ang = (i / n) * Math.PI * 2;
-            verts.push({ x: Math.cos(ang) * rUpper, y: Math.sin(ang) * rUpper, z: upperZ });
-        }
-        for (let i = 0; i < n; i++) {
-            const ang = ((i + 0.5) / n) * Math.PI * 2; // half-step rotation
-            verts.push({ x: Math.cos(ang) * rLower, y: Math.sin(ang) * rLower, z: lowerZ });
-        }
-
-        // centraliza e normaliza
-        normalizeVerts(verts);
-
-        // faces iniciais (quads), indexes ainda não ordenados perfeitamente
-        let faces = [];
-        for (let i = 0; i < n; i++) {
-            const ui = i;
-            const li = n + i;
-            const ui1 = (i + 1) % n;
-            const li1 = n + ((i + 1) % n);
-            faces.push([ui, li, li1, ui1]);
-        }
-
-        // helpers locais
-        function cross(u, v) { return { x: u.y * v.z - u.z * v.y, y: u.z * v.x - u.x * v.z, z: u.x * v.y - u.y * v.x }; }
-        function norm(v) { const L = Math.hypot(v.x, v.y, v.z) || 1; return { x: v.x / L, y: v.y / L, z: v.z / L }; }
-        function sub(a, b) { return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }; }
-        function dot(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
-
-        // para cada face, reordena vértices projetando no plano da face e ordenando por ângulo
-        for (let fi = 0; fi < faces.length; fi++) {
-            const idxs = faces[fi].slice(); // cópia
-            // centroid no espaço 3D
-            const center = idxs.reduce((acc, idx) => { acc.x += verts[idx].x; acc.y += verts[idx].y; acc.z += verts[idx].z; return acc; }, { x: 0, y: 0, z: 0 });
-            center.x /= idxs.length; center.y /= idxs.length; center.z /= idxs.length;
-
-            // normal estimada (usando 3 primeiros pontos)
-            const a = verts[idxs[0]], b = verts[idxs[1]], c = verts[idxs[2]];
-            let nrm = faceNormal(a, b, c); // função global já presente
-            nrm = norm(nrm);
-
-            // criar base ortonormal (bnorm, cnorm) no plano da face
-            const ref = Math.abs(nrm.x) < 0.9 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
-            let bvec = cross(nrm, ref);
-            bvec = norm(bvec);
-            let cvec = cross(bvec, nrm);
-            cvec = norm(cvec);
-
-            // calcular ângulo para cada vértice relativo ao centro
-            const angled = idxs.map(idx => {
-                const p = verts[idx];
-                const rel = sub(p, center);
-                const ax = dot(rel, bvec);
-                const ay = dot(rel, cvec);
-                const ang = Math.atan2(ay, ax);
-                return { idx, ang };
-            });
-
-            // ordenar por ângulo crescente
-            angled.sort((A, B) => A.ang - B.ang);
-            const ordered = angled.map(x => x.idx);
-
-            // garantir winding coerente (normal apontando pra fora). 
-            // Recalcula normal usando tri (0,1,2) dos vértices ordenados; compara com vetor centro (do centro para origem).
-            const Apos = verts[ordered[0]], Bpos = verts[ordered[1]], Cpos = verts[ordered[2]];
-            let ncheck = faceNormal(Apos, Bpos, Cpos);
-            // vetor do centro da face para origem (aprox direção externa)
-            const faceCent = ordered.reduce((acc, id) => ({ x: acc.x + verts[id].x, y: acc.y + verts[id].y, z: acc.z + verts[id].z }), { x: 0, y: 0, z: 0 });
-            faceCent.x /= ordered.length; faceCent.y /= ordered.length; faceCent.z /= ordered.length;
-            const dotFC = ncheck.x * faceCent.x + ncheck.y * faceCent.y + ncheck.z * faceCent.z;
-            if (dotFC < 0) ordered.reverse();
-
-            faces[fi] = ordered;
-        }
-
-        return { verts, faces, labels: Array.from({ length: 10 }, (_, i) => String(i + 1)) };
-    }
-
-
-    function makeDodecahedron() {
-        // Build dodecahedron robustly as dual of icosahedron
-        const ico = makeIcosahedron();
-        // centroids of icosa faces => vertices of dodeca
-        const centroids = ico.faces.map(face => {
-            const c = face.reduce((acc, idx) => { acc.x += ico.verts[idx].x; acc.y += ico.verts[idx].y; acc.z += ico.verts[idx].z; return acc; }, { x: 0, y: 0, z: 0 });
-            const n = face.length;
-            return { x: c.x / n, y: c.y / n, z: c.z / n };
-        });
-        normalizeVerts(centroids);
-        // For each vertex of icosa, collect faces that include it -> polygon face in dodeca
-        const faces = [];
-        for (let vi = 0; vi < ico.verts.length; vi++) {
-            const incident = [];
-            for (let fi = 0; fi < ico.faces.length; fi++) {
-                if (ico.faces[fi].includes(vi)) incident.push(fi);
-            }
-            // compute center and sort incident by angle around original vertex to ensure consistent winding
-            const center = incident.reduce((acc, ci) => ({ x: acc.x + centroids[ci].x, y: acc.y + centroids[ci].y, z: acc.z + centroids[ci].z }), { x: 0, y: 0, z: 0 });
-            center.x /= incident.length; center.y /= incident.length; center.z /= incident.length;
-            const vx = ico.verts[vi];
-            const a = (Math.abs(vx.x) < 0.9) ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
-            const bx = vx.y * a.z - vx.z * a.y, by = vx.z * a.x - vx.x * a.z, bz = vx.x * a.y - vx.y * a.x;
-            const blen = Math.hypot(bx, by, bz) || 1; const bnorm = { x: bx / blen, y: by / blen, z: bz / blen };
-            const cx = vx.y * bnorm.z - vx.z * bnorm.y, cy = vx.z * bnorm.x - vx.x * bnorm.z, cz = vx.x * bnorm.y - vx.y * bnorm.x;
-            const clen = Math.hypot(cx, cy, cz) || 1; const cnorm = { x: cx / clen, y: cy / clen, z: cz / clen };
-            const angles = incident.map(ci => {
-                const p = centroids[ci];
-                const vx2 = p.x - center.x, vy2 = p.y - center.y, vz2 = p.z - center.z;
-                return Math.atan2(vx2 * cnorm.x + vy2 * cnorm.y + vz2 * cnorm.z, vx2 * bnorm.x + vy2 * bnorm.y + vz2 * bnorm.z);
-            });
-            const sorted = incident.map((ci, i) => ({ ci, a: angles[i] })).sort((A, B) => A.a - B.a).map(x => x.ci);
-            faces.push(sorted.slice());
-        }
-        return { verts: centroids, faces, labels: Array.from({ length: faces.length }, (_, i) => String(i + 1)) };
-    }
-
-    /* factories map */
-    const factories = {
-        '4': makeTetrahedron,
-        '6': makeCube,
-        '8': makeOctahedron,
-        '10': makePentagonalTrapezohedron,
-        '12': makeDodecahedron,
-        '20': makeIcosahedron,
-        '100': makePentagonalTrapezohedron
-    };
-
-    /* ---------- renderer state ---------- */
-    let currentSides = localStorage.getItem(STORAGE_KEY) || DEFAULT;
-    if (!factories[currentSides]) currentSides = DEFAULT;
-    let model = factories[currentSides]();
-    if (!model.labels || model.labels.length < model.faces.length) model.labels = Array.from({ length: model.faces.length }, (_, i) => String(i + 1));
-    if (currentSides === '100') model.labels = ['00', '10', '20', '30', '40', '50', '60', '70', '80', '90'];
-
-    let qCur = qFromAxisAngle(1, 0, 0, 0.5);
-    let animating = false, locked = false;
-    let selectedFaceIdx = null;
-    let labelScale = 1, labelScaleTarget = 1;
-
-    function render() {
-        if (!ctx) return;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const M = qToMatrix(qCur);
-        const tv = model.verts.map(p => matMulVec(M, p));
-        const faceData = model.faces.map((face, idx) => {
-            const pts = face.map(i => tv[i]);
-            const centroid = pts.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y, z: acc.z + p.z }), { x: 0, y: 0, z: 0 });
-            centroid.x /= pts.length; centroid.y /= pts.length; centroid.z /= pts.length;
-            const n = faceNormal(pts[0], pts[1], pts[2]);
-            return { idx, pts, centroid, normal: n, depth: centroid.z };
-        });
-        faceData.sort((a, b) => a.depth - b.depth);
-        for (let fd of faceData) {
-            const poly = fd.pts.map(p => project(p));
-            ctx.beginPath(); poly.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)); ctx.closePath();
-            const light = { x: 0.6, y: 0.8, z: 1 };
-            const ln = Math.max(0.12, (fd.normal.x * light.x + fd.normal.y * light.y + fd.normal.z * light.z));
-            const isSelected = (selectedFaceIdx === fd.idx);
-            const alphaBase = selectedFaceIdx === null ? (0.05 + 0.09 * ln) : (isSelected ? (0.12 + 0.16 * ln) : (0.02 + 0.03 * ln));
-            ctx.fillStyle = `rgba(255,255,255,${alphaBase})`; ctx.fill();
-            ctx.lineWidth = Math.max(1, Math.round(canvas.width / 420));
-            ctx.strokeStyle = isSelected ? 'rgba(92,34,34,1)' : 'rgba(92,34,34,0.96)'; ctx.stroke();
-
-            // label (mantém comportamento original + destaque quando resultado é mostrado)
-            let sx = 0, sy = 0;
-            poly.forEach(p => { sx += p.x; sy += p.y; });
-            sx /= poly.length; sy /= poly.length;
-
-            const label = String(model.labels[fd.idx] || fd.idx + 1);
-
-            // mantém a escala que você já usava para o vencedor
-            let baseFont = Math.max(12, Math.round(canvas.width / 28));
-            if (selectedFaceIdx === fd.idx) baseFont = Math.round(baseFont * labelScale * 1.25);
-            else baseFont = Math.round(baseFont * 0.9);
-
-            // calc opacidade: quando nenhum resultado está fixo, usa o alpha padrão (0.85).
-            // quando há resultado, vencedor = 1.0, demais = 0.22 (você pode ajustar esses números).
-            const baseOpacity = (selectedFaceIdx === null) ? 0.85 : (selectedFaceIdx === fd.idx ? 1.0 : 0.22);
-
-            ctx.save();
-            ctx.globalAlpha = baseOpacity;
-            ctx.font = `${baseFont}px serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.lineWidth = Math.max(2, Math.round(canvas.width / 180));
-            ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-            ctx.strokeText(label, sx, sy);
-            ctx.fillStyle = (selectedFaceIdx === fd.idx) ? '#5C2222' : '#bfbfbf'; // vencedor mais forte, outros mais desbotados
-            ctx.fillText(label, sx, sy);
-            ctx.restore();
-
-        }
-        labelScale += (labelScaleTarget - labelScale) * 0.18;
-    }
-
-    function makeTargetQuaternionForFace(faceIdx) {
-        // compute face normal in model-space (use model.verts)
-        const face = model.faces[faceIdx];
-        const a = model.verts[face[0]], b = model.verts[face[1]], c = model.verts[face[2]];
-        const n = faceNormal(a, b, c);
-        const dot = Math.max(-1, Math.min(1, n.z));
-        const angle = Math.acos(dot);
-        let axis = { x: n.y, y: -n.x, z: 0 }; // cross(n,z) simplified (since z=[0,0,1])
-        if (Math.hypot(axis.x, axis.y, axis.z) < 1e-6) axis = { x: 1, y: 0, z: 0 };
-        const qAlign = qFromAxisAngle(axis.x, axis.y, axis.z, angle);
-        const spin = (Math.random() * 2 - 1) * Math.PI * 2;
-        const qSpin = qFromAxisAngle(0, 0, 1, spin);
-        return qMultiply(qSpin, qAlign);
-    }
-
-    function rollDiceOnce() {
-        if (animating) return;
-        animating = true; locked = false; selectedFaceIdx = null; labelScaleTarget = 1;
-        overlay && overlay.classList.remove('visible'); overlay && overlay.setAttribute('aria-hidden', 'true');
-        const faceIdx = Math.floor(Math.random() * model.faces.length);
-        const label = String(model.labels[faceIdx]);
-        const qStart = qCur.slice();
-        const qEnd = makeTargetQuaternionForFace(faceIdx);
-        const duration = 800 + Math.floor(Math.random() * 300); const start = performance.now();
-        function frame(now) {
-            const t = Math.min(1, (now - start) / duration);
-            const ease = 1 - Math.pow(1 - t, 3);
-            qCur = qSlerp(qStart, qEnd, ease);
-            render();
-            if (t < 1) requestAnimationFrame(frame);
-            else {
-                qCur = qEnd.slice(); render();
-                animating = false; locked = true; selectedFaceIdx = faceIdx;
-                labelScale = 0.7; labelScaleTarget = 1.08;
-                if (overlay) { overlay.textContent = label; overlay.classList.add('visible'); overlay.setAttribute('aria-hidden', 'false'); }
-                miniList.querySelectorAll('.dice-mini').forEach(b => b.classList.add('dimmed'));
-            }
-        }
-        requestAnimationFrame(frame);
-    }
-
-    // event listeners
-    canvas.addEventListener('click', () => { if (animating) return; miniList.querySelectorAll('.dice-mini').forEach(b => b.classList.remove('dimmed')); overlay && overlay.classList.remove('visible'); rollDiceOnce(); });
-    big.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); canvas.click(); } });
-    canvas.addEventListener('mousemove', (ev) => {
-        if (animating || locked) return;
-        const rect = canvas.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
-        const dx = (ev.clientX - cx) / rect.width, dy = (ev.clientY - cy) / rect.height;
-        const angX = -dy * 0.55, angY = dx * 0.85;
-        const qx = qFromAxisAngle(1, 0, 0, angX), qy = qFromAxisAngle(0, 1, 0, angY);
-        const qT = qMultiply(qx, qy);
-        qCur = qSlerp(qCur, qT, 0.14);
-        render();
-    });
-    canvas.addEventListener('mouseleave', () => { if (!locked) qCur = qFromAxisAngle(1, 0, 0, 0.5); });
-
-    // mini UI
-    miniList.querySelectorAll('.dice-mini').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const s = String(btn.dataset.sides);
-            if (!factories[s]) return;
-            currentSides = s; localStorage.setItem(STORAGE_KEY, s);
-            model = factories[s]();
-            if (s === '100') model.labels = ['00', '10', '20', '30', '40', '50', '60', '70', '80', '90'];
-            else if (!model.labels || model.labels.length < model.faces.length) model.labels = Array.from({ length: model.faces.length }, (_, i) => String(i + 1));
-            miniList.querySelectorAll('.dice-mini').forEach(b => { b.classList.toggle('selected', b === btn); b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); b.classList.remove('dimmed'); });
-            locked = false; selectedFaceIdx = null; overlay && overlay.classList.remove('visible'); render();
-        });
-    });
-
-    // init
-    (function init() {
-        currentSides = localStorage.getItem(STORAGE_KEY) || DEFAULT;
-        if (!factories[currentSides]) currentSides = DEFAULT;
-        model = factories[currentSides]();
-        if (currentSides === '100') model.labels = ['00', '10', '20', '30', '40', '50', '60', '70', '80', '90'];
-        if (!model.labels || model.labels.length < model.faces.length) model.labels = Array.from({ length: model.faces.length }, (_, i) => String(i + 1));
-        miniList.querySelectorAll('.dice-mini').forEach(b => b.classList.toggle('selected', String(b.dataset.sides) === currentSides));
-        overlay && overlay.classList.remove('visible'); overlay && overlay.setAttribute('aria-hidden', 'true');
-        render();
-    })();
-
-    // idle spin
-    let last = performance.now();
-    function idleLoop(now) {
-        const dt = now - last; last = now;
-        if (!animating && !locked) {
-            const spin = qFromAxisAngle(0, 0, 1, 0.0006 * dt);
-            qCur = qMultiply(spin, qCur);
-            render();
-        }
-        requestAnimationFrame(idleLoop);
-    }
-    requestAnimationFrame(idleLoop);
-
-    // expose convenience
-    window.rollCurrentDie = function () { if (!animating) { miniList.querySelectorAll('.dice-mini').forEach(b => b.classList.remove('dimmed')); overlay && overlay.classList.remove('visible'); rollDiceOnce(); } };
-
-})(); // end replaceDiceRenderer
+; 
