@@ -18,12 +18,78 @@ function getCoinQtyFromCharLocal(charObj, tipo) {
 }
 function getCoinQtyFromChar(tipo) { return getCoinQtyFromCharLocal(charData || {}, tipo); }
 
+/* ================= Prompt custom (reusa classes de alert do global.js) ================ */
+/**
+ * Mostra um modal com input numérico e devolve string do valor ou null se cancelado.
+ * Reusa .alert-backdrop / .alert-modal do seu global.css para ficar igual aos alerts.
+ */
+function showPromptModal(message, defaultValue = '') {
+    return new Promise((resolve) => {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'alert-backdrop';
+
+        const modal = document.createElement('div');
+        modal.className = 'alert-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+
+        // evitar injeção simples: escapando aspas no default (basta para nosso caso)
+        const safeDefault = String(defaultValue).replace(/"/g, '&quot;');
+
+        modal.innerHTML = `
+      <div class="alert-header">Editar moeda</div>
+      <div class="alert-body">
+        <div style="margin-bottom:8px;">${message}</div>
+        <input type="number" class="coin-input" value="${safeDefault}" />
+      </div>
+      <div class="alert-actions">
+        <button class="alert-btn alert-cancel">Cancelar</button>
+        <button class="alert-btn alert-ok">OK</button>
+      </div>
+    `;
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        // animação (mesma do alert)
+        requestAnimationFrame(() => backdrop.classList.add('visible'));
+
+        const input = modal.querySelector('.coin-input');
+
+        // foco e seleção para facilitar edição
+        setTimeout(() => { try { input.focus(); input.select(); } catch (e) { } }, 50);
+
+        const cleanup = (value) => {
+            backdrop.classList.remove('visible');
+            setTimeout(() => {
+                try { backdrop.remove(); } catch (e) { }
+                resolve(value);
+            }, 280);
+        };
+
+        modal.querySelector('.alert-cancel').addEventListener('click', () => cleanup(null));
+        modal.querySelector('.alert-ok').addEventListener('click', () => cleanup(input.value));
+
+        // fechar clicando fora
+        backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) cleanup(null);
+        });
+
+        // teclas
+        modal.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') cleanup(null);
+            if (e.key === 'Enter') cleanup(input.value);
+        });
+    });
+}
+
+/* ================= Editar quantia de moeda (usa prompt customizado) ================= */
 async function editCoinAmount(tipo) {
     try {
         const current = getCoinQtyFromChar(tipo);
-        const raw = window.prompt(`Quantidade de ${tipo} (atual: ${current})`, String(current));
-        if (raw === null) return;
-        const n = parseInt(raw, 10);
+        const raw = await showPromptModal(`Quantidade de ${tipo} (atual: ${current})`, String(current));
+        if (raw === null) return; // cancelou
+        const n = parseInt(String(raw), 10);
         if (Number.isNaN(n) || n < 0) { alert('Valor inválido — insira um número inteiro >= 0'); return; }
 
         const moedas = Array.isArray(charData?.moedas) ? charData.moedas.slice() : [];
@@ -31,24 +97,20 @@ async function editCoinAmount(tipo) {
         if (idx >= 0) moedas[idx] = Object.assign({}, moedas[idx], { quantidade: n });
         else moedas.push({ tipo: tipo, quantidade: n });
 
+        // atualiza local
         charData = Object.assign({}, charData, { moedas: moedas });
 
-        // salvar com fallback (usa robustSaveCharacterField se existir, senão saveCharacterField)
-        const saveFn = (typeof robustSaveCharacterField === 'function') ? robustSaveCharacterField
-            : (typeof saveCharacterField === 'function') ? saveCharacterField
-                : null;
-        if (!saveFn) {
-            console.warn('Nenhuma função de salvamento encontrada (saveCharacterField / robustSaveCharacterField).');
-        } else {
-            await saveFn('moedas', moedas);
-        }
+        // salva usando a função robusta (que você acabou de colar)
+        await robustSaveCharacterField('moedas', moedas);
 
-        renderCoins(); // atualiza UI imediatamente
+        // atualiza UI
+        renderCoins();
     } catch (err) {
-        console.error('Falha ao editar moeda:', err);
+        console.error('Falha ao editar/salvar moedas:', err);
         alert('Erro ao salvar moedas. Veja console.');
     }
 }
+
 
 function renderCoins(newChar) {
     // se vier novo char, atualiza a cópia local
@@ -77,6 +139,62 @@ function renderCoins(newChar) {
         });
     });
 }
+
+/**
+ * Salva com robustez um campo do personagem que está dentro do array 'personagens'
+ * - field: string (ex: 'moedas', 'img', 'proeficiencias', etc)
+ * - value: novo valor para esse campo (pode ser array/obj/etc)
+ *
+ * Atualiza o documento 'usuarios/{uid}' substituindo o elemento correspondente em personagens[].
+ */
+async function robustSaveCharacterField(field, value) {
+    if (!window.firebaseauth?.currentUser) {
+        throw new Error('robustSaveCharacterField: usuário não autenticado');
+    }
+    const uid = window.firebaseauth.currentUser.uid;
+    const userDocRef = window.doc(window.firestoredb, 'usuarios', uid);
+
+    try {
+        // Ler o documento atual do usuário
+        const userSnap = await window.getDoc(userDocRef);
+        if (!userSnap.exists()) {
+            throw new Error('Documento do usuário não encontrado');
+        }
+        const userData = userSnap.data() || {};
+        const personagens = Array.isArray(userData.personagens) ? userData.personagens.slice() : [];
+
+        // Garantir que temos charData e seu uid
+        if (!charData || !charData.uid) {
+            throw new Error('charData indefinido ou sem uid');
+        }
+
+        const charIdx = personagens.findIndex(p => String(p?.uid) === String(charData.uid));
+
+        if (charIdx === -1) {
+            // Se não existe, adiciona novo personagem baseado em charData (fallback)
+            const newChar = Object.assign({}, charData, { [field]: value });
+            personagens.push(newChar);
+        } else {
+            // Substitui só o campo no personagem existente (mantendo os outros campos)
+            const updatedChar = Object.assign({}, personagens[charIdx], { [field]: value });
+            personagens[charIdx] = updatedChar;
+        }
+
+        // Atualiza o documento do usuário com o array personagens modificado
+        await window.updateDoc(userDocRef, { personagens: personagens });
+
+        // Atualiza o estado local charData para refletir o que foi salvo
+        const savedChar = personagens.find(p => String(p?.uid) === String(charData.uid));
+        if (savedChar) charData = savedChar;
+
+        return charData;
+    } catch (err) {
+        console.error('robustSaveCharacterField erro:', err);
+        throw err;
+    }
+}
+
+
 /* ===== fim bloco moedas ===== */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -538,88 +656,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             // após charData = newChar; (ou perto do final de applyRemoteCharData)
             try { renderProficiencies(newChar); } catch (e) { console.warn('renderProficiencies erro', e); }
             try { renderCoins(newChar); } catch (e) { console.warn('renderCoins erro', e); }
-
-            /* ===================== Moedas UI + edição ===================== */
-
-            /**
-             * Retorna quantidade atual no charData (fallback 0)
-             * @param {string} tipo 'ouro'|'prata'|'bronze'
-             */
-            function getCoinQtyFromChar(tipo) {
-                try {
-                    const arr = Array.isArray(charData?.moedas) ? charData.moedas : [];
-                    const found = arr.find(m => String(m?.tipo) === String(tipo));
-                    return Number(found?.quantidade ?? 0);
-                } catch (e) { return 0; }
-            }
-
-            /**
-             * Renderiza as moedas na UI e adiciona handlers de clique/tecla
-             * Se for chamado com um argumento newChar, atualiza charData local.
-             */
-            function renderCoins(newChar) {
-                if (newChar) charData = newChar;
-
-                const types = ['ouro', 'prata', 'bronze'];
-                types.forEach(tipo => {
-                    const qtyEl = document.querySelector(`.coin-qty[data-tipo="${tipo}"]`);
-                    if (qtyEl) qtyEl.textContent = String(getCoinQtyFromChar(tipo));
-                });
-
-                // attach listeners (idempotente)
-                document.querySelectorAll('.coin').forEach(c => {
-                    if (c.__coinListenerAdded) return;
-                    c.__coinListenerAdded = true;
-
-                    c.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        await editCoinAmount(String(c.dataset.tipo));
-                    });
-
-                    c.addEventListener('keydown', async (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            await editCoinAmount(String(c.dataset.tipo));
-                        }
-                    });
-                });
-            }
-
-            /**
-             * Edita a quantidade de uma moeda (prompt simples), atualiza charData e salva no Firestore
-             * Usa sua rotina de salvamento robusta existente: robustSaveCharacterField(field, value)
-             */
-            async function editCoinAmount(tipo) {
-                try {
-                    const current = getCoinQtyFromChar(tipo);
-                    const raw = window.prompt(`Quantidade de ${tipo} (atual: ${current})`, String(current));
-                    if (raw === null) return; // cancelou
-                    const n = parseInt(raw, 10);
-                    if (Number.isNaN(n) || n < 0) { alert('Valor inválido — insira um número inteiro >= 0'); return; }
-
-                    // prepara novo array de moedas baseado em charData
-                    const moedas = Array.isArray(charData?.moedas) ? charData.moedas.slice() : [];
-                    const idx = moedas.findIndex(m => String(m?.tipo) === String(tipo));
-                    if (idx >= 0) {
-                        moedas[idx] = Object.assign({}, moedas[idx], { quantidade: n });
-                    } else {
-                        moedas.push({ tipo: tipo, quantidade: n });
-                    }
-
-                    // atualiza local e salva (robustSaveCharacterField existe no seu código)
-                    charData = Object.assign({}, charData, { moedas: moedas });
-                    try {
-                        await robustSaveCharacterField('moedas', moedas);
-                        // atualizar UI imediatamente
-                        renderCoins();
-                    } catch (err) {
-                        console.error('Falha ao salvar moedas:', err);
-                        alert('Erro ao salvar moedas. Confira o console para mais detalhes.');
-                    }
-                } catch (e) {
-                    console.error('editCoinAmount erro:', e);
-                }
-            }
 
             /* ===================== Inicialização: invocar após charData pronto ===================== */
             /* 

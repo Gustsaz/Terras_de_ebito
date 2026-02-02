@@ -2779,3 +2779,20 @@ body.character-sheet .title {
 .coin:focus {
     box-shadow: 0 0 0 3px rgba(92, 34, 34, 0.25);
 }
+
+/* input usado no prompt custom de moedas (mantém visual parecido com seus alerts) */
+.alert-modal .coin-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(0,0,0,0.18);
+  color: inherit;
+  font-size: 1rem;
+  outline: none;
+}
+
+/* garantir botão OK/Cancelar com o mesmo estilo dos alert-btn se precisar */
+.alert-modal .alert-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+.alert-modal .alert-btn { min-width:70px; padding:8px 12px; border-radius:8px; cursor:pointer; }

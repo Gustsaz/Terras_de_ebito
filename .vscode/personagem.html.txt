@@ -85,13 +85,15 @@
 
                                         <div class="coin coin-prata" data-tipo="prata" role="button" tabindex="0"
                                             title="Clique para editar quantidade de prata">
-                                            <i class="fas fa-circle coin-icon" aria-hidden="true"></i>
+                                            <!-- usei fa-coins aqui também (antes era fa-circle) -->
+                                            <i class="fas fa-coins coin-icon" aria-hidden="true"></i>
                                             <span class="coin-qty" data-tipo="prata">0</span>
                                         </div>
 
                                         <div class="coin coin-bronze" data-tipo="bronze" role="button" tabindex="0"
                                             title="Clique para editar quantidade de bronze">
-                                            <i class="fas fa-circle coin-icon" aria-hidden="true"></i>
+                                            <!-- idem para bronze -->
+                                            <i class="fas fa-coins coin-icon" aria-hidden="true"></i>
                                             <span class="coin-qty" data-tipo="bronze">0</span>
                                         </div>
                                     </div>
