@@ -633,7 +633,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const pesoInfoEl = document.getElementById('peso-info');
-            if (pesoInfoEl) pesoInfoEl.textContent = `${pesoAtual} / ${cargaMax}`;
+            if (pesoInfoEl) pesoInfoSpan.textContent = `${pesoAtual} / ${cargaMax}`;
 
             // cria listas para preencher
             const lists = {

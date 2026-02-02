@@ -1376,7 +1376,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
                 actions.appendChild(btnVoltar);
             } else {
-                const btnSubir = create('button', { class: 'btn confirm' }, ['Subir nível']);
+                const btnSubir = create('button', { class: 'btn confirm' }, ['Subir para este nível']);
                 btnSubir.addEventListener('click', async () => {
                     try {
                         // incrementar para esse nível (pode pular direto para nivelIndex conforme pedido — salvamos o nivel escolhido)
@@ -5888,6 +5888,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 1000);
     })();
     /* === Ensure mobile-profile-btn ALWAYS shows the logged-in user's Google photo === */
+
     (function ensureMobileProfileImageAlways() {
         function setProfileImage() {
             try {
