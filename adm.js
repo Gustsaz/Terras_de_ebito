@@ -1574,7 +1574,7 @@ async function getDocRefSafe(collectionName, docId) {
 
 /* === Global search + filtros (adicionado) === */
 (function () {
-    const SEARCH_COLLECTIONS = ['caminhos', 'condicoes', 'itens', 'feitiços', 'milagres', 'usuarios'];
+    const SEARCH_COLLECTIONS = ['caminhos', 'condicoes', 'itens', 'feitiços', 'milagres', 'talentos', 'usuarios'];
 
     const input = document.getElementById('global-search-input');
     const clearBtn = document.getElementById('clear-search-btn');
@@ -1638,8 +1638,10 @@ async function getDocRefSafe(collectionName, docId) {
             'condicoes': ['tipo'],
             'itens': ['categoria', 'tipo_item', 'tipo_dano'],
             'feitiços': ['elemento'],
-            'milagres': ['tipo', 'tomo', 'funcao']
+            'milagres': ['tipo', 'tomo', 'funcao'],
+            'talentos': ['requisito']
         };
+
 
         for (const coll of Object.keys(mapping)) {
             for (const field of mapping[coll]) {
@@ -2244,6 +2246,8 @@ async function getDocRefSafe(collectionName, docId) {
             console.error('Erro ao salvar talento:', err);
             alert('Erro ao salvar talento (veja console).');
         }
+        await populateAllSubfilters(); // atualiza as listas de filtro
+
     });
 
     // inicial
