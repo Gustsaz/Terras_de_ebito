@@ -269,7 +269,6 @@
                 <div class="tab-content tab-battle" data-tab="battle" style="display:none;">
                     <h2>Equipáveis</h2>
 
-
                     <div class="battle-equip">
                         <div id="char-armas" class="char-equipment-slot" data-slot-type="armas" tabindex="0"
                             role="button" aria-pressed="false">
@@ -308,6 +307,43 @@
                             <div class="slot-body">Vazio</div>
                         </div>
                     </div>
+
+
+                    <!-- === Talentos (adicionar abaixo de <h2>Equipáveis</h2>) === -->
+                    <h2 style="margin-top:12px;">Talentos</h2>
+                    <div class="talentos-equip" id="talentos-equip" aria-live="polite">
+                        <!-- Slots serão gerados pelo JS (4 slots empilhados verticalmente) -->
+                    </div>
+
+                    <!-- Modal Seleção de Talentos -->
+                    <div id="talentos-modal-backdrop" class="alert-backdrop" style="display:none;">
+                        <div class="alert-modal talentos-modal" role="dialog" aria-modal="true"
+                            style="max-width:520px;">
+                            <div class="alert-header">Escolher Talento</div>
+                            <div class="alert-body">
+                                <div id="talentos-list" style="max-height:360px; overflow:auto;"></div>
+                            </div>
+                            <div class="alert-actions">
+                                <button class="alert-btn" id="talentos-modal-cancel">Fechar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal Detalhe do Talento -->
+                    <div id="talento-detail-backdrop" class="alert-backdrop" style="display:none;">
+                        <div class="alert-modal talento-detail-modal" role="dialog" aria-modal="true"
+                            style="max-width:420px;">
+                            <div class="alert-header" id="talento-detail-title">Talento</div>
+                            <div class="alert-body">
+                                <div id="talento-detail-body"></div>
+                            </div>
+                            <div class="alert-actions">
+                                <button class="alert-btn" id="talento-delete-btn">Excluir talento</button>
+                                <button class="alert-btn" id="talento-detail-close">Fechar</button>
+                            </div>
+                        </div>
+                    </div>
+
 
                     <!-- Modal de itens (invisível por padrão) -->
                     <div id="items-modal" class="items-modal" aria-hidden="true">

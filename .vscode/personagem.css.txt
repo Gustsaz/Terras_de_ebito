@@ -2796,3 +2796,81 @@ body.character-sheet .title {
 /* garantir botão OK/Cancelar com o mesmo estilo dos alert-btn se precisar */
 .alert-modal .alert-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
 .alert-modal .alert-btn { min-width:70px; padding:8px 12px; border-radius:8px; cursor:pointer; }
+
+/* === Talentos UI === */
+.talentos-equip {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.talento-slot {
+  min-height: 64px;
+  border-radius: 10px;
+  padding: 10px;
+  border: 3px solid rgba(90,22,22,0.9);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.08));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #efe6e2;
+  text-align: center;
+  font-weight: 700;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.talento-slot:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(0,0,0,0.6); }
+
+.talento-slot.empty {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+  border-style: dashed;
+  opacity: 0.6;
+  color: rgba(240,240,240,0.7);
+}
+
+.talento-slot.filled {
+  background: linear-gradient(180deg, #2a1c1c, #1b1414);
+  opacity: 1;
+}
+
+.talento-slot.locked {
+  background: linear-gradient(180deg,#2f2f2f,#1e1e1e);
+  border-color: rgba(100,100,100,0.5);
+  color: #bdbdbd;
+  cursor: pointer;
+  opacity: 0.9;
+  filter: grayscale(0.12);
+}
+
+/* conteúdo interno do slot preenchido */
+.talento-slot .talento-inner {
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  width:100%;
+}
+.talento-slot .talento-name { font-size:1rem; }
+.talento-slot .talento-effect { font-size:0.85rem; opacity:0.9; }
+
+/* lista do modal de seleção */
+.talentos-modal #talentos-list .tal-row {
+  padding:8px 10px;
+  border-bottom:1px solid rgba(255,255,255,0.03);
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  cursor:pointer;
+}
+.talentos-modal #talentos-list .tal-row:hover {
+  background: rgba(255,255,255,0.02);
+}
+.tal-row .row-name { font-weight:700; }
+.tal-row .row-req { font-size:0.85rem; opacity:0.85; }
+.tal-row .row-effect { font-size:0.85rem; opacity:0.9; }
+
+/* detalhe modal corpo */
+.talento-detail-modal #talento-detail-body { display:flex; flex-direction:column; gap:8px; }

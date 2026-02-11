@@ -140,6 +140,93 @@ function renderCoins(newChar) {
     });
 }
 
+// ===== Compat shim: garante window.showCustomAlert (confirm estilizado)
+// Cole isso antes de qualquer uso de showCustomAlert (ex: antes do DOMContentLoaded)
+window.showCustomAlert = window.showCustomAlert || function(msg) {
+  // retorna Promise<boolean> — true se OK, false se cancel/fechar
+  return new Promise((resolve) => {
+    try {
+      // evita múltiplos alerts idênticos
+      if (document.getElementById('shim-alert-backdrop')) {
+        // se já existir, resolve como false para evitar bloqueio
+        resolve(false);
+        return;
+      }
+
+      const backdrop = document.createElement('div');
+      backdrop.id = 'shim-alert-backdrop';
+      backdrop.className = 'alert-backdrop';
+      backdrop.setAttribute('role', 'dialog');
+      backdrop.setAttribute('aria-modal', 'true');
+
+      const modal = document.createElement('div');
+      modal.className = 'alert-modal';
+      modal.tabIndex = -1;
+
+      modal.innerHTML = `
+        <div class="alert-header">Atenção</div>
+        <div class="alert-body">${String(msg).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+        <div class="alert-actions" style="gap:10px;">
+          <button class="alert-btn alert-cancel" type="button">Cancelar</button>
+          <button class="alert-btn alert-ok" type="button">OK</button>
+        </div>
+      `;
+
+      backdrop.appendChild(modal);
+      document.body.appendChild(backdrop);
+
+      // permitir animação CSS
+      requestAnimationFrame(() => backdrop.classList.add('visible'));
+
+      const okBtn = modal.querySelector('.alert-ok');
+      const cancelBtn = modal.querySelector('.alert-cancel');
+
+      let finished = false;
+      function cleanup(result) {
+        if (finished) return;
+        finished = true;
+        backdrop.classList.remove('visible');
+        setTimeout(() => {
+          try { backdrop.remove(); } catch (e) { /* silent */ }
+          resolve(Boolean(result));
+        }, 260);
+      }
+
+      okBtn?.addEventListener('click', () => cleanup(true));
+      cancelBtn?.addEventListener('click', () => cleanup(false));
+
+      // fechar clicando fora do modal
+      backdrop.addEventListener('click', (ev) => {
+        if (ev.target === backdrop) cleanup(false);
+      });
+
+      // fechar com ESC
+      function onKey(e) {
+        if (e.key === 'Escape') {
+          cleanup(false);
+          document.removeEventListener('keydown', onKey);
+        } else if (e.key === 'Enter') {
+          // Enter confirma (ajuda acessibilidade)
+          cleanup(true);
+          document.removeEventListener('keydown', onKey);
+        }
+      }
+      document.addEventListener('keydown', onKey);
+
+      // foco para acessibilidade
+      setTimeout(() => {
+        try { modal.focus(); } catch (e) {}
+      }, 40);
+
+    } catch (err) {
+      console.error('showCustomAlert shim falhou', err);
+      // fallback para confirm nativo
+      try { resolve(window.confirm(String(msg))); } catch (e) { resolve(false); }
+    }
+  });
+};
+
+
 /**
  * Salva com robustez um campo do personagem que está dentro do array 'personagens'
  * - field: string (ex: 'moedas', 'img', 'proeficiencias', etc)
@@ -147,6 +234,7 @@ function renderCoins(newChar) {
  *
  * Atualiza o documento 'usuarios/{uid}' substituindo o elemento correspondente em personagens[].
  */
+
 async function robustSaveCharacterField(field, value) {
     if (!window.firebaseauth?.currentUser) {
         throw new Error('robustSaveCharacterField: usuário não autenticado');
@@ -6533,19 +6621,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const qSnap = await window.getDocs(talentosColl());
             talentsListEl.innerHTML = '';
+
+            // monta lista de UIDs que o personagem já tem
+            const existingUids = Array.isArray(charData?.talentos)
+                ? charData.talentos.map(t => String(t?.uid ?? t).trim()).filter(Boolean)
+                : [];
+
+            // percorre e só adiciona talentos que o personagem ainda não possui
             qSnap.forEach(docSnap => {
+                // se já tem, pula
+                if (existingUids.includes(docSnap.id)) return;
+
                 const d = docSnap.data() || {};
                 const row = document.createElement('div');
                 row.className = 'tal-row';
                 row.tabIndex = 0;
                 row.innerHTML = `<div class="row-name">${d.nome || docSnap.id}</div>
-                         <div class="row-req">${d.requisito || ''}</div>
-                         <div class="row-effect">${d.efeito || ''}</div>`;
+             <div class="row-req">${d.requisito || ''}</div>
+             <div class="row-effect">${d.efeito || ''}</div>`;
                 row.addEventListener('click', () => selectTalentForSlot(docSnap.id));
                 row.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') selectTalentForSlot(docSnap.id); });
                 talentsListEl.appendChild(row);
             });
-            if (!qSnap.size) talentsListEl.innerHTML = '<div style="padding:8px;color:#ddd">Nenhum talento cadastrado.</div>';
+
+            // Se todos os documentos foram filtrados (ou não existe), mostrar mensagem apropriada
+            if (!talentsListEl.children.length) {
+                talentsListEl.innerHTML = '<div style="padding:8px;color:#ddd">Nenhum talento disponível para adicionar.</div>';
+            }
         } catch (err) {
             talentsListEl.innerHTML = `<div style="padding:8px;color:#f88">Erro ao carregar: ${err.message || err}</div>`;
             console.error('Erro lendo coleção talentos', err);
@@ -6646,7 +6748,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // excluir: remove o uid do array talentos (todas as ocorrências) e salva
     detailDeleteBtn?.addEventListener('click', async () => {
         if (!currentDetailUid) return;
-        const ok = window.confirm('Remover este talento do personagem?');
+        // usa o showCustomAlert estilizado (resolve true se OK, false se fechar/ESC/clique fora)
+        const ok = await showCustomAlert('Remover este talento do personagem?');
         if (!ok) return;
         try {
             const arr = Array.isArray(charData?.talentos) ? charData.talentos.slice() : [];
@@ -6673,8 +6776,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     /* ===== Slot trancado: confirma desbloqueio e insere novo slot acima do trancado, movendo trancado para o final ===== */
-    function openLockedConfirm(slotEl) {
-        const ok = window.confirm('Confirmar desbloqueio? Ao confirmar será criada uma nova posição de escolha.');
+    async function openLockedConfirm(slotEl) {
+        // usa o showCustomAlert estilizado do seu arquivo (fechar/X/ESC = false)
+        const ok = await showCustomAlert('Confirmar desbloqueio? Ao confirmar será criada uma nova posição de escolha.');
         if (!ok) return;
         // transformar slot trancado em slot normal e criar novo trancado abaixo
         // estratégia: substituir o slot atual por um slot vazio e mover o slot antigo para o final
@@ -6732,3 +6836,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.refreshTalentosSlotsFromCharData = renderSlotsFromChar;
 
 })();
+

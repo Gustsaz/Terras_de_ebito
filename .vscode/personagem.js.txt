@@ -6412,5 +6412,340 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 })();
 
+;
 
-; 
+/* === Talentos UI + modais === */
+(function initTalentosFeature() {
+    // evita múltiplas inicializações
+    if (window.__talentosInitDone) return;
+    window.__talentosInitDone = true;
+
+    const battleTab = document.querySelector('.tab-content.tab-battle');
+    if (!battleTab) return;
+
+    const wrapper = document.getElementById('talentos-equip');
+    if (!wrapper) return;
+
+    // helpers Firestore
+    const talentosColl = () => window.collection(window.firestoredb, 'talentos');
+
+    // cria 4 slots (os 3 primeiros selecionáveis, o 4º trancado)
+    function createSlots() {
+        wrapper.innerHTML = '';
+        for (let i = 0; i < 4; i++) {
+            const slot = document.createElement('div');
+            slot.className = 'talento-slot';
+            slot.dataset.index = String(i);
+            slot.tabIndex = 0;
+
+            if (i < 3) {
+                slot.classList.add('empty');
+                slot.innerHTML = `<div class="talento-inner"><div class="talento-name">Clique para escolher</div></div>`;
+            } else {
+                slot.classList.add('locked');
+                slot.innerHTML = `<div class="talento-inner"><div class="talento-name">Trancado</div><div style="font-size:0.85rem;opacity:0.9;">Clique para desbloquear</div></div>`;
+            }
+
+            slot.addEventListener('click', onSlotClick);
+            slot.addEventListener('keydown', (e) => { if (e.key === 'Enter') slot.click(); });
+            wrapper.appendChild(slot);
+        }
+    }
+
+    // Carrega o estado atual de talentos do charData e preenche os slots
+    async function renderSlotsFromChar() {
+        const arr = Array.isArray(charData?.talentos) ? charData.talentos.slice() : [];
+        const slots = Array.from(wrapper.querySelectorAll('.talento-slot'));
+        // limpa todos
+        slots.forEach(s => {
+            s.classList.remove('filled');
+            s.classList.remove('empty');
+            // reset locked style only for index >=3
+            const idx = Number(s.dataset.index);
+            if (idx < 3) s.classList.add('empty');
+            else s.classList.add('locked');
+            s.innerHTML = `<div class="talento-inner"><div class="talento-name">${idx < 3 ? 'Clique para escolher' : 'Trancado'}</div></div>`;
+        });
+
+        // popular com os primeiros N talentos do array (ordem natural)
+        for (let i = 0; i < Math.min(3, arr.length); i++) {
+            const uid = arr[i];
+            if (!uid) continue;
+            try {
+                const ref = window.doc(window.firestoredb, 'talentos', String(uid));
+                const snap = await window.getDoc(ref);
+                const data = (snap && snap.exists()) ? snap.data() : null;
+                const slot = wrapper.querySelector(`.talento-slot[data-index="${i}"]`);
+                if (!slot) continue;
+                if (data) {
+                    slot.classList.remove('empty');
+                    slot.classList.add('filled');
+                    slot.innerHTML = `<div class="talento-inner"><div class="talento-name">${data.nome || '(sem nome)'}</div><div class="talento-effect">${data.efeito || ''}</div></div>`;
+                    slot.dataset.uid = String(uid);
+                } else {
+                    // doc não encontrado — mostrar aviso e permitir remoção
+                    slot.classList.remove('empty');
+                    slot.classList.add('filled');
+                    slot.innerHTML = `<div class="talento-inner"><div class="talento-name">(talento não encontrado)</div><div class="talento-effect">(uid: ${uid})</div></div>`;
+                    slot.dataset.uid = String(uid);
+                }
+            } catch (err) {
+                console.error('Erro carregando talento', uid, err);
+            }
+        }
+    }
+
+    // slot click handler
+    async function onSlotClick(e) {
+        const slot = e.currentTarget;
+        const idx = Number(slot.dataset.index);
+
+        if (slot.classList.contains('locked')) {
+            // abrir modal de confirmação de desbloqueio
+            openLockedConfirm(slot);
+            return;
+        }
+
+        if (slot.classList.contains('filled')) {
+            // abrir detalhe com opção de excluir
+            openTalentDetailModal(slot.dataset.uid);
+            return;
+        }
+
+        // slot vazio -> abrir modal de seleção
+        openTalentosSelectionModal(idx);
+    }
+
+    /* ===== Modal de seleção de talentos (lista) ===== */
+    const talentsBackdrop = document.getElementById('talentos-modal-backdrop');
+    const talentsListEl = document.getElementById('talentos-list');
+    const talentsCancelBtn = document.getElementById('talentos-modal-cancel');
+
+    let activeSelectionSlotIndex = null;
+
+    async function openTalentosSelectionModal(slotIndex) {
+        activeSelectionSlotIndex = slotIndex;
+        if (!talentsBackdrop || !talentsListEl) return;
+        talentsListEl.innerHTML = '<div style="padding:8px;color:#ddd">Carregando talentos...</div>';
+        talentsBackdrop.style.display = '';
+        requestAnimationFrame(() => talentsBackdrop.classList.add('visible'));
+
+        try {
+            const qSnap = await window.getDocs(talentosColl());
+            talentsListEl.innerHTML = '';
+
+            // monta lista de UIDs que o personagem já tem
+            const existingUids = Array.isArray(charData?.talentos)
+                ? charData.talentos.map(t => String(t?.uid ?? t).trim()).filter(Boolean)
+                : [];
+
+            // percorre e só adiciona talentos que o personagem ainda não possui
+            qSnap.forEach(docSnap => {
+                // se já tem, pula
+                if (existingUids.includes(docSnap.id)) return;
+
+                const d = docSnap.data() || {};
+                const row = document.createElement('div');
+                row.className = 'tal-row';
+                row.tabIndex = 0;
+                row.innerHTML = `<div class="row-name">${d.nome || docSnap.id}</div>
+             <div class="row-req">${d.requisito || ''}</div>
+             <div class="row-effect">${d.efeito || ''}</div>`;
+                row.addEventListener('click', () => selectTalentForSlot(docSnap.id));
+                row.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') selectTalentForSlot(docSnap.id); });
+                talentsListEl.appendChild(row);
+            });
+
+            // Se todos os documentos foram filtrados (ou não existe), mostrar mensagem apropriada
+            if (!talentsListEl.children.length) {
+                talentsListEl.innerHTML = '<div style="padding:8px;color:#ddd">Nenhum talento disponível para adicionar.</div>';
+            }
+        } catch (err) {
+            talentsListEl.innerHTML = `<div style="padding:8px;color:#f88">Erro ao carregar: ${err.message || err}</div>`;
+            console.error('Erro lendo coleção talentos', err);
+        }
+    }
+
+    talentsCancelBtn?.addEventListener('click', closeTalentosSelectionModal);
+    talentsBackdrop?.addEventListener('click', (ev) => { if (ev.target === talentsBackdrop) closeTalentosSelectionModal(); });
+
+    function closeTalentosSelectionModal() {
+        if (!talentsBackdrop) return;
+        talentsBackdrop.classList.remove('visible');
+        setTimeout(() => { talentsBackdrop.style.display = 'none'; talentsListEl.innerHTML = ''; }, 260);
+        activeSelectionSlotIndex = null;
+    }
+
+    // quando escolhe um talento na lista
+    async function selectTalentForSlot(talUid) {
+        if (activeSelectionSlotIndex === null) return;
+        try {
+            // ler array atual
+            const arr = Array.isArray(charData?.talentos) ? charData.talentos.slice() : [];
+            // se já existe esse uid em outro slot, remover para evitar duplicação
+            const prevIdx = arr.indexOf(String(talUid));
+            if (prevIdx !== -1) arr.splice(prevIdx, 1);
+
+            // coloca na posição desejada (se índice maior que tamanho -> push)
+            arr[activeSelectionSlotIndex] = String(talUid);
+
+            // compactar (remover undefined vazios no tail) - opcional
+            const compact = arr.filter(x => typeof x !== 'undefined' && x !== null && String(x) !== '');
+
+            // salvar (usa saveCharacterField se existir, senão fallback robusto)
+            if (typeof saveCharacterField === 'function') {
+                await saveCharacterField('talentos', compact);
+            } else if (typeof robustSaveCharacterField === 'function') {
+                await robustSaveCharacterField('talentos', compact);
+            } else {
+                throw new Error('Função de salvar não encontrada.');
+            }
+            // atualiza charData local e UI
+            charData.talentos = compact;
+            await renderSlotsFromChar();
+            closeTalentosSelectionModal();
+        } catch (err) {
+            console.error('Erro ao salvar talento no personagem', err);
+            window.alert('Erro ao salvar talento. Veja console.');
+        }
+    }
+
+    /* ===== Modal de detalhe do talento (abrir a partir do slot preenchido) ===== */
+    const detailBackdrop = document.getElementById('talento-detail-backdrop');
+    const detailBody = document.getElementById('talento-detail-body');
+    const detailTitle = document.getElementById('talento-detail-title');
+    const detailCloseBtn = document.getElementById('talento-detail-close');
+    const detailDeleteBtn = document.getElementById('talento-delete-btn');
+
+    let currentDetailUid = null;
+
+    function openTalentDetailModal(uid) {
+        currentDetailUid = uid;
+        detailBody.innerHTML = '<div>Carregando...</div>';
+        detailBackdrop.style.display = '';
+        requestAnimationFrame(() => detailBackdrop.classList.add('visible'));
+        // fetch doc
+        (async () => {
+            try {
+                const ref = window.doc(window.firestoredb, 'talentos', String(uid));
+                const snap = await window.getDoc(ref);
+                if (!snap.exists()) {
+                    detailTitle.textContent = '(talento não encontrado)';
+                    detailBody.innerHTML = `<div>UID: ${uid}</div>`;
+                    return;
+                }
+                const d = snap.data() || {};
+                detailTitle.textContent = d.nome || 'Talento';
+                detailBody.innerHTML = `
+          <div><strong>Requisito:</strong> ${d.requisito || '—'}</div>
+          <div><strong>Efeito:</strong> ${d.efeito || '—'}</div>
+        `;
+            } catch (err) {
+                detailBody.innerHTML = `<div>Erro ao carregar: ${err.message || err}</div>`;
+                console.error('Erro fetching talento detail', err);
+            }
+        })();
+    }
+
+    detailCloseBtn?.addEventListener('click', closeTalentDetailModal);
+    detailBackdrop?.addEventListener('click', (ev) => { if (ev.target === detailBackdrop) closeTalentDetailModal(); });
+
+    function closeTalentDetailModal() {
+        if (!detailBackdrop) return;
+        detailBackdrop.classList.remove('visible');
+        setTimeout(() => { detailBackdrop.style.display = 'none'; detailBody.innerHTML = ''; detailTitle.textContent = 'Talento'; }, 260);
+        currentDetailUid = null;
+    }
+
+    // excluir: remove o uid do array talentos (todas as ocorrências) e salva
+    ddetailDeleteBtn?.addEventListener('click', async () => {
+        if (!currentDetailUid) return;
+        // usa o showCustomAlert estilizado (resolve true se OK, false se fechar/ESC/clique fora)
+        const ok = await showCustomAlert('Remover este talento do personagem?');
+        if (!ok) return;
+        try {
+            const arr = Array.isArray(charData?.talentos) ? charData.talentos.slice() : [];
+            let changed = false;
+            for (let i = arr.length - 1; i >= 0; i--) {
+                if (String(arr[i]) === String(currentDetailUid)) { arr.splice(i, 1); changed = true; }
+            }
+            if (!changed) { window.alert('Talento não encontrado no personagem.'); closeTalentDetailModal(); return; }
+
+            // salvar
+            if (typeof saveCharacterField === 'function') {
+                await saveCharacterField('talentos', arr);
+            } else if (typeof robustSaveCharacterField === 'function') {
+                await robustSaveCharacterField('talentos', arr);
+            }
+
+            charData.talentos = arr;
+            await renderSlotsFromChar();
+            closeTalentDetailModal();
+        } catch (err) {
+            console.error('Erro ao remover talento', err);
+            window.alert('Erro ao remover talento. Veja console.');
+        }
+    });
+
+    /* ===== Slot trancado: confirma desbloqueio e insere novo slot acima do trancado, movendo trancado para o final ===== */
+    async function openLockedConfirm(slotEl) {
+        // usa o showCustomAlert estilizado do seu arquivo (fechar/X/ESC = false)
+        const ok = await showCustomAlert('Confirmar desbloqueio? Ao confirmar será criada uma nova posição de escolha.');
+        if (!ok) return;
+        // transformar slot trancado em slot normal e criar novo trancado abaixo
+        // estratégia: substituir o slot atual por um slot vazio e mover o slot antigo para o final
+        const idx = Number(slotEl.dataset.index);
+        // novo slot vazio (substituto)
+        const newSlot = document.createElement('div');
+        newSlot.className = 'talento-slot empty';
+        newSlot.dataset.index = slotEl.dataset.index;
+        newSlot.tabIndex = 0;
+        newSlot.innerHTML = `<div class="talento-inner"><div class="talento-name">Clique para escolher</div></div>`;
+        newSlot.addEventListener('click', onSlotClick);
+        newSlot.addEventListener('keydown', (e) => { if (e.key === 'Enter') newSlot.click(); });
+
+        // atual slot trancado -> mover para final e atualizar index
+        const oldLocked = slotEl;
+        const maxIndex = wrapper.querySelectorAll('.talento-slot').length - 1;
+        // replace in place
+        wrapper.replaceChild(newSlot, oldLocked);
+
+        // criar um novo locked slot no final
+        const lockedSlot = document.createElement('div');
+        lockedSlot.className = 'talento-slot locked';
+        lockedSlot.dataset.index = String(maxIndex);
+        lockedSlot.tabIndex = 0;
+        lockedSlot.innerHTML = `<div class="talento-inner"><div class="talento-name">Trancado</div><div style="font-size:0.85rem;opacity:0.9;">Clique para desbloquear</div></div>`;
+        lockedSlot.addEventListener('click', onSlotClick);
+        lockedSlot.addEventListener('keydown', (e) => { if (e.key === 'Enter') lockedSlot.click(); });
+        wrapper.appendChild(lockedSlot);
+
+        // Reindexa todos os slots dataset.index (para manter ordem)
+        Array.from(wrapper.querySelectorAll('.talento-slot')).forEach((s, i) => s.dataset.index = String(i));
+    }
+
+    // inicial
+    createSlots();
+    // espera que charData esteja pronto (já é carregado no arquivo principal)
+    (async () => {
+        try {
+            // se charData estiver indefinido, aguarda um pouco (várias partes do seu arquivo usam onAuthStateChanged)
+            const waitForChar = () => new Promise(res => {
+                const tries = 20;
+                let t = 0;
+                const iv = setInterval(() => {
+                    if (typeof charData !== 'undefined' && charData) { clearInterval(iv); return res(); }
+                    t++;
+                    if (t > tries) { clearInterval(iv); return res(); }
+                }, 180);
+            });
+            await waitForChar();
+        } catch (e) {/* ignore */ }
+        try { await renderSlotsFromChar(); } catch (e) { console.warn('renderSlotsFromChar erro:', e); }
+    })();
+
+    // expõe função pública para forçar refresh (usado por outras partes do código)
+    window.refreshTalentosSlotsFromCharData = renderSlotsFromChar;
+
+})();
+
