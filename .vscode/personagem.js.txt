@@ -2135,6 +2135,274 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // Permite clicar no container de proficiências para adicionar uma nova proficiência
+    // ------ Proficiency add/edit UI + logic ------
+
+    /**
+     * Sessão: mantém as proficiências adicionadas pelo usuário nesta sessão
+     * (usado para marcar <li> com comportamento de editar/excluir no clique)
+     */
+    const _userAddedProficiencies = new Set();
+
+    /**
+     * Cria um modal reutilizável para adicionar/editar proficiência.
+     * options: { title, initialValue, onSave(value), onDelete(), onCancel() }
+     */
+    function openProficiencyModal(options = {}) {
+        const { title = 'Proficiencia', initialValue = '', onSave, onDelete, onCancel } = options;
+
+        const backdrop = document.createElement('div');
+        backdrop.className = 'alert-backdrop';
+        backdrop.setAttribute('role', 'dialog');
+        backdrop.setAttribute('aria-modal', 'true');
+
+        const modal = document.createElement('div');
+        modal.className = 'alert-modal proficiency-modal modal-enter';
+        modal.innerHTML = `
+    <div class="alert-header">${escapeHtml(String(title))}</div>
+    <div class="alert-body">
+      <input class="proficiency-input" type="text" value="${escapeHtml(initialValue)}" placeholder="Nome da proficiência" />
+    </div>
+    <div class="alert-actions">
+      <button class="btn-delete">Excluir</button>
+      <button class="btn-save">Salvar</button>
+    </div>
+  `;
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        // anima in
+        requestAnimationFrame(() => backdrop.classList.add('visible'));
+
+        const input = modal.querySelector('.proficiency-input');
+        const btnDelete = modal.querySelector('.btn-delete');
+        const btnSave = modal.querySelector('.btn-save');
+
+        // foco no input
+        setTimeout(() => { try { input.focus(); input.select(); } catch (e) { } }, 60);
+
+        function close(result) {
+            // anima out
+            backdrop.classList.remove('visible');
+            setTimeout(() => {
+                try { backdrop.remove(); } catch (e) { }
+                if (result && result.type === 'save' && typeof onSave === 'function') onSave(result.value);
+                if (result && result.type === 'delete' && typeof onDelete === 'function') onDelete();
+                if (!result && typeof onCancel === 'function') onCancel();
+            }, 300);
+        }
+
+        // handlers
+        btnSave.addEventListener('click', () => {
+            const v = (input.value || '').trim();
+            if (!v) {
+                window.alert('Nome vazio não é permitido.');
+                return;
+            }
+            close({ type: 'save', value: v });
+        });
+
+        btnDelete.addEventListener('click', () => {
+            // confirmação leve
+            const ok = confirm('Excluir esta proficiência? Esta ação não pode ser desfeita nesta sessão.');
+            if (!ok) return;
+            close({ type: 'delete' });
+        });
+
+        backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) close(); // cancel
+        });
+
+        // ESC fecha (cancel)
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                close();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+
+    /**
+     * Pequeno helper para evitar injection no modal HTML (valores de input)
+     */
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    /**
+     * (Re)marca os <li> de proficiências que são user-added na sessão
+     */
+    function markUserAddedProficienciesInDOM() {
+        const list = document.querySelector('#profs-list, #proficiencias-list, .profs-list, .proficiencias-list');
+        if (!list) return;
+        const items = Array.from(list.querySelectorAll('li'));
+        items.forEach(li => {
+            const txt = (li.textContent || '').trim();
+            if (_userAddedProficiencies.has(txt)) {
+                li.classList.add('user-added', 'proficiency-item');
+                li.dataset.userAdded = 'true';
+            } else {
+                li.classList.remove('user-added');
+                delete li.dataset.userAdded;
+                li.classList.add('proficiency-item');
+            }
+        });
+    }
+
+    /**
+     * Função principal: substitui comportamento anterior.
+     * Ao clicar no container: mostra window.alert(...) (seu alert estilizado)
+     * e em seguida abre o input modal para adicionar.
+     * Também delega clique nos <li> user-added para editar/excluir.
+     */
+    function enableProficiencyAddAndEdit() {
+        const container = document.getElementById('proficiencias-list')
+            || document.getElementById('char-proficiencias')
+            || document.querySelector('.proficiencias-list');
+
+        if (!container) return;
+        if (container.__proficAddAttached) return;
+        container.__proficAddAttached = true;
+
+        // Delegation: clique no container abre o fluxo de "adicionar"
+        container.addEventListener('click', async (e) => {
+            // se clicou diretamente em um <li> user-added, deixamos o handler específico lidar (ver abaixo)
+            const li = e.target.closest('li');
+            if (li && li.dataset && li.dataset.userAdded === 'true') {
+                // clique num item user-added -> abre modal de edição
+                const oldVal = (li.textContent || '').trim();
+                openProficiencyModal({
+                    title: 'Editar proficiência',
+                    initialValue: oldVal,
+                    onSave: async (newVal) => {
+                        if (!newVal || newVal === oldVal) return;
+                        try {
+                            // atualiza charData e salva
+                            const arrName = 'proeficiencias';
+                            const existing = Array.isArray(charData[arrName]) ? charData[arrName].slice() : [];
+                            const idx = existing.indexOf(oldVal);
+                            if (idx >= 0) existing[idx] = newVal;
+                            else existing.push(newVal);
+                            // atualizar session set: remove old, add new
+                            _userAddedProficiencies.delete(oldVal);
+                            _userAddedProficiencies.add(newVal);
+
+                            await persistProficienciesArray(existing);
+                            // atualiza UI
+                            try { renderProficiencies(charData); } catch (err) { console.warn('renderProficiencies erro:', err); }
+                            markUserAddedProficienciesInDOM();
+                        } catch (err) {
+                            console.error('Erro salvando prof editada:', err);
+                            window.alert('Falha ao salvar proficiência. Veja console.');
+                        }
+                    },
+                    onDelete: async () => {
+                        try {
+                            const arrName = 'proeficiencias';
+                            const existing = Array.isArray(charData[arrName]) ? charData[arrName].slice() : [];
+                            const idx = existing.indexOf(oldVal);
+                            if (idx >= 0) existing.splice(idx, 1);
+                            _userAddedProficiencies.delete(oldVal);
+                            await persistProficienciesArray(existing);
+                            try { renderProficiencies(charData); } catch (err) { console.warn('renderProficiencies erro:', err); }
+                            markUserAddedProficienciesInDOM();
+                        } catch (err) {
+                            console.error('Erro excluindo prof:', err);
+                            window.alert('Falha ao excluir proficiência. Veja console.');
+                        }
+                    }
+                });
+                return;
+            }
+
+            // se clicou em outro lugar do container (background), iniciar agregar
+            // (mostramos seu alert estilizado primeiro, como pediu)
+            window.alert('Adicionar proficiência (digite o nome):');
+
+            // abrir o modal de input para adicionar
+            openProficiencyModal({
+                title: 'Adicionar proficiência',
+                initialValue: '',
+                onSave: async (value) => {
+                    try {
+                        if (!value) return;
+                        const arrName = 'proeficiencias';
+                        const existing = Array.isArray(charData[arrName]) ? charData[arrName].slice() : [];
+                        if (existing.includes(value)) {
+                            window.alert('Essa proficiência já existe.');
+                            return;
+                        }
+                        existing.push(value);
+                        // marcar como adicionada nesta sessão
+                        _userAddedProficiencies.add(value);
+
+                        await persistProficienciesArray(existing);
+                        // re-renderiza e marca os adicionados
+                        try { renderProficiencies(charData); } catch (err) { console.warn('renderProficiencies erro:', err); }
+                        markUserAddedProficienciesInDOM();
+                    } catch (err) {
+                        console.error('Erro ao adicionar proficiência (modal):', err);
+                        window.alert('Falha ao salvar proficiência. Veja console.');
+                    }
+                },
+                onDelete: null,
+            });
+        });
+
+        // também roda uma vez para marcar possíveis itens já existentes que foram adicionados nesta sessão
+        markUserAddedProficienciesInDOM();
+    }
+
+    /**
+     * Persistir array 'proeficiencias' usando suas rotinas existentes (fallbacks incluidos)
+     */
+    async function persistProficienciesArray(arr) {
+        const arrName = 'proeficiencias';
+        // atualiza charData local
+        if (!charData) charData = charData || {};
+        charData[arrName] = arr.slice();
+
+        if (typeof robustSaveCharacterField === 'function') {
+            await robustSaveCharacterField(arrName, arr.slice());
+        } else if (typeof saveCharacterField === 'function') {
+            await saveCharacterField(arrName, arr.slice());
+        } else {
+            // fallback: update direto no documento do usuário (mesma lógica do seu trecho)
+            const uid = window.firebaseauth?.currentUser?.uid;
+            if (!uid) throw new Error('Usuário não autenticado');
+            const userDocRef = window.doc(window.firestoredb, 'usuarios', uid);
+            const snap = await window.getDoc(userDocRef);
+            if (!snap.exists()) throw new Error('Documento do usuário não encontrado');
+            const data = snap.data() || {};
+            const characters = Array.isArray(data.personagens) ? data.personagens.slice() : [];
+            const idx = characters.findIndex(c => c && c.uid === charUid);
+            if (idx >= 0) {
+                characters[idx][arrName] = arr.slice();
+                await window.updateDoc(userDocRef, { personagens: characters });
+                charData = characters[idx];
+            } else {
+                throw new Error('Personagem não encontrado');
+            }
+        }
+    }
+
+    /* =================== USO ===================
+      Substitua a chamada antiga enableProficiencyAdd() por:
+        enableProficiencyAddAndEdit();
+      E chame logo após renderProficiencies(charData) para garantir que a lista exista no DOM.
+    ===========================================*/
+
+    // se a sua versão antiga já chamava enableProficiencyAdd(), troque para a nova:
+    try {
+        // garante que funcione mesmo se já tiver sido chamada antes
+        enableProficiencyAddAndEdit();
+    } catch (err) {
+        console.warn('Falha ao ativar prof add/edit:', err);
+    }
+
+
+
     // pega referências aos textareas (compatibilidade com ids/classes que você usa)
     const storyTA = document.getElementById('char-historia-desc') || document.querySelector('.story-panel');
     const appearanceTA = document.getElementById('char-aparencia-desc') || document.querySelector('.appearance-panel');
@@ -4630,16 +4898,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         function computeValueFromClientX(clientX) {
+            // usa a bounding box inteira do elemento (mais robusto em mobile)
             const rect = bar.getBoundingClientRect();
-            const style = getComputedStyle(bar);
-            const padLeft = parseFloat(style.paddingLeft) || 0;
-            const padRight = parseFloat(style.paddingRight) || 0;
-            const usableLeft = rect.left + padLeft;
-            const usableWidth = Math.max(2, rect.width - padLeft - padRight);
+            const usableLeft = rect.left;
+            const usableWidth = Math.max(2, rect.width); // protege contra width = 0
             const rel = clamp((clientX - usableLeft) / usableWidth, 0, 1);
             const total = getTotal();
             return Math.round(rel * total);
         }
+
 
         function startDrag(ev) {
             if (ev.target.closest('.stat-btn') || ev.target.classList.contains('bar-input')) return;
@@ -4998,14 +5265,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         function computeValueFromClientX(clientX) {
             const rect = bar.getBoundingClientRect();
-            const style = getComputedStyle(bar);
-            const padLeft = parseFloat(style.paddingLeft) || 0;
-            const padRight = parseFloat(style.paddingRight) || 0;
-            const usableLeft = rect.left + padLeft;
-            const usableWidth = Math.max(2, rect.width - padLeft - padRight);
+            const usableLeft = rect.left;
+            const usableWidth = Math.max(2, rect.width);
             const rel = clamp((clientX - usableLeft) / usableWidth, 0, 1);
             const limit = expLimitForLevel(expLevel);
-            // IMPORTANT: não permitir que o drag alcance o limite (isso impediria level-up via drag)
+            // não permitir arrastar até o limite (mantendo a regra que tinha)
             const maxDraggable = Math.max(0, limit - 1);
             return clamp(Math.round(rel * limit), 0, maxDraggable);
         }
