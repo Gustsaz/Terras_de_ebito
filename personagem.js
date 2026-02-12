@@ -142,6 +142,7 @@ function renderCoins(newChar) {
 
 // ===== Compat shim: garante window.showCustomAlert (confirm estilizado)
 // Cole isso antes de qualquer uso de showCustomAlert (ex: antes do DOMContentLoaded)
+// ===== Compat shim: garante window.showCustomAlert (confirm estilizado) - REPARADO =====
 window.showCustomAlert = window.showCustomAlert || function (msg) {
     // retorna Promise<boolean> — true se OK, false se cancel/fechar
     return new Promise((resolve) => {
@@ -152,6 +153,10 @@ window.showCustomAlert = window.showCustomAlert || function (msg) {
                 resolve(false);
                 return;
             }
+
+            // elementos potenciais que podem ficar acima do alerta — vamos "desabilitar" interações neles
+            const detailBackdrop = document.getElementById('talento-detail-backdrop');
+            const talentsBackdrop = document.getElementById('talentos-modal-backdrop');
 
             const backdrop = document.createElement('div');
             backdrop.id = 'shim-alert-backdrop';
@@ -175,6 +180,27 @@ window.showCustomAlert = window.showCustomAlert || function (msg) {
             backdrop.appendChild(modal);
             document.body.appendChild(backdrop);
 
+            // Forçar z-index alto para este alert (defensivo)
+            // Valor alto para garantir que sempre fique acima de outros modais (10000 é usado por outros modais)
+            backdrop.style.zIndex = '11000';
+            modal.style.zIndex = '11001';
+
+            // Se houver um modal de detalhe aberto, desabilitar interação nele enquanto o alerta estiver ativo
+            const restoreTargets = [];
+            [detailBackdrop, talentsBackdrop].forEach(el => {
+                if (el && el.style) {
+                    // salvar estilo original para restaurar depois
+                    restoreTargets.push({
+                        el,
+                        oldPointer: el.style.pointerEvents || '',
+                        oldZ: el.style.zIndex || ''
+                    });
+                    el.style.pointerEvents = 'none';
+                    // garantir que fique abaixo do alert
+                    el.style.zIndex = '10000';
+                }
+            });
+
             // permitir animação CSS
             requestAnimationFrame(() => backdrop.classList.add('visible'));
 
@@ -185,6 +211,15 @@ window.showCustomAlert = window.showCustomAlert || function (msg) {
             function cleanup(result) {
                 if (finished) return;
                 finished = true;
+
+                // restaurar targets
+                restoreTargets.forEach(r => {
+                    try {
+                        r.el.style.pointerEvents = r.oldPointer;
+                        r.el.style.zIndex = r.oldZ;
+                    } catch (e) { /* ignore */ }
+                });
+
                 backdrop.classList.remove('visible');
                 setTimeout(() => {
                     try { backdrop.remove(); } catch (e) { /* silent */ }
@@ -200,32 +235,23 @@ window.showCustomAlert = window.showCustomAlert || function (msg) {
                 if (ev.target === backdrop) cleanup(false);
             });
 
-            // fechar com ESC
+            // fechar com ESC / Enter
             function onKey(e) {
                 if (e.key === 'Escape') {
                     cleanup(false);
                     document.removeEventListener('keydown', onKey);
                 } else if (e.key === 'Enter') {
-                    // Enter confirma (ajuda acessibilidade)
                     cleanup(true);
                     document.removeEventListener('keydown', onKey);
                 }
             }
             document.addEventListener('keydown', onKey);
-
-            // foco para acessibilidade
-            setTimeout(() => {
-                try { modal.focus(); } catch (e) { }
-            }, 40);
-
         } catch (err) {
-            console.error('showCustomAlert shim falhou', err);
-            // fallback para confirm nativo
-            try { resolve(window.confirm(String(msg))); } catch (e) { resolve(false); }
+            console.error('showCustomAlert error', err);
+            resolve(false);
         }
     });
 };
-
 
 /**
  * Salva com robustez um campo do personagem que está dentro do array 'personagens'
@@ -6245,7 +6271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         activeSelectionSlotIndex = slotIndex;
         if (!talentsBackdrop || !talentsListEl) return;
         talentsListEl.innerHTML = '<div style="padding:8px;color:#ddd">Carregando talentos...</div>';
-        talentsBackdrop.style.display = 'flex';
+        talentsBackdrop.style.display = '';
         requestAnimationFrame(() => talentsBackdrop.classList.add('visible'));
 
         try {
@@ -6335,49 +6361,87 @@ document.addEventListener('DOMContentLoaded', async () => {
     const detailCloseBtn = document.getElementById('talento-detail-close');
     const detailDeleteBtn = document.getElementById('talento-delete-btn');
 
+    // ---------- Patch: versão resiliente do modal de detalhe de talento ----------
     let currentDetailUid = null;
 
-    function openTalentDetailModal(uid) {
+    async function openTalentDetailModal(uid) {
         currentDetailUid = uid;
-        detailBody.innerHTML = '<div>Carregando.</div>';
-        if (detailBackdrop) {
-            // forçar layout (override do CSS #talento-detail-backdrop { display:none; })
-            detailBackdrop.style.display = 'flex';
-            // deixa a transição de opacidade acontecer
-            requestAnimationFrame(() => detailBackdrop.classList.add('visible'));
-        }
-        // fetch doc
-        (async () => {
-            try {
-                const ref = window.doc(window.firestoredb, 'talentos', String(uid));
-                const snap = await window.getDoc(ref);
-                if (!snap.exists()) {
-                    detailTitle.textContent = '(talento não encontrado)';
-                    detailBody.innerHTML = `<div>UID: ${uid}</div>`;
-                    return;
-                }
-                const d = snap.data() || {};
-                detailTitle.textContent = d.nome || 'Talento';
-                detailBody.innerHTML = `
-          <div><strong>Requisito:</strong> ${d.requisito || '—'}</div>
-          <div><strong>Efeito:</strong> ${d.efeito || '—'}</div>
-        `;
-            } catch (err) {
-                detailBody.innerHTML = `<div>Erro ao carregar: ${err.message || err}</div>`;
-                console.error('Erro fetching talento detail', err);
-            }
-        })();
-    }
 
-    detailCloseBtn?.addEventListener('click', closeTalentDetailModal);
-    detailBackdrop?.addEventListener('click', (ev) => { if (ev.target === detailBackdrop) closeTalentDetailModal(); });
+        // (re)buscar elementos no momento da abertura — evita problemas de timing no GitHub Pages
+        const detailBackdrop = document.getElementById('talento-detail-backdrop');
+        const detailBody = document.getElementById('talento-detail-body');
+        const detailTitle = document.getElementById('talento-detail-title');
+
+        if (detailBody) detailBody.innerHTML = '<div>Carregando.</div>';
+
+        if (detailBackdrop) {
+            // forçar estilos para garantir visibilidade (z-index defensivo)
+            detailBackdrop.style.zIndex = String(10001);
+            detailBackdrop.style.display = 'flex';
+            // permitir transição CSS
+            requestAnimationFrame(() => detailBackdrop.classList.add('visible'));
+        } else {
+            console.warn('openTalentDetailModal: detalhe-backdrop não encontrado no DOM');
+        }
+
+        // buscar doc do talento e preencher conteúdo (seguindo sua lógica original)
+        try {
+            const ref = window.doc(window.firestoredb, 'talentos', String(uid));
+            const snap = await window.getDoc(ref);
+
+            if (!snap || !snap.exists()) {
+                if (detailTitle) detailTitle.textContent = '(talento não encontrado)';
+                if (detailBody) detailBody.innerHTML = `<div>UID: ${uid}</div>`;
+                return;
+            }
+
+            const d = snap.data() || {};
+            if (detailTitle) detailTitle.textContent = d.nome || 'Talento';
+            if (detailBody) detailBody.innerHTML = `
+      <div><strong>Requisito:</strong> ${d.requisito || '—'}</div>
+      <div><strong>Efeito:</strong> ${d.efeito || '—'}</div>
+    `;
+        } catch (err) {
+            console.error('Erro fetching talento detail', err);
+            if (detailBody) detailBody.innerHTML = `<div>Erro ao carregar: ${err.message || err}</div>`;
+        }
+    }
 
     function closeTalentDetailModal() {
-        if (!detailBackdrop) return;
+        // (re)buscar o backdrop / body / title no fechamento
+        const detailBackdrop = document.getElementById('talento-detail-backdrop');
+        const detailBody = document.getElementById('talento-detail-body');
+        const detailTitle = document.getElementById('talento-detail-title');
+
+        if (!detailBackdrop) {
+            console.warn('closeTalentDetailModal: detalhe-backdrop não encontrado no DOM');
+            currentDetailUid = null;
+            return;
+        }
+
         detailBackdrop.classList.remove('visible');
-        setTimeout(() => { detailBackdrop.style.display = 'none'; detailBody.innerHTML = ''; detailTitle.textContent = 'Talento'; }, 260);
-        currentDetailUid = null;
+        setTimeout(() => {
+            detailBackdrop.style.display = 'none';
+            if (detailBody) detailBody.innerHTML = '';
+            if (detailTitle) detailTitle.textContent = 'Talento';
+            currentDetailUid = null;
+        }, 260);
     }
+
+    // Re-attach listeners de fechamento caso não tenham sido corretamente ligados
+    // (idempotente: se já estiverem ligados, nada muda)
+    (function ensureTalentDetailListeners() {
+        const detailBackdrop = document.getElementById('talento-detail-backdrop');
+        const detailCloseBtn = document.getElementById('talento-detail-close');
+        if (detailCloseBtn && !detailCloseBtn.__listenerAdded) {
+            detailCloseBtn.addEventListener('click', closeTalentDetailModal);
+            detailCloseBtn.__listenerAdded = true;
+        }
+        if (detailBackdrop && !detailBackdrop.__listenerAdded) {
+            detailBackdrop.addEventListener('click', (ev) => { if (ev.target === detailBackdrop) closeTalentDetailModal(); });
+            detailBackdrop.__listenerAdded = true;
+        }
+    })();
 
     // excluir: remove o uid do array talentos (todas as ocorrências) e salva
     detailDeleteBtn?.addEventListener('click', async () => {

@@ -6339,9 +6339,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function openTalentDetailModal(uid) {
         currentDetailUid = uid;
-        detailBody.innerHTML = '<div>Carregando...</div>';
-        detailBackdrop.style.display = '';
-        requestAnimationFrame(() => detailBackdrop.classList.add('visible'));
+        detailBody.innerHTML = '<div>Carregando.</div>';
+        if (detailBackdrop) {
+            // forçar layout (override do CSS #talento-detail-backdrop { display:none; })
+            detailBackdrop.style.display = 'flex';
+            // deixa a transição de opacidade acontecer
+            requestAnimationFrame(() => detailBackdrop.classList.add('visible'));
+        }
         // fetch doc
         (async () => {
             try {
