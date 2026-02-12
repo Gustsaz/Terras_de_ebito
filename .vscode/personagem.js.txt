@@ -4995,32 +4995,58 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        // coloca listeners extra nos botões + (intercepta quando at max)
-        const plusButtons = [
-            { id: 'pv-plus', stat: 'pv' },
-            { id: 'mn-plus', stat: 'mn' },
-            { id: 'sta-plus', stat: 'sta' }
-        ];
-        plusButtons.forEach(({ id, stat }) => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            // adiciona antes do handler original (não interfere se original já incrementa quando < max)
-            el.addEventListener('click', (ev) => {
-                try {
-                    // pega valores atuais/total
-                    const current = (stat === 'pv' ? (curPV ?? 0) : (stat === 'mn' ? (curMN ?? 0) : (curSTA ?? 0)));
-                    const total = (stat === 'pv' ? (totPV ?? 0) : (stat === 'mn' ? (totMN ?? 0) : (totSTA ?? 0)));
-                    if (current >= total) {
+        // ---------- substituição robusta dos + buttons: clona para remover listeners antigos e registra handler único ----------
+        (function replacePlusButtonsAndWireHandlers() {
+            const plusButtons = [
+                { id: 'pv-plus', stat: 'pv' },
+                { id: 'mn-plus', stat: 'mn' },
+                { id: 'sta-plus', stat: 'sta' }
+            ];
+
+            plusButtons.forEach(({ id, stat }) => {
+                const orig = document.getElementById(id);
+                if (!orig) return;
+
+                // clona o nó para remover event listeners previamente anexados
+                const clone = orig.cloneNode(true);
+                orig.parentNode.replaceChild(clone, orig);
+
+                // handler único que controla incremento OU abertura do modal
+                clone.addEventListener('click', (ev) => {
+                    try {
                         ev.stopPropagation();
-                        // abre modal de alteração
-                        // não await aqui para evitar bloquear o click handler original caso outro script queira;
-                        // chamamos async separadamente:
+                        ev.preventDefault();
+
+                        // pega valores atuais/total dinamicamente
+                        const current = (stat === 'pv' ? (typeof curPV !== 'undefined' ? curPV : 0)
+                            : stat === 'mn' ? (typeof curMN !== 'undefined' ? curMN : 0)
+                                : (typeof curSTA !== 'undefined' ? curSTA : 0));
+                        const total = (stat === 'pv' ? (typeof totPV !== 'undefined' ? totPV : 0)
+                            : stat === 'mn' ? (typeof totMN !== 'undefined' ? totMN : 0)
+                                : (typeof totSTA !== 'undefined' ? totSTA : 0));
+
+                        // SE não estiver cheio -> apenas incrementar (comportamento normal)
+                        if (current < total) {
+                            if (stat === 'pv') curPV = clamp(current + 1, 0, total);
+                            else if (stat === 'mn') curMN = clamp(current + 1, 0, total);
+                            else if (stat === 'sta') curSTA = clamp(current + 1, 0, total);
+
+                            // atualiza UI
+                            try { updateAllBars(); } catch (e) { /* silencioso */ }
+                            return;
+                        }
+
+                        // SENÃO (já está cheio): abrir modal para definir novo máximo
+                        // chamamos async separado para manter fluxo simples
                         (async () => { await onPlusClickedFor(stat); })();
+
+                    } catch (err) {
+                        console.warn('Erro no plus handler custom:', err);
                     }
-                    // se current < total, deixamos o comportamento normal (incremento) acontecer
-                } catch (e) { console.warn('plus intercept erro:', e); }
-            }, { passive: true });
-        });
+                }, { passive: false /* queremos poder preventDefault */ });
+            });
+        })();
+
 
     })();
 

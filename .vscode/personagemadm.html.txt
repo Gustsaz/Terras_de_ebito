@@ -737,105 +737,44 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             // Render nodes (read-only). Clique abre modal informativo (sem ações).
-            // ----------------- renderInitialNodes_Admin (READ-ONLY para admin) -----------------
             async function renderInitialNodes_Admin() {
-                try {
-                    const nCont = nodesContainer();
-                    // fallback: se não existir, tenta encontrar a área de caminhos na aba
-                    const fallback = document.querySelector('.tab-content.tab-caminhos');
-                    const container = nCont || fallback;
-                    if (!container) {
-                        console.warn('renderInitialNodes_Admin: container de caminhos não encontrado.');
-                        return;
-                    }
+                const nCont = nodesContainer();
+                if (!nCont) return;
+                nCont.innerHTML = '';
 
-                    container.innerHTML = ''; // limpa conteúdo
+                const caminhos = await fetchCaminhosForClass_Admin();
+                if (!caminhos.length) {
+                    nCont.innerHTML = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#ccc">Nenhum caminho disponível para a classe ${charData.classe || '—'}.</div>`;
+                    return;
+                }
 
-                    // fetch caminhos filtrados pela classe do personagem (usa a função já existente)
-                    const caminhos = await fetchCaminhosForClass_Admin();
-                    if (!caminhos.length) {
-                        container.innerHTML = `<div style="padding:12px;color:#ccc;text-align:center">Nenhum caminho disponível para a classe ${charData.classe || '—'}.</div>`;
-                        return;
-                    }
+                const centerX = nCont.clientWidth / 2 || 400;
+                const centerY = nCont.clientHeight / 2 || 200;
+                const radius = Math.min(centerX, centerY) * 0.28;
 
-                    // helper local para pegar nível atual do char para um caminho (retorna 0 se não tiver)
-                    function getCharNivelForPathAdmin(uid) {
-                        try {
-                            const arr = Array.isArray(charData?.caminho) ? charData.caminho : [];
-                            const found = arr.find(x => x && String(x.uid) === String(uid));
-                            return found ? Number(found.nivel_atual || 0) : 0;
-                        } catch (e) {
-                            return 0;
-                        }
-                    }
+                caminhos.forEach((cam, i) => {
+                    const angle = (i / caminhos.length) * Math.PI * 2;
+                    const rx = (Math.cos(angle) * radius) + (Math.random() * 24 - 12);
+                    const ry = (Math.sin(angle) * radius) + (Math.random() * 20 - 10);
+                    const el = document.createElement('div');
+                    el.className = 'ct-node';
+                    el.style.left = `calc(50% + ${rx}px)`;
+                    el.style.top = `calc(50% + ${ry}px)`;
+                    el.dataset.uid = cam.uid;
 
-                    // cria lista vertical de caminhos (sem permitir edição)
-                    caminhos.forEach(cam => {
-                        const row = document.createElement('div');
-                        row.className = 'caminho-row';
-                        row.dataset.uid = cam.uid;
+                    const img = document.createElement('img');
+                    img.src = cam.img || './imgs/placeholder.png';
+                    img.alt = cam.nome || '';
+                    el.appendChild(img);
 
-                        // left: imagem + nome (clicável abre modal read-only)
-                        const left = document.createElement('div');
-                        left.className = 'caminho-nome';
-                        left.setAttribute('role', 'button');
-                        left.tabIndex = 0;
-
-                        if (cam.img) {
-                            const img = document.createElement('img');
-                            img.src = Array.isArray(cam.img) ? cam.img[0] : cam.img;
-                            img.alt = cam.nome || 'Caminho';
-                            img.onerror = () => { img.src = './imgs/placeholder.png'; img.style.opacity = 0.7; };
-                            left.appendChild(img);
-                        }
-                        const nameText = document.createElement('span');
-                        nameText.className = 'caminho-nome-text';
-                        nameText.textContent = cam.nome || 'Caminho';
-                        left.appendChild(nameText);
-
-                        // open readonly modal on click/enter
-                        left.addEventListener('click', (ev) => { ev.stopPropagation(); showPathModalReadOnly(cam); });
-                        left.addEventListener('keydown', (e) => { if (e.key === 'Enter') showPathModalReadOnly(cam); });
-
-                        // right: níveis (quadradinhos), começando do índice 1 (mesma regra do personagem.js)
-                        const levelsWrap = document.createElement('div');
-                        levelsWrap.className = 'caminho-levels';
-
-                        const niveis = Array.isArray(cam.niveis) ? cam.niveis : [];
-                        const startIndex = 1; // preserva a sua convenção (níveis começam em 1)
-                        const current = getCharNivelForPathAdmin(cam.uid);
-
-                        for (let i = startIndex; i < niveis.length; i++) {
-                            const lvlIndex = i;
-                            const sq = document.createElement('div');
-                            sq.className = 'caminho-level';
-                            sq.dataset.level = String(lvlIndex);
-                            sq.title = niveis[lvlIndex]?.nome || `Nível ${lvlIndex}`;
-                            sq.textContent = String(lvlIndex);
-
-                            // only visual: add filled/opaco class according to charData
-                            if (current >= lvlIndex) sq.classList.add('filled');
-                            else sq.classList.add('opaco');
-
-                            // readonly: clique abre modal informativo (mesmo do left)
-                            sq.addEventListener('click', (ev) => {
-                                ev.stopPropagation();
-                                showPathModalReadOnly(cam);
-                            });
-                            sq.addEventListener('keydown', (e) => { if (e.key === 'Enter') showPathModalReadOnly(cam); });
-
-                            levelsWrap.appendChild(sq);
-                        }
-
-                        // monta row e adiciona no container
-                        row.appendChild(left);
-                        row.appendChild(levelsWrap);
-                        container.appendChild(row);
+                    // READ-ONLY click: abre modal informativo sem ações (sem gravação)
+                    el.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        showPathModalReadOnly(cam);
                     });
 
-                } catch (err) {
-                    console.warn('renderInitialNodes_Admin erro:', err);
-                }
+                    nCont.appendChild(el);
+                });
             }
 
             // Modal informativo read-only

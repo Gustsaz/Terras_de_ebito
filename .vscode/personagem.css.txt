@@ -24,8 +24,8 @@ body {
     min-height: 100vh;
     overflow: auto;
     position: relative;
-    overflow-y: hidden;
-
+    overflow-y: auto;
+    height: auto;
 }
 
 .sidebar {
@@ -2874,3 +2874,12 @@ body.character-sheet .title {
 
 /* detalhe modal corpo */
 .talento-detail-modal #talento-detail-body { display:flex; flex-direction:column; gap:8px; }
+
+/* ===== estilos para visualização de talentos (admin) ===== */
+.talentos-equip { gap: 12px; align-items: flex-start; }
+.talento-view-slot { transition: transform .12s ease, box-shadow .12s ease; }
+.talento-view-slot:focus,
+.talento-view-slot:hover { transform: translateY(-6px); box-shadow: 0 12px 28px rgba(0,0,0,0.55); outline: none; }
+.talento-view-slot .talento-name { font-weight:700; color:#fff; }
+.talento-view-slot .talento-effect { color:#efe6e2; opacity:0.95; font-size:0.95rem; }
+#talento-detail-backdrop { display:none; align-items:center; justify-content:center; }
