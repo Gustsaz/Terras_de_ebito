@@ -6245,7 +6245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         activeSelectionSlotIndex = slotIndex;
         if (!talentsBackdrop || !talentsListEl) return;
         talentsListEl.innerHTML = '<div style="padding:8px;color:#ddd">Carregando talentos...</div>';
-        talentsBackdrop.style.display = '';
+        talentsBackdrop.style.display = 'flex';
         requestAnimationFrame(() => talentsBackdrop.classList.add('visible'));
 
         try {
@@ -6339,9 +6339,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function openTalentDetailModal(uid) {
         currentDetailUid = uid;
-        detailBody.innerHTML = '<div>Carregando...</div>';
-        detailBackdrop.style.display = '';
-        requestAnimationFrame(() => detailBackdrop.classList.add('visible'));
+        detailBody.innerHTML = '<div>Carregando.</div>';
+        if (detailBackdrop) {
+            // forçar layout (override do CSS #talento-detail-backdrop { display:none; })
+            detailBackdrop.style.display = 'flex';
+            // deixa a transição de opacidade acontecer
+            requestAnimationFrame(() => detailBackdrop.classList.add('visible'));
+        }
         // fetch doc
         (async () => {
             try {
