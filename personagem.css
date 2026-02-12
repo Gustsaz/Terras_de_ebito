@@ -2844,6 +2844,7 @@ body.character-sheet .title {
   cursor: pointer;
   opacity: 0.9;
   filter: grayscale(0.12);
+  width: 100%;
 }
 
 /* conteúdo interno do slot preenchido */
