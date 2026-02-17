@@ -892,7 +892,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (descricaoTexto) descricaoTexto.textContent = "Os feéricos são herdeiros das criaturas místicas que outrora dançavam sob a luz dos deuses. Cada um nasce ligado ao espírito de um animal primordial, e dessa união surge seu poder singular.";
           if (bonus) bonus.textContent = "Ágeis: Recebe +1 em Técnica automaticamente. Voadores: Recebe +2 de deslocamento. Robustos: Pode Bloquear sem necessidade de escudo ou arma de duas mãos.";
           break;
-        case 'Elfos':
+        case 'Elfo':
           if (descricaoTexto) descricaoTexto.textContent = "Os elfos de Flodia são filhos do conhecimento e da melancolia. Dotados de uma mente afiada e olhar distante, estudam o mundo como quem busca compreender um segredo esquecido. Sua ligação com o arcano é natural, quase instintiva.";
           if (bonus) bonus.textContent = "Recebem +1 em Intelecto e podem aprender +1 feitiço ao alcançar o nível inicial";
           break;
